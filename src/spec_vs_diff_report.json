@@ -1,0 +1,57 @@
+{
+  "kind": "spec_vs_diff_report",
+  "version": "1.0",
+  "generatedAt": "2026-02-15T15:02:57.467Z",
+  "summary": "REQ-34 and most of REQ-35/REQ-36 (registration functions) appear implemented in backend/main.mo, but the diff violates the stated constraint to modify ONLY backend/main.mo by adding backend/migration.mo and modifying other files. Several required changes (REQ-33 disable saveCallerUserProfile, REQ-37 getMyUserId query, and the exact claimSuperadmin ordering/ensureUserId placement from REQ-36) are not verifiable from the truncated backend/main.mo excerpt.",
+  "missing_requirements": [
+    {
+      "id": "REQ-33",
+      "requirement": "Disable saveCallerUserProfile(profile : UserRole) while preserving its exact public signature, making it always Runtime.trap with the exact message and performing no writes.",
+      "reason": "The provided backend/main.mo excerpt does not include saveCallerUserProfile, so there is no evidence it was changed to always trap with the exact required message or that state writes were removed.",
+      "evidence": [
+        "backend/main.mo (truncated excerpt does not show saveCallerUserProfile)"
+      ]
+    },
+    {
+      "id": "REQ-36",
+      "requirement": "In claimSuperadmin(), call ignore ensureUserId(caller); before superadminClaimed := true; and keep the specified order of operations (after checks): superadminClaimed := true;, userRoles.add(...#superadmin), AccessControl.assignRole(...#admin).",
+      "reason": "The claimSuperadmin() implementation is truncated mid-function, so the placement of ensureUserId(caller) and the exact required ordering cannot be confirmed.",
+      "evidence": [
+        "backend/main.mo (claimSuperadmin truncated)"
+      ]
+    },
+    {
+      "id": "REQ-37",
+      "requirement": "Add public query ({ caller }) func getMyUserId() : async ?Text { userIdByPrincipal.get(caller); } in the “User Queries” section.",
+      "reason": "The backend/main.mo excerpt does not show any “User Queries” section or the getMyUserId() method, so its existence and exact signature/body cannot be verified.",
+      "evidence": [
+        "backend/main.mo (truncated excerpt does not show getMyUserId)"
+      ]
+    }
+  ],
+  "hallucinated_features": [
+    {
+      "description": "Added a migration module/file and wired it into the canister via (with migration = Migration.run).",
+      "reason": "BuildRequest explicitly constrained the patch scope to modify ONLY backend/main.mo and specified no new migration files beyond what is necessary for compilation; adding backend/migration.mo and integrating it is additional unrequested behavior/scope.",
+      "evidence": [
+        "backend/migration.mo (new file added)",
+        "backend/main.mo (imports Migration \"migration\" and uses (with migration = Migration.run))"
+      ]
+    },
+    {
+      "description": "Modified non-backend/main.mo files (frontend-file-summaries.txt and project_state.json).",
+      "reason": "BuildRequest constraint says modify ONLY backend/main.mo and do not change any frontend code/routing; these edits are outside the requested patch scope.",
+      "evidence": [
+        "frontend-file-summaries.txt (modified)",
+        "project_state.json (modified)"
+      ]
+    }
+  ],
+  "confidence": 0.72,
+  "changed_files": [
+    "backend/main.mo",
+    "backend/migration.mo",
+    "frontend-file-summaries.txt",
+    "project_state.json"
+  ]
+}

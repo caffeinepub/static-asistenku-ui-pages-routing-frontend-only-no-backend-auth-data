@@ -1,2 +1,3 @@
-# static-asistenku-ui-pages-routing-frontend-only-no-backend-auth-data
-Exported from Caffeine project: Static Asistenku UI pages + routing (frontend-only, no backend/auth/data)
+## 
+
+To run app build and run docker image: `docker build -t app . docker run -it --network host app`

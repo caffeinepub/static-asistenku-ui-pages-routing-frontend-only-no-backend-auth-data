@@ -1,0 +1,127 @@
+{
+  "kind": "build_request",
+  "title": "Backend-only patch: disable profile overwrite, remove superadmin from InternalRole, and add stable userId mapping + query",
+  "priority": "normal",
+  "requirements": [
+    {
+      "id": "REQ-33",
+      "text": "Modify ONLY `backend/main.mo` to disable `saveCallerUserProfile(profile : UserRole)` while preserving its exact public signature, by making the function always call `Runtime.trap(\"Disabled: profile saving must use register* or admin-approved flows only.\");` and removing any `userRoles.add(...)`/write behavior from this function.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-3"
+        ],
+        "quotes": [
+          "PATCH: ubah fungsi itu menjadi DISABLED (no-op dengan trap) ... setiap call harus `Runtime.trap(...)`.",
+          "F) Ubah fungsi `saveCallerUserProfile` menjadi: ... `Runtime.trap(\"Disabled: profile saving must use register* or admin-approved flows only.\");`"
+        ]
+      },
+      "acceptanceCriteria": [
+        "`saveCallerUserProfile` still exists with the same name and parameter/return types as before.",
+        "Any call to `saveCallerUserProfile` traps with the exact message: `Disabled: profile saving must use register* or admin-approved flows only.`",
+        "`saveCallerUserProfile` no longer performs any writes to `userRoles` or other state."
+      ]
+    },
+    {
+      "id": "REQ-34",
+      "text": "Update role typing in `backend/main.mo` so that `InternalRole` contains ONLY `#admin`, `#finance`, `#concierge`, and `#asistenmu`, and does NOT include `#superadmin`. Keep `UserRole`'s `#superadmin` variant unchanged. Keep `InternalProfile` unchanged (fields: name, email, whatsapp, role: InternalRole) with no new fields added.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-3"
+        ],
+        "quotes": [
+          "Superadmin BUKAN bagian dari InternalRole, jadi `InternalRole` tidak boleh punya `#superadmin`.",
+          "A) Pada type `InternalRole`: - Pastikan hanya berisi: `#admin; #finance; #concierge; #asistenmu;` - Pastikan `#superadmin` TIDAK ADA di InternalRole.",
+          "`InternalProfile` tetap sama (name, email, whatsapp, role: InternalRole). Jangan tambah field baru."
+        ]
+      },
+      "acceptanceCriteria": [
+        "`InternalRole` type definition has exactly 4 variants: `#admin`, `#finance`, `#concierge`, `#asistenmu` and no others.",
+        "`UserRole` still includes `#superadmin` as a distinct global role variant.",
+        "`InternalProfile` type remains exactly `{ name : Text; email : Text; whatsapp : Text; role : InternalRole }` (no additional fields).",
+        "Any logic that previously referenced `InternalRole.#superadmin` is removed/updated so the canister compiles."
+      ]
+    },
+    {
+      "id": "REQ-35",
+      "text": "Add an automatic, consistent `userId` system in `backend/main.mo` without adding `userId` fields to any profile record types. Implement storage and helpers exactly as specified: (1) `var nextUserId : Nat = 1;` (2) `let userIdByPrincipal = Map.empty<Principal, Text>();` located near `let userRoles = ...` (3) `func genUserId() : Text` that returns `\"U\" + Nat` (e.g., `U1`, `U2`, ...) and increments `nextUserId` (4) `func ensureUserId(p : Principal) : Text` that returns an existing ID if present in the map, otherwise generates, stores, and returns a new ID.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-3"
+        ],
+        "quotes": [
+          "Buat storage: - `var nextUserId : Nat = 1;` - `let userIdByPrincipal = Map.empty<Principal, Text>();`",
+          "Buat helper: - `func genUserId() : Text` -> hasilkan \"U\" + angka ... dan increment counter. - `func ensureUserId(p: Principal) : Text`: kalau sudah ada di map, return yang ada; kalau belum, generate, simpan, return",
+          "D) Tambahkan `let userIdByPrincipal = Map.empty<Principal, Text>();` dekat `let userRoles = ...` agar rapi."
+        ]
+      },
+      "acceptanceCriteria": [
+        "`userIdByPrincipal : Map<Principal, Text>` exists and is initialized with `Map.empty<Principal, Text>()` in `backend/main.mo` near the `userRoles` map.",
+        "`nextUserId` is used exclusively by `genUserId()` to generate IDs `U1`, `U2`, ... and increments once per newly-assigned principal.",
+        "`ensureUserId(p)` does not create a new ID if one already exists for `p` and always returns the stored value.",
+        "No profile record types (`ClientProfile`, `PartnerProfile`, `InternalProfile`) are modified to include a `userId` field."
+      ]
+    },
+    {
+      "id": "REQ-36",
+      "text": "Ensure `ignore ensureUserId(caller);` is executed immediately before any `userRoles.add(caller, entry);` in ALL existing registration functions (`registerClient`, `registerPartner`, `registerInternal`) and also in `claimSuperadmin()` before setting `superadminClaimed := true;`. Do not change the existing rule that one principal can only register exactly one role, and keep the rest of the core logic unchanged.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-3"
+        ],
+        "quotes": [
+          "B) Pada fungsi `registerClient/profile`, `registerPartner/profile`, `registerInternal/profile`: Tambahkan tepat sebelum `userRoles.add(caller, entry);` baris: `ignore ensureUserId(caller);`",
+          "C) Pada fungsi `claimSuperadmin()`: Tambahkan sebelum set `superadminClaimed := true;` baris: `ignore ensureUserId(caller);`",
+          "Keep rule: `1 principalId = 1 role` (tidak boleh register role kedua)."
+        ]
+      },
+      "acceptanceCriteria": [
+        "`registerClient`, `registerPartner`, and `registerInternal` each call `ignore ensureUserId(caller);` directly before writing to `userRoles`.",
+        "`claimSuperadmin()` calls `ignore ensureUserId(caller);` before `superadminClaimed := true;` is executed.",
+        "Existing constraints remain enforced: if `userRoles.containsKey(caller)` the caller cannot register a second role and cannot claim superadmin.",
+        "`claimSuperadmin()` still performs (in order after checks): `superadminClaimed := true;`, `userRoles.add(caller, #superadmin);`, and `AccessControl.assignRole(accessControlState, caller, caller, #admin);`"
+      ]
+    },
+    {
+      "id": "REQ-37",
+      "text": "Add a new query method in the “User Queries” section of `backend/main.mo`: `public query ({ caller }) func getMyUserId() : async ?Text { userIdByPrincipal.get(caller); }` returning `null` if the caller has no userId and `?Text` if present (including superadmin).",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-3"
+        ],
+        "quotes": [
+          "4) Tambah query `getMyUserId()` (WAJIB): `public query ({ caller }) func getMyUserId() : async ?Text`",
+          "E) Tambahkan fungsi query baru di bagian “User Queries”: - `public query ({ caller }) func getMyUserId() : async ?Text { userIdByPrincipal.get(caller); }`"
+        ]
+      },
+      "acceptanceCriteria": [
+        "`getMyUserId` exists with the exact signature `public query ({ caller }) func getMyUserId() : async ?Text`.",
+        "If the caller has never been assigned a userId, `getMyUserId()` returns `null`.",
+        "After any successful `register*` or `claimSuperadmin()` call, `getMyUserId()` returns `?\"U...\"` for that caller."
+      ]
+    }
+  ],
+  "constraints": [
+    "Patch scope: modify ONLY `backend/main.mo`. Do not change any other files and do not add new files.",
+    "Do not change any frontend code or routing.",
+    "Keep all existing public methods besides the specified patch changes, including `registerClient`, `registerPartner`, `registerInternal`, `claimSuperadmin`, `getCallerUser`, `getUser`, `getAllUsers`, `getCallerUserProfile`, and `getUserProfile`.",
+    "Maintain the rule: one principal can have only one role (no second registration and no superadmin claim after registration).",
+    "Do not add `userId` as a field to `ClientProfile`, `PartnerProfile`, or `InternalProfile`.",
+    "`InternalRole` must not include `#superadmin`; `UserRole` must still include `#superadmin`.",
+    "Do not edit anything under `backend/authorization/*`."
+  ],
+  "nonGoals": [
+    "Any frontend integration for displaying or using `userId`.",
+    "Any new admin flows, approval workflows, or profile update flows beyond disabling `saveCallerUserProfile`.",
+    "Data migration / state upgrade handling beyond what is necessary for compilation (no new migration files).",
+    "Adding persistence guarantees beyond the in-canister map/counter described by the user."
+  ],
+  "imageRequirements": {
+    "required": [],
+    "edits": []
+  }
+}

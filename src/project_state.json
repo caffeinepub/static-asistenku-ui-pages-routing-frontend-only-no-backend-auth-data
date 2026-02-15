@@ -1,0 +1,381 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectStateVersion": 15,
+  "summary": "Backend-only scope reinforced: modify ONLY backend/main.mo (no new files, no frontend/routing changes, do not touch backend/authorization/*). Patch requirements: disable saveCallerUserProfile by keeping signature but always Runtime.trap; enforce superadmin is NOT part of InternalRole (InternalRole only #admin/#finance/#concierge/#asistenmu) while UserRole still includes #superadmin; add persistent userId system (nextUserId counter + userIdByPrincipal map + genUserId/ensureUserId) where userId is NOT stored in profile records; ensure ensureUserId(caller) is invoked in all register* and claimSuperadmin flows; add query getMyUserId() returning ?Text for caller; keep all other core logic unchanged including 1 principalId = 1 role and existing register/query functions.",
+  "architectural_notes": [
+    "All pages are static UI only: no Internet Identity, no backend calls, no mock data, no role/user logic, no auto-redirects; navigation only via clicks.",
+    "Use react-router-dom Routes with explicit mappings and a '*' fallback 404 page with a button back to '/'",
+    "Global UI style: white background, centered container maxWidth 760 with generous padding, centered logo asistenku-horizontal.png, main card rounded 24px with subtle shadow and ample whitespace; no sidebar/navbar template.",
+    "Ensure App.tsx uses BrowserRouter + Routes from react-router-dom and does not crash on load.",
+    "All specified page files must default-export a React component; all import paths must be valid (no missing files).",
+    "Do not use any external UI libraries; use plain divs + simple className only.",
+    "Do not use any images besides asistenku-horizontal.png; write img src exactly \"asistenku-horizontal.png\" (no folder prefix).",
+    "Add sufficient top padding so the logo is not covered; ensure no TS/React compile errors and no blank page—route \"/\" must render normally.",
+    "Backend is now in-scope: backend/main.mo may be fully implemented per the backend spec (no longer required to be empty/untouched).",
+    "For the current backend build request, ONLY modify backend/main.mo; do not change any frontend files."
+  ],
+  "known_issues": [
+    "Unintended frontend changes were made previously; must be reverted so frontend has zero diff for this request.",
+    "Previous automated patch/build attempt failed to apply the requested backend/main.mo change (tool error).",
+    "saveCallerUserProfile currently overwrites userRoles (can overwrite role) causing repeated/incorrect role state; must be disabled via trap."
+  ],
+  "isFixRequest": true,
+  "existing_features": [
+    {
+      "id": "feature-do-not-create-edit-or-reference-any-backend-code-keep-backend-main-mo-completely-untouched-and-keep-the-backend-100-empty-no-methods-data-structures",
+      "title": "Do not create, edit, or reference any backend code. Keep backend/main.mo completely untouched and keep the backend 100% empty (no methods, data, structures).",
+      "reqIds": [
+        "REQ-1"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-only-edit-create-the-following-frontend-files-and-no-others-frontend-src-app-tsx-and-the-page-files-listed-by-the-user-under-frontend-src-pages-do-not-edit-any-other-files",
+      "title": "Only edit/create the following frontend files (and no others): frontend/src/App.tsx and the page files listed by the user under frontend/src/pages/**. Do not edit any other files.",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-react-router-routes-in-frontend-src-app-tsx-exactly-per-the-mapping-provided-including-a-fallback-that-shows-a-simple-inline-404-view-with-a-button-labeled-kembali-ke-landing-linking-to-do-not-add-any-automatic-redirects",
+      "title": "Implement React Router routes in frontend/src/App.tsx exactly per the mapping provided, including a \"*\" fallback that shows a simple inline 404 view with a button labeled \"Kembali ke Landing\" linking to \"/\". Do not add any automatic redirects.",
+      "reqIds": [
+        "REQ-3"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-create-update-all-specified-page-components-as-static-ui-only-pages-pages-may-contain-input-fields-that-accept-typing-but-must-not-submit-anywhere-must-not-call-any-apis-must-not-use-mock-data-and-must-not-include-role-user-checks",
+      "title": "Create/update all specified page components as static UI-only pages. Pages may contain input fields that accept typing, but must not submit anywhere, must not call any APIs, must not use mock data, and must not include role/user checks.",
+      "reqIds": [
+        "REQ-4"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-a-consistent-shared-visual-layout-across-all-pages-white-background-centered-container-max-width-760-with-generous-padding-top-centered-logo-image-asistenku-horizontal-png-height-32-main-card-with-24px-rounding-subtle-shadow-20-24px-padding-optional-very-thin-border-lots-of-whitespace-keep-the-ui-clean-calm-premium-with-large-rounded-corners-and-soft-shadows-avoid-saas-template-styling-no-sidebars-no-complex-navbars",
+      "title": "Implement a consistent shared visual layout across all pages (white background, centered container max-width 760 with generous padding, top centered logo image \"asistenku-horizontal.png\" height 32, main card with 24px rounding, subtle shadow, 20–24px padding, optional very thin border, lots of whitespace). Keep the UI clean, calm, premium, with large rounded corners and soft shadows; avoid SaaS-template styling (no sidebars, no complex navbars).",
+      "reqIds": [
+        "REQ-5"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-landing-page-ui-exactly-title-ruang-masuk-subtext-pilih-akses-yang-sesuai-two-large-buttons-linking-to-client-login-and-partner-login-labeled-client-login-and-partner-login-below-that-small-text-belum-punya-akun-with-links-daftar-client-client-register-and-daftar-partner-partner-register-and-a-bottom-small-link-internal-internal",
+      "title": "Implement Landing page (\"/\") UI exactly: title \"Ruang Masuk\", subtext \"Pilih akses yang sesuai.\", two large buttons linking to \"/client/login\" and \"/partner/login\" labeled \"Client Login\" and \"Partner Login\"; below that small text \"Belum punya akun?\" with links \"Daftar Client\" -> \"/client/register\" and \"Daftar Partner\" -> \"/partner/register\"; and a bottom small link \"Internal\" -> \"/internal\".",
+      "reqIds": [
+        "REQ-6"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-clientlogin-client-login-ui-title-masuk-subtext-untuk-client-asistenku-render-two-disabled-buttons-labeled-login-internet-identity-disabled-and-masuk-ke-ruang-kerja-disabled-include-link-belum-punya-akun-daftar-client-register-and-link-kembali",
+      "title": "Implement ClientLogin (\"/client/login\") UI: title \"Masuk\", subtext \"Untuk Client Asistenku\"; render two disabled buttons labeled \"Login Internet Identity (Disabled)\" and \"Masuk ke ruang kerja (Disabled)\"; include link \"Belum punya akun? Daftar\" -> \"/client/register\" and link \"Kembali\" -> \"/\".",
+      "reqIds": [
+        "REQ-7"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-clientregister-client-register-ui-title-daftar-subtext-untuk-client-asistenku-static-form-inputs-typable-for-nama-email-whatsapp-perusahaan-disabled-submit-button-labeled-kirim-disabled-link-kembali",
+      "title": "Implement ClientRegister (\"/client/register\") UI: title \"Daftar\", subtext \"Untuk Client Asistenku\"; static form inputs (typable) for Nama, Email, WhatsApp, Perusahaan; disabled submit button labeled \"Kirim (Disabled)\"; link \"Kembali\" -> \"/\".",
+      "reqIds": [
+        "REQ-8"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-partnerlogin-partner-login-ui-mirroring-clientlogin-with-subtext-untuk-partner-asistenku-include-link-to-partner-register-and-link-kembali-include-the-same-two-disabled-buttons-with-the-exact-labels-specified",
+      "title": "Implement PartnerLogin (\"/partner/login\") UI mirroring ClientLogin, with subtext \"Untuk Partner Asistenku\"; include link to \"/partner/register\" and link \"Kembali\" -> \"/\"; include the same two disabled buttons with the exact labels specified.",
+      "reqIds": [
+        "REQ-9"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-partnerregister-partner-register-ui-title-daftar-subtext-untuk-partner-asistenku-static-form-inputs-typable-for-nama-email-whatsapp-domisili-and-a-textarea-keahlian-disabled-button-kirim-disabled-link-kembali",
+      "title": "Implement PartnerRegister (\"/partner/register\") UI: title \"Daftar\", subtext \"Untuk Partner Asistenku\"; static form inputs (typable) for Nama, Email, WhatsApp, Domisili and a textarea Keahlian; disabled button \"Kirim (Disabled)\"; link \"Kembali\" -> \"/\".",
+      "reqIds": [
+        "REQ-10"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-internallanding-internal-ui-title-internal-subtext-akses-internal-asistenku-buttons-linking-to-internal-login-labeled-internal-login-and-to-internal-register-labeled-internal-register-link-kembali",
+      "title": "Implement InternalLanding (\"/internal\") UI: title \"Internal\", subtext \"Akses internal Asistenku.\"; buttons linking to \"/internal/login\" labeled \"Internal Login\" and to \"/internal/register\" labeled \"Internal Register\"; link \"Kembali\" -> \"/\".",
+      "reqIds": [
+        "REQ-11"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-internallogin-internal-login-ui-title-internal-login-subtext-pilih-role-internal-statis-dulu-display-a-selectable-grid-of-roles-superadmin-admin-finance-concierge-asistenmu-with-local-ui-state-only-selection-highlight-only-no-other-effects-include-two-disabled-buttons-labeled-login-internet-identity-disabled-and-ruang-kerja-disabled-link-kembali-internal",
+      "title": "Implement InternalLogin (\"/internal/login\") UI: title \"Internal Login\", subtext \"Pilih role internal (statis dulu).\"; display a selectable grid of roles (Superadmin, Admin, Finance, Concierge, Asistenmu) with local UI state only (selection highlight only; no other effects); include two disabled buttons labeled \"Login Internet Identity (Disabled)\" and \"Ruang kerja (Disabled)\"; link \"Kembali\" -> \"/internal\".",
+      "reqIds": [
+        "REQ-12"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-internalregister-internal-register-ui-title-internal-register-subtext-pendaftaran-internal-statis-dulu-static-form-inputs-typable-for-nama-email-whatsapp-dropdown-role-with-options-admin-finance-concierge-asistenmu-disabled-button-kirim-disabled-link-kembali-internal",
+      "title": "Implement InternalRegister (\"/internal/register\") UI: title \"Internal Register\", subtext \"Pendaftaran internal (statis dulu).\"; static form inputs (typable) for Nama, Email, WhatsApp; dropdown role with options admin, finance, concierge, asistenmu; disabled button \"Kirim (Disabled)\"; link \"Kembali\" -> \"/internal\".",
+      "reqIds": [
+        "REQ-13"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-all-dashboards-as-100-static-empty-pages-with-the-required-mini-header-and-a-single-centered-card-title-per-role-each-dashboard-must-include-a-top-mini-header-inside-the-page-with-left-logo-img-src-asistenku-horizontal-png-height-24-and-right-a-disabled-text-button-logout-disabled-and-a-centered-card-containing-only-the-exact-role-specific-sentence-provided-by-the-user-with-no-tabs-lists-data-or-placeholder-stats",
+      "title": "Implement all dashboards as 100% static empty pages with the required mini header and a single centered card title per role. Each dashboard must include: a top mini header inside the page with left logo <img src=\"asistenku-horizontal.png\" height=\"24\" /> and right a disabled text button \"Logout (Disabled)\"; and a centered card containing only the exact role-specific sentence provided by the user, with no tabs, lists, data, or placeholder stats.",
+      "reqIds": [
+        "REQ-14"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-replace-tanstack-router-usage-with-react-router-react-router-dom-in-frontend-src-app-tsx-using-browserrouter-routes-route-so-the-app-never-crashes-on-initial-load-and-the-route-renders-successfully",
+      "title": "Replace TanStack Router usage with React Router (react-router-dom) in frontend/src/App.tsx, using BrowserRouter + Routes + Route, so the app never crashes on initial load and the route \"/\" renders successfully.",
+      "reqIds": [
+        "REQ-15"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-ensure-every-page-component-under-frontend-src-pages-is-exported-as-a-default-react-component-and-that-all-import-paths-in-app-tsx-and-page-files-reference-existing-files-only-no-broken-incorrect-paths",
+      "title": "Ensure every page component under frontend/src/pages/** is exported as a default React component and that all import paths in App.tsx and page files reference existing files only (no broken/incorrect paths).",
+      "reqIds": [
+        "REQ-16"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-remove-usage-of-any-ui-component-libraries-that-may-not-exist-e-g-shadcn-ui-imports-like-button-card-input-select-from-frontend-src-app-tsx-and-all-frontend-src-pages-files-replacing-them-with-plain-html-elements-div-button-input-select-textarea-label-styled-via-classname-only",
+      "title": "Remove usage of any UI component libraries that may not exist (e.g., shadcn/ui imports like Button/Card/Input/Select) from frontend/src/App.tsx and all frontend/src/pages/** files, replacing them with plain HTML elements (div/button/input/select/textarea/label) styled via className only.",
+      "reqIds": [
+        "REQ-17"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-normalize-logo-rendering-across-all-pages-use-only-the-image-file-named-exactly-asistenku-horizontal-png-with-img-src-written-exactly-asistenku-horizontal-png-no-leading-slash-no-folder-and-add-sufficient-top-padding-spacing-so-the-logo-is-never-visually-clipped-covered",
+      "title": "Normalize logo rendering across all pages: use only the image file named exactly \"asistenku-horizontal.png\" with img src written exactly \"asistenku-horizontal.png\" (no leading slash, no folder), and add sufficient top padding/spacing so the logo is never visually clipped/covered.",
+      "reqIds": [
+        "REQ-18"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-perform-a-final-rendering-compile-sanity-pass-after-the-patch-ensure-there-are-no-typescript-react-runtime-errors-no-blank-page-on-load-and-the-landing-page-at-renders-normally",
+      "title": "Perform a final rendering/compile sanity pass after the patch: ensure there are no TypeScript/React runtime errors, no blank page on load, and the Landing page at \"/\" renders normally.",
+      "reqIds": [
+        "REQ-19"
+      ],
+      "version": 1
+    }
+  ],
+  "new_feature_requests": [
+    {
+      "id": "AR-1",
+      "summary": "Implement static frontend UI pages and routing per spec (Landing, Client/Partner Login/Register, Internal Landing/Login/Register, role Dashboards, and 404) with no backend interaction.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-2",
+      "summary": "Build backend/main.mo (single file) implementing superadmin claim (principal-only), user registrations/profiles for client/partner/internal, status update rules, partner level+rate rules, master data (pekerjaan) CRUD with validations, and kalkulator AM query per spec; do not modify any frontend files.",
+      "reqIds": [],
+      "status": "in_progress"
+    },
+    {
+      "id": "AR-3",
+      "summary": "Update only backend/main.mo to implement the complete backend specification provided by the user, including: locked constants, exact type definitions, stable storage (arrays only), required helper functions (time, ID generation, validations, parsing, lookups, auth gates), and all public methods with the exact names, signatures, and return values described.",
+      "reqIds": [
+        "REQ-20"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-4",
+      "summary": "Revert all unintended frontend changes to restore zero diff in frontend; then implement a clean minimal backend in backend/main.mo only (no new files, no migrations, do not touch backend/authorization/*), enforcing 1 principalId=1 role, userId separate from principalId except superadmin, role-specific profile fields, first-claim superadmin, register per role + getCallerUser, and rename \"kerjaan\" -> \"pekerjaan\" throughout master data.",
+      "reqIds": [],
+      "status": "in_progress"
+    },
+    {
+      "id": "AR-5",
+      "summary": "Ensure this change set modifies ONLY backend/main.mo. All frontend files must have zero diff versus the pre-patch state, no new files may be created anywhere, backend/authorization/* must not be edited, and no migration file may be added or used.",
+      "reqIds": [
+        "REQ-21"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-6",
+      "summary": "Rewrite backend/main.mo as a clean, minimal \"master backend\" implementing a final identity model where 1 principalId maps to exactly 1 role, with a separate userId stored for all roles except superadmin.",
+      "reqIds": [
+        "REQ-22"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-7",
+      "summary": "Implement role-specific profile types/fields that match the existing frontend forms exactly: Client has name, email, whatsapp, company; Partner has name, email, whatsapp, keahlian, domisili; Internal has name, email, whatsapp, role (superadmin/admin/finance/concierge/asistenmu); Superadmin has only principalId (no whatsapp/company/keahlian/domusili/etc).",
+      "reqIds": [
+        "REQ-23"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-8",
+      "summary": "Provide public registration functions per role—registerClient, registerPartner, and registerInternal—that register the caller principal exactly once into the corresponding role and store the appropriate profile fields.",
+      "reqIds": [
+        "REQ-24"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-9",
+      "summary": "Provide a public getCallerUser function that returns the caller's current role and stored user information so the frontend (later) can check the caller's role; if the caller is not registered, it must return an explicit empty/none response (not a misleading default).",
+      "reqIds": [
+        "REQ-25"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-10",
+      "summary": "Implement superadmin claiming as a dedicated public function (e.g., claimSuperadmin) that can be executed only once globally (first claim wins) and requires no additional fields; subsequent calls must be rejected.",
+      "reqIds": [
+        "REQ-26"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-11",
+      "summary": "Rename all occurrences of the master-data term \"kerjaan\" to \"pekerjaan\" inside backend/main.mo (types, fields, and function names). If master-data logic is not present in this clean backend, ensure there are no 'kerjaan' identifiers remaining in backend/main.mo.",
+      "reqIds": [
+        "REQ-27"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-12",
+      "summary": "Keep the backend minimal and clean: remove prior authorization-gate logic tied to backend/authorization/* from backend/main.mo (do not edit backend/authorization/*), and avoid adding any non-requested domains such as services/tasks.",
+      "reqIds": [
+        "REQ-28"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-13",
+      "summary": "Patch backend/main.mo ONLY to remove all Migration usage (delete `import Migration \"migration\";` and remove `(with migration = Migration.run)`), making the canister a plain `actor { ... }` without other changes.",
+      "reqIds": [],
+      "status": "in_progress"
+    },
+    {
+      "id": "AR-14",
+      "summary": "Update ONLY `backend/main.mo` to remove all Migration usage by deleting `import Migration \"migration\";` and removing any actor migration clause `(with migration = Migration.run)`, resulting in a plain `actor { ... }` declaration, without changing anything else in the file.",
+      "reqIds": [
+        "REQ-29"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-15",
+      "summary": "Patch backend/main.mo only: add nextUserId counter + genUserId() helper, and update registerClient/registerPartner/registerInternal to ignore any incoming userId and always store userId = genUserId(), without changing other logic (keep 1 principalId = 1 role).",
+      "reqIds": [],
+      "status": "in_progress"
+    },
+    {
+      "id": "AR-16",
+      "summary": "Modify ONLY backend/main.mo to add an in-canister incremental user ID counter and generator: add `var nextUserId : Nat = 1;` and add `func genUserId() : Text { let id = nextUserId; nextUserId += 1; return \"U\" # Nat.toText(id); }`. Ensure required imports exist (e.g., Nat) so the file compiles.",
+      "reqIds": [
+        "REQ-30"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-17",
+      "summary": "In backend/main.mo, update registerClient, registerPartner, and registerInternal so that they ignore any incoming `userId` value (if present in the incoming argument type) and always store `userId = genUserId()` in the stored profile record.",
+      "reqIds": [
+        "REQ-31"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-18",
+      "summary": "Do not change any other logic in backend/main.mo beyond the additions/changes required to support the generated userId assignment, and keep the existing rule that one principalId maps to exactly one role unchanged.",
+      "reqIds": [
+        "REQ-32"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-19",
+      "summary": "Disable saveCallerUserProfile in backend/main.mo: keep the same signature but make it always Runtime.trap(...) so it can never overwrite userRoles/profile.",
+      "reqIds": [],
+      "status": "in_progress"
+    },
+    {
+      "id": "AR-20",
+      "summary": "Adjust role typing so superadmin is not part of InternalRole (InternalRole only admin/finance/concierge/asistenmu) while UserRole still includes #superadmin; keep InternalProfile fields unchanged.",
+      "reqIds": [],
+      "status": "in_progress"
+    },
+    {
+      "id": "AR-21",
+      "summary": "Implement userId system in backend/main.mo using nextUserId counter + userIdByPrincipal map + genUserId/ensureUserId helpers, with userId NOT stored in Client/Partner/Internal profile records; call ensureUserId(caller) in all register* and claimSuperadmin flows.",
+      "reqIds": [],
+      "status": "in_progress"
+    },
+    {
+      "id": "AR-22",
+      "summary": "Add public query getMyUserId() in backend/main.mo returning ?Text from userIdByPrincipal for the caller (null if none).",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-23",
+      "summary": "Modify ONLY `backend/main.mo` to disable `saveCallerUserProfile(profile : UserRole)` while preserving its exact public signature, by making the function always call `Runtime.trap(\"Disabled: profile saving must use register* or admin-approved flows only.\");` and removing any `userRoles.add(...)`/write behavior from this function.",
+      "reqIds": [
+        "REQ-33"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-24",
+      "summary": "Update role typing in `backend/main.mo` so that `InternalRole` contains ONLY `#admin`, `#finance`, `#concierge`, and `#asistenmu`, and does NOT include `#superadmin`. Keep `UserRole`'s `#superadmin` variant unchanged. Keep `InternalProfile` unchanged (fields: name, email, whatsapp, role: InternalRole) with no new fields added.",
+      "reqIds": [
+        "REQ-34"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-25",
+      "summary": "Add an automatic, consistent `userId` system in `backend/main.mo` without adding `userId` fields to any profile record types. Implement storage and helpers exactly as specified: (1) `var nextUserId : Nat = 1;` (2) `let userIdByPrincipal = Map.empty<Principal, Text>();` located near `let userRoles = ...` (3) `func genUserId() : Text` that returns `\"U\" + Nat` (e.g., `U1`, `U2`, ...) and increments `nextUserId` (4) `func ensureUserId(p : Principal) : Text` that returns an existing ID if present in the map, otherwise generates, stores, and returns a new ID.",
+      "reqIds": [
+        "REQ-35"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-26",
+      "summary": "Ensure `ignore ensureUserId(caller);` is executed immediately before any `userRoles.add(caller, entry);` in ALL existing registration functions (`registerClient`, `registerPartner`, `registerInternal`) and also in `claimSuperadmin()` before setting `superadminClaimed := true;`. Do not change the existing rule that one principal can only register exactly one role, and keep the rest of the core logic unchanged.",
+      "reqIds": [
+        "REQ-36"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-27",
+      "summary": "Add a new query method in the “User Queries” section of `backend/main.mo`: `public query ({ caller }) func getMyUserId() : async ?Text { userIdByPrincipal.get(caller); }` returning `null` if the caller has no userId and `?Text` if present (including superadmin).",
+      "reqIds": [
+        "REQ-37"
+      ],
+      "status": "pending"
+    }
+  ],
+  "gameProjectType": "none",
+  "projectName": "Static Asistenku UI pages + routing (frontend-only, no backend/auth/data)",
+  "clarification_mode": "instant",
+  "clarification_rounds": 0
+}
