@@ -1,124 +1,96 @@
 {
   "kind": "build_request",
-  "title": "Backend-only patch: disable profile overwrite, remove superadmin from InternalRole, and add stable userId mapping + query",
+  "title": "Append Layanan Asistenku V2 metadata block to backend/main.mo (no migration, append-only)",
   "priority": "normal",
   "requirements": [
     {
-      "id": "REQ-33",
-      "text": "Modify ONLY `backend/main.mo` to disable `saveCallerUserProfile(profile : UserRole)` while preserving its exact public signature, by making the function always call `Runtime.trap(\"Disabled: profile saving must use register* or admin-approved flows only.\");` and removing any `userRoles.add(...)`/write behavior from this function.",
+      "id": "REQ-57",
+      "text": "Append a new append-only section at the very bottom of backend/main.mo (immediately before the actor’s final closing brace) with the exact header comment `// --- LAYANAN ASISTENKU V2 (APPEND ONLY, NO MIGRATION) ---`, then add the new public type `LayananMeta` exactly as specified (without modifying the existing `LayananAsistenku` type).",
       "target": "backend",
       "source": {
         "messageIds": [
-          "msg-3"
+          "msg-4"
         ],
         "quotes": [
-          "PATCH: ubah fungsi itu menjadi DISABLED (no-op dengan trap) ... setiap call harus `Runtime.trap(...)`.",
-          "F) Ubah fungsi `saveCallerUserProfile` menjadi: ... `Runtime.trap(\"Disabled: profile saving must use register* or admin-approved flows only.\");`"
+          "Append this section header comment:\n\"// --- LAYANAN ASISTENKU V2 (APPEND ONLY, NO MIGRATION) ---\"\n\nA) Add new metadata type (do NOT touch existing LayananAsistenku):\npublic type LayananMeta = {\n  layananId : Text;\n  ownerClient : Principal;\n  unitTotal : Nat;\n  unitUsed : Nat;\n  unitOnHold : Nat;\n  isActive : Bool;\n  createdAt : Int;\n  updatedAt : Int;\n};"
         ]
       },
       "acceptanceCriteria": [
-        "`saveCallerUserProfile` still exists with the same name and parameter/return types as before.",
-        "Any call to `saveCallerUserProfile` traps with the exact message: `Disabled: profile saving must use register* or admin-approved flows only.`",
-        "`saveCallerUserProfile` no longer performs any writes to `userRoles` or other state."
+        "backend/main.mo contains the exact V2 header comment appended at the bottom of the file (before the final `}` of the actor).",
+        "The type `public type LayananMeta = { ... }` exists in the appended block and matches the field names and field types exactly.",
+        "No existing types or methods are modified to add these fields."
       ]
     },
     {
-      "id": "REQ-34",
-      "text": "Update role typing in `backend/main.mo` so that `InternalRole` contains ONLY `#admin`, `#finance`, `#concierge`, and `#asistenmu`, and does NOT include `#superadmin`. Keep `UserRole`'s `#superadmin` variant unchanged. Keep `InternalProfile` unchanged (fields: name, email, whatsapp, role: InternalRole) with no new fields added.",
+      "id": "REQ-58",
+      "text": "In the same appended V2 block in backend/main.mo, add new in-canister storage maps exactly named and typed: `let layananMetaById = Map.empty<Text, LayananMeta>();` and `let layananIdsByOwnerClient = Map.empty<Principal, [Text]>();`.",
       "target": "backend",
       "source": {
         "messageIds": [
-          "msg-3"
+          "msg-4"
         ],
         "quotes": [
-          "Superadmin BUKAN bagian dari InternalRole, jadi `InternalRole` tidak boleh punya `#superadmin`.",
-          "A) Pada type `InternalRole`: - Pastikan hanya berisi: `#admin; #finance; #concierge; #asistenmu;` - Pastikan `#superadmin` TIDAK ADA di InternalRole.",
-          "`InternalProfile` tetap sama (name, email, whatsapp, role: InternalRole). Jangan tambah field baru."
+          "B) Add new storage maps:\nlet layananMetaById = Map.empty<Text, LayananMeta>();\nlet layananIdsByOwnerClient = Map.empty<Principal, [Text]>();"
         ]
       },
       "acceptanceCriteria": [
-        "`InternalRole` type definition has exactly 4 variants: `#admin`, `#finance`, `#concierge`, `#asistenmu` and no others.",
-        "`UserRole` still includes `#superadmin` as a distinct global role variant.",
-        "`InternalProfile` type remains exactly `{ name : Text; email : Text; whatsapp : Text; role : InternalRole }` (no additional fields).",
-        "Any logic that previously referenced `InternalRole.#superadmin` is removed/updated so the canister compiles."
+        "Both maps are declared in the appended V2 block with the exact names and types.",
+        "The maps compile with the existing Map import used in backend/main.mo."
       ]
     },
     {
-      "id": "REQ-35",
-      "text": "Add an automatic, consistent `userId` system in `backend/main.mo` without adding `userId` fields to any profile record types. Implement storage and helpers exactly as specified: (1) `var nextUserId : Nat = 1;` (2) `let userIdByPrincipal = Map.empty<Principal, Text>();` located near `let userRoles = ...` (3) `func genUserId() : Text` that returns `\"U\" + Nat` (e.g., `U1`, `U2`, ...) and increments `nextUserId` (4) `func ensureUserId(p : Principal) : Text` that returns an existing ID if present in the map, otherwise generates, stores, and returns a new ID.",
+      "id": "REQ-59",
+      "text": "In the appended V2 block, reuse existing helper functions if already present; only define them if not already present: (1) `func now() : Int` using `Time.now()`; (2) `func requireAdminOrSuperadminImpl(caller : Principal)` that enforces the same authorization logic as the existing admin/superadmin gate in backend/main.mo (e.g., by calling existing `isAdmin`/`isSuperadmin` if those exist, or by reusing the existing `requireAdminOrSuperadminImpl` if already defined).",
       "target": "backend",
       "source": {
         "messageIds": [
-          "msg-3"
+          "msg-4"
         ],
         "quotes": [
-          "Buat storage: - `var nextUserId : Nat = 1;` - `let userIdByPrincipal = Map.empty<Principal, Text>();`",
-          "Buat helper: - `func genUserId() : Text` -> hasilkan \"U\" + angka ... dan increment counter. - `func ensureUserId(p: Principal) : Text`: kalau sudah ada di map, return yang ada; kalau belum, generate, simpan, return",
-          "D) Tambahkan `let userIdByPrincipal = Map.empty<Principal, Text>();` dekat `let userRoles = ...` agar rapi."
+          "C) Helper (only define if not already present; if present, reuse without redefining):\n- func now() : Int  (use Time.now())\n- func requireAdminOrSuperadminImpl(caller : Principal)  (reuse existing logic; if only isAdmin/isSuperadmin exists, call those)"
         ]
       },
       "acceptanceCriteria": [
-        "`userIdByPrincipal : Map<Principal, Text>` exists and is initialized with `Map.empty<Principal, Text>()` in `backend/main.mo` near the `userRoles` map.",
-        "`nextUserId` is used exclusively by `genUserId()` to generate IDs `U1`, `U2`, ... and increments once per newly-assigned principal.",
-        "`ensureUserId(p)` does not create a new ID if one already exists for `p` and always returns the stored value.",
-        "No profile record types (`ClientProfile`, `PartnerProfile`, `InternalProfile`) are modified to include a `userId` field."
+        "No duplicate-definition compile errors are introduced for `now` or `requireAdminOrSuperadminImpl`.",
+        "The appended V2 methods can call `now()` and `requireAdminOrSuperadminImpl(caller)` successfully."
       ]
     },
     {
-      "id": "REQ-36",
-      "text": "Ensure `ignore ensureUserId(caller);` is executed immediately before any `userRoles.add(caller, entry);` in ALL existing registration functions (`registerClient`, `registerPartner`, `registerInternal`) and also in `claimSuperadmin()` before setting `superadminClaimed := true;`. Do not change the existing rule that one principal can only register exactly one role, and keep the rest of the core logic unchanged.",
+      "id": "REQ-60",
+      "text": "Append the following new public methods in the appended V2 block, with the exact names, signatures, and return values specified, and with the specified behavior:\n\n1) `public shared({caller}) func createLayananForClientV2(ownerClient : Principal, layananId : Text, unitTotal : Nat) : async Text`\n- Gate with `requireAdminOrSuperadminImpl(caller)`\n- Validate `layananId` exists in the existing `layananById`; if missing return exactly `\"LAYANAN_NOT_FOUND\"`\n- Create/update meta (overwrite allowed) in `layananMetaById` with: `unitUsed = 0`, `unitOnHold = 0`, `isActive = true`, `createdAt = now()`, `updatedAt = now()` and the provided `ownerClient`, `unitTotal`, `layananId`\n- Ensure `layananId` is present in `layananIdsByOwnerClient[ownerClient]`; append only if not already present\n- Return exactly `\"OK\"`\n\n2) `public shared({caller}) func setLayananActiveV2(layananId : Text, isActive : Bool) : async Text`\n- Gate with `requireAdminOrSuperadminImpl(caller)`\n- If `layananMetaById` has no entry for `layananId`, return exactly `\"NOT_FOUND\"`\n- Otherwise update only `isActive` and `updatedAt` (keep other fields unchanged) and return exactly `\"OK\"`\n\n3) `public query({caller}) func listMyLayananV2() : async [Text]`\n- Caller must be authenticated using the same check style used by the existing `listMyLayanan`\n- Return `layananIdsByOwnerClient[caller]` or `[]` if missing\n\n4) `public query({caller}) func getLayananMeta(layananId : Text) : async ?LayananMeta`\n- Gate with `requireAdminOrSuperadminImpl(caller)`\n- Return `layananMetaById.get(layananId)`\n\n5) `public query({caller}) func getMyLayananMeta(layananId : Text) : async ?LayananMeta`\n- Caller must be authenticated\n- Return the meta only if it exists and `meta.ownerClient == caller`, otherwise return `null`.",
       "target": "backend",
       "source": {
         "messageIds": [
-          "msg-3"
+          "msg-4"
         ],
         "quotes": [
-          "B) Pada fungsi `registerClient/profile`, `registerPartner/profile`, `registerInternal/profile`: Tambahkan tepat sebelum `userRoles.add(caller, entry);` baris: `ignore ensureUserId(caller);`",
-          "C) Pada fungsi `claimSuperadmin()`: Tambahkan sebelum set `superadminClaimed := true;` baris: `ignore ensureUserId(caller);`",
-          "Keep rule: `1 principalId = 1 role` (tidak boleh register role kedua)."
+          "D) Methods:\n\n1) public shared({caller}) func createLayananForClientV2(\n   ownerClient : Principal,\n   layananId : Text,\n   unitTotal : Nat\n) : async Text\n- requireAdminOrSuperadminImpl(caller)\n- Validate layananId exists in layananById; if missing return \"LAYANAN_NOT_FOUND\"\n- Create meta:\n  unitUsed=0, unitOnHold=0, isActive=true, createdAt=now(), updatedAt=now()\n- store in layananMetaById (overwrite allowed)\n- append layananId into layananIdsByOwnerClient[ownerClient] if not already present\n- return \"OK\"\n\n2) public shared({caller}) func setLayananActiveV2(layananId : Text, isActive : Bool) : async Text\n- requireAdminOrSuperadminImpl(caller)\n- if layananMetaById missing => return \"NOT_FOUND\"\n- else update isActive + updatedAt, keep others\n- return \"OK\"\n\n3) public query({caller}) func listMyLayananV2() : async [Text]\n- caller must be authenticated user (same check style as listMyLayanan uses)\n- return layananIdsByOwnerClient[caller] else []\n\n4) public query({caller}) func getLayananMeta(layananId : Text) : async ?LayananMeta\n- requireAdminOrSuperadminImpl(caller)\n- return layananMetaById.get(layananId)\n\n5) public query({caller}) func getMyLayananMeta(layananId : Text) : async ?LayananMeta\n- caller must be authenticated\n- return meta ONLY if meta.ownerClient == caller else null"
         ]
       },
       "acceptanceCriteria": [
-        "`registerClient`, `registerPartner`, and `registerInternal` each call `ignore ensureUserId(caller);` directly before writing to `userRoles`.",
-        "`claimSuperadmin()` calls `ignore ensureUserId(caller);` before `superadminClaimed := true;` is executed.",
-        "Existing constraints remain enforced: if `userRoles.containsKey(caller)` the caller cannot register a second role and cannot claim superadmin.",
-        "`claimSuperadmin()` still performs (in order after checks): `superadminClaimed := true;`, `userRoles.add(caller, #superadmin);`, and `AccessControl.assignRole(accessControlState, caller, caller, #admin);`"
-      ]
-    },
-    {
-      "id": "REQ-37",
-      "text": "Add a new query method in the “User Queries” section of `backend/main.mo`: `public query ({ caller }) func getMyUserId() : async ?Text { userIdByPrincipal.get(caller); }` returning `null` if the caller has no userId and `?Text` if present (including superadmin).",
-      "target": "backend",
-      "source": {
-        "messageIds": [
-          "msg-3"
-        ],
-        "quotes": [
-          "4) Tambah query `getMyUserId()` (WAJIB): `public query ({ caller }) func getMyUserId() : async ?Text`",
-          "E) Tambahkan fungsi query baru di bagian “User Queries”: - `public query ({ caller }) func getMyUserId() : async ?Text { userIdByPrincipal.get(caller); }`"
-        ]
-      },
-      "acceptanceCriteria": [
-        "`getMyUserId` exists with the exact signature `public query ({ caller }) func getMyUserId() : async ?Text`.",
-        "If the caller has never been assigned a userId, `getMyUserId()` returns `null`.",
-        "After any successful `register*` or `claimSuperadmin()` call, `getMyUserId()` returns `?\"U...\"` for that caller."
+        "All 5 methods compile and are present in backend/main.mo in the appended V2 block with the exact names and signatures.",
+        "createLayananForClientV2 returns exactly \"LAYANAN_NOT_FOUND\" when `layananById` lacks `layananId`, and exactly \"OK\" when meta is stored.",
+        "createLayananForClientV2 overwrites any existing `layananMetaById[layananId]` entry and ensures `layananIdsByOwnerClient[ownerClient]` contains `layananId` without duplicates.",
+        "setLayananActiveV2 returns exactly \"NOT_FOUND\" when meta is absent; otherwise updates only `isActive` and `updatedAt` and returns exactly \"OK\".",
+        "listMyLayananV2 returns `[]` when there is no entry for the caller, and uses the same authentication-check style as the existing `listMyLayanan`.",
+        "getLayananMeta is admin/superadmin-gated and returns the optional meta from `layananMetaById`.",
+        "getMyLayananMeta returns null unless the authenticated caller matches `ownerClient` for the found meta."
       ]
     }
   ],
   "constraints": [
-    "Patch scope: modify ONLY `backend/main.mo`. Do not change any other files and do not add new files.",
-    "Do not change any frontend code or routing.",
-    "Keep all existing public methods besides the specified patch changes, including `registerClient`, `registerPartner`, `registerInternal`, `claimSuperadmin`, `getCallerUser`, `getUser`, `getAllUsers`, `getCallerUserProfile`, and `getUserProfile`.",
-    "Maintain the rule: one principal can have only one role (no second registration and no superadmin claim after registration).",
-    "Do not add `userId` as a field to `ClientProfile`, `PartnerProfile`, or `InternalProfile`.",
-    "`InternalRole` must not include `#superadmin`; `UserRole` must still include `#superadmin`.",
-    "Do not edit anything under `backend/authorization/*`."
+    "Do not create, modify, or reference backend/migration.mo; do not add or mention any migration logic or upgrade/state transformation code.",
+    "Modify ONLY backend/main.mo.",
+    "backend/main.mo must be append-only: do not edit, refactor, rename, reorder, or remove any existing line; append new code only at the very bottom of the file within the actor (immediately before the final closing brace `}`).",
+    "Do not change any existing definitions of: `LayananAsistenku`, `nextLayananId()`, `createLayananForClient()`, `setLayananActive()`, `listMyLayanan()`, `layananById`, `layananIdsByClient` (leave them byte-for-byte untouched).",
+    "For helpers, only define `now()` and/or `requireAdminOrSuperadminImpl(caller)` if they do not already exist in backend/main.mo; if already present, reuse without redefining to avoid name conflicts.",
+    "Return values must match exactly: \"OK\", \"NOT_FOUND\", and \"LAYANAN_NOT_FOUND\"."
   ],
   "nonGoals": [
-    "Any frontend integration for displaying or using `userId`.",
-    "Any new admin flows, approval workflows, or profile update flows beyond disabling `saveCallerUserProfile`.",
-    "Data migration / state upgrade handling beyond what is necessary for compilation (no new migration files).",
-    "Adding persistence guarantees beyond the in-canister map/counter described by the user."
+    "Any frontend changes.",
+    "Adding or modifying any V1 Layanan storage, types, or methods beyond reading `layananById` for validation.",
+    "Changing any existing authorization model or role storage; the new methods must reuse existing admin/superadmin and authenticated-user checks.",
+    "Any data migration, state upgrade logic, or stable-structure refactors."
   ],
   "imageRequirements": {
     "required": [],

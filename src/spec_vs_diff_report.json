@@ -1,57 +1,68 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-15T15:02:57.467Z",
-  "summary": "REQ-34 and most of REQ-35/REQ-36 (registration functions) appear implemented in backend/main.mo, but the diff violates the stated constraint to modify ONLY backend/main.mo by adding backend/migration.mo and modifying other files. Several required changes (REQ-33 disable saveCallerUserProfile, REQ-37 getMyUserId query, and the exact claimSuperadmin ordering/ensureUserId placement from REQ-36) are not verifiable from the truncated backend/main.mo excerpt.",
+  "generatedAt": "2026-02-15T16:46:18.205Z",
+  "summary": "The diff does not show the requested append-only Layanan Asistenku V2 metadata block being added to the bottom of backend/main.mo, and it violates key constraints by modifying files other than backend/main.mo and (based on the shown content) editing existing lines rather than append-only changes.",
   "missing_requirements": [
     {
-      "id": "REQ-33",
-      "requirement": "Disable saveCallerUserProfile(profile : UserRole) while preserving its exact public signature, making it always Runtime.trap with the exact message and performing no writes.",
-      "reason": "The provided backend/main.mo excerpt does not include saveCallerUserProfile, so there is no evidence it was changed to always trap with the exact required message or that state writes were removed.",
+      "id": "REQ-57",
+      "requirement": "Append a new section at the very bottom of backend/main.mo with the exact header comment `// --- LAYANAN ASISTENKU V2 (APPEND ONLY, NO MIGRATION) ---` and add `public type LayananMeta = { ... }` exactly as specified, without modifying existing types/methods.",
+      "reason": "The provided backend/main.mo diff excerpt shows changes near the top of the file (imports and early actor content) and is truncated; it does not provide evidence of the required exact V2 header comment or the `LayananMeta` type appended at the bottom of the actor.",
       "evidence": [
-        "backend/main.mo (truncated excerpt does not show saveCallerUserProfile)"
+        "backend/main.mo (truncated)"
       ]
     },
     {
-      "id": "REQ-36",
-      "requirement": "In claimSuperadmin(), call ignore ensureUserId(caller); before superadminClaimed := true; and keep the specified order of operations (after checks): superadminClaimed := true;, userRoles.add(...#superadmin), AccessControl.assignRole(...#admin).",
-      "reason": "The claimSuperadmin() implementation is truncated mid-function, so the placement of ensureUserId(caller) and the exact required ordering cannot be confirmed.",
+      "id": "REQ-58",
+      "requirement": "In the appended V2 block, declare `let layananMetaById = Map.empty<Text, LayananMeta>();` and `let layananIdsByOwnerClient = Map.empty<Principal, [Text]>();`.",
+      "reason": "No evidence in the shown diff excerpt that these two maps are declared with the exact required names and types in an appended V2 block.",
       "evidence": [
-        "backend/main.mo (claimSuperadmin truncated)"
+        "backend/main.mo (truncated)"
       ]
     },
     {
-      "id": "REQ-37",
-      "requirement": "Add public query ({ caller }) func getMyUserId() : async ?Text { userIdByPrincipal.get(caller); } in the “User Queries” section.",
-      "reason": "The backend/main.mo excerpt does not show any “User Queries” section or the getMyUserId() method, so its existence and exact signature/body cannot be verified.",
+      "id": "REQ-59",
+      "requirement": "Reuse existing helpers; only define `now(): Int` (Time.now) and/or `requireAdminOrSuperadminImpl(caller)` if not already present, avoiding duplicate definitions.",
+      "reason": "The diff excerpt does not show the V2 block or helper definitions/usage, so there is no evidence that `now()` and `requireAdminOrSuperadminImpl` are correctly reused/defined without conflicts.",
       "evidence": [
-        "backend/main.mo (truncated excerpt does not show getMyUserId)"
+        "backend/main.mo (truncated)"
+      ]
+    },
+    {
+      "id": "REQ-60",
+      "requirement": "Append the 5 new public V2 methods with exact names/signatures/return values and specified behaviors (createLayananForClientV2, setLayananActiveV2, listMyLayananV2, getLayananMeta, getMyLayananMeta).",
+      "reason": "The diff excerpt does not show any of the required V2 method names/signatures or their logic; therefore there is no evidence these methods were added as specified.",
+      "evidence": [
+        "backend/main.mo (truncated)"
       ]
     }
   ],
   "hallucinated_features": [
     {
-      "description": "Added a migration module/file and wired it into the canister via (with migration = Migration.run).",
-      "reason": "BuildRequest explicitly constrained the patch scope to modify ONLY backend/main.mo and specified no new migration files beyond what is necessary for compilation; adding backend/migration.mo and integrating it is additional unrequested behavior/scope.",
+      "description": "Modified project_state.json despite the constraint to modify ONLY backend/main.mo.",
+      "reason": "BuildRequest explicitly constrains changes to backend/main.mo only; modifying project_state.json is out of scope.",
       "evidence": [
-        "backend/migration.mo (new file added)",
-        "backend/main.mo (imports Migration \"migration\" and uses (with migration = Migration.run))"
+        "project_state.json (truncated)"
       ]
     },
     {
-      "description": "Modified non-backend/main.mo files (frontend-file-summaries.txt and project_state.json).",
-      "reason": "BuildRequest constraint says modify ONLY backend/main.mo and do not change any frontend code/routing; these edits are outside the requested patch scope.",
+      "description": "Introduced/modified userId system and related role/registration logic (e.g., nextUserId, userIdByPrincipal, genUserId/ensureUserId, changes around register*/claimSuperadmin).",
+      "reason": "These changes are not requested by REQ-57..REQ-60 (which focus only on appending a Layanan Asistenku V2 metadata block and methods) and they appear within existing sections rather than append-only at the bottom.",
       "evidence": [
-        "frontend-file-summaries.txt (modified)",
-        "project_state.json (modified)"
+        "backend/main.mo (truncated)"
+      ]
+    },
+    {
+      "description": "Edited existing lines near the top of backend/main.mo (imports/early actor content), violating the append-only requirement for backend/main.mo.",
+      "reason": "The BuildRequest requires backend/main.mo to be append-only with new code added only at the very bottom; the shown diff excerpt indicates modifications in existing top-of-file/early actor code.",
+      "evidence": [
+        "backend/main.mo (truncated)"
       ]
     }
   ],
-  "confidence": 0.72,
+  "confidence": 0.74,
   "changed_files": [
     "backend/main.mo",
-    "backend/migration.mo",
-    "frontend-file-summaries.txt",
     "project_state.json"
   ]
 }

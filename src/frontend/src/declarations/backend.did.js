@@ -13,6 +13,14 @@ export const UserRole__1 = IDL.Variant({
   'user' : IDL.Null,
   'guest' : IDL.Null,
 });
+export const LayananType = IDL.Variant({
+  'BusinessConsulting' : IDL.Null,
+  'LegalServices' : IDL.Null,
+  'FinancialPlanning' : IDL.Null,
+  'DigitalMarketing' : IDL.Null,
+  'VirtualAssistant' : IDL.Null,
+  'Other' : IDL.Text,
+});
 export const ClientProfile = IDL.Record({
   'name' : IDL.Text,
   'whatsapp' : IDL.Text,
@@ -44,27 +52,218 @@ export const UserRole = IDL.Variant({
   'superadmin' : IDL.Null,
   'partner' : PartnerProfile,
 });
+export const TipePartner = IDL.Variant({
+  'junior' : IDL.Null,
+  'senior' : IDL.Null,
+  'expert' : IDL.Null,
+});
+export const AturanBebanPerusahaan = IDL.Record({
+  'aktif' : IDL.Bool,
+  'createdAt' : IDL.Int,
+  'jamMax' : IDL.Nat,
+  'jamMin' : IDL.Nat,
+  'nilai' : IDL.Nat,
+  'polaBeban' : IDL.Variant({
+    'TAMBAH_PER_JAM' : IDL.Null,
+    'TAMBAH_JAM_TETAP' : IDL.Null,
+  }),
+  'tipePartner' : TipePartner,
+});
+export const KamusPekerjaan = IDL.Record({
+  'aktif' : IDL.Bool,
+  'createdAt' : IDL.Int,
+  'tipePartnerBoleh' : IDL.Vec(TipePartner),
+  'kategoriPekerjaan' : IDL.Text,
+  'jenisPekerjaan' : IDL.Text,
+  'jamStandar' : IDL.Nat,
+});
+export const KonstantaUnitClient = IDL.Record({
+  'unitKeJamPerusahaan' : IDL.Nat,
+  'updatedAt' : IDL.Int,
+});
+export const LayananMeta = IDL.Record({
+  'unitUsed' : IDL.Nat,
+  'unitTotal' : IDL.Nat,
+  'ownerClient' : IDL.Principal,
+  'createdAt' : IDL.Int,
+  'isActive' : IDL.Bool,
+  'updatedAt' : IDL.Int,
+  'layananId' : IDL.Text,
+  'unitOnHold' : IDL.Nat,
+});
+export const MasterDataKey = IDL.Text;
+export const UserStatus = IDL.Variant({
+  'active' : IDL.Null,
+  'pending' : IDL.Null,
+  'suspended' : IDL.Null,
+  'blacklisted' : IDL.Null,
+});
+export const SkillVerified = IDL.Record({
+  'aktif' : IDL.Bool,
+  'kode' : IDL.Text,
+  'nama' : IDL.Text,
+  'createdAt' : IDL.Int,
+  'kategori' : IDL.Text,
+});
+export const LayananAsistenku = IDL.Record({
+  'id' : IDL.Text,
+  'active' : IDL.Bool,
+  'name' : IDL.Text,
+  'createdAt' : IDL.Int,
+  'createdBy' : IDL.Principal,
+  'type' : LayananType,
+  'description' : IDL.Text,
+  'updatedAt' : IDL.Opt(IDL.Int),
+  'updatedBy' : IDL.Opt(IDL.Principal),
+  'price' : IDL.Nat,
+});
 
 export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole__1], [], []),
   'claimSuperadmin' : IDL.Func([], [], []),
+  'createLayananForClient' : IDL.Func(
+      [IDL.Text, IDL.Text, LayananType, IDL.Nat],
+      [IDL.Text],
+      [],
+    ),
+  'createLayananForClientV2' : IDL.Func(
+      [IDL.Principal, IDL.Text, IDL.Nat],
+      [IDL.Text],
+      [],
+    ),
   'getAllUsers' : IDL.Func(
       [],
       [IDL.Vec(IDL.Tuple(IDL.Principal, UserRole))],
       ['query'],
     ),
+  'getAturanBeban' : IDL.Func(
+      [IDL.Text],
+      [IDL.Opt(AturanBebanPerusahaan)],
+      ['query'],
+    ),
   'getCallerUser' : IDL.Func([], [IDL.Opt(UserRole)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserRole)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole__1], ['query']),
+  'getHourlyRateByLevel' : IDL.Func([TipePartner], [IDL.Nat], ['query']),
+  'getKamusPekerjaan' : IDL.Func(
+      [IDL.Text],
+      [IDL.Opt(KamusPekerjaan)],
+      ['query'],
+    ),
+  'getKonstantaUnitClient' : IDL.Func([], [KonstantaUnitClient], ['query']),
+  'getLayananMeta' : IDL.Func([IDL.Text], [IDL.Opt(LayananMeta)], ['query']),
+  'getMasterData' : IDL.Func([MasterDataKey], [IDL.Text], ['query']),
+  'getMasterDataMap' : IDL.Func(
+      [],
+      [IDL.Opt(IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text)))],
+      ['query'],
+    ),
+  'getMyHourlyRate' : IDL.Func([], [IDL.Nat], ['query']),
+  'getMyLayananMeta' : IDL.Func([IDL.Text], [IDL.Opt(LayananMeta)], ['query']),
+  'getMyPartnerLevel' : IDL.Func([], [TipePartner], ['query']),
   'getMyUserId' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
+  'getMyUserStatus' : IDL.Func([], [UserStatus], ['query']),
+  'getPartnerLevel' : IDL.Func([IDL.Principal], [TipePartner], ['query']),
+  'getPartnerVerifiedSkills' : IDL.Func(
+      [IDL.Principal],
+      [IDL.Vec(IDL.Text)],
+      ['query'],
+    ),
+  'getRates' : IDL.Func([], [IDL.Nat, IDL.Nat, IDL.Nat], ['query']),
+  'getSkillVerified' : IDL.Func(
+      [IDL.Text],
+      [IDL.Opt(SkillVerified)],
+      ['query'],
+    ),
   'getUser' : IDL.Func([IDL.Principal], [IDL.Opt(UserRole)], ['query']),
+  'getUserIdByPrincipal' : IDL.Func(
+      [IDL.Principal],
+      [IDL.Opt(IDL.Text)],
+      ['query'],
+    ),
   'getUserProfile' : IDL.Func([IDL.Principal], [IDL.Opt(UserRole)], ['query']),
+  'getUserStatus' : IDL.Func([IDL.Principal], [UserStatus], ['query']),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+  'kalkulatorAM' : IDL.Func(
+      [IDL.Text, TipePartner, IDL.Nat],
+      [
+        IDL.Record({
+          'jamKePartner' : IDL.Nat,
+          'unitClient' : IDL.Nat,
+          'jamPerusahaan' : IDL.Nat,
+        }),
+      ],
+      [],
+    ),
+  'listAturanBeban' : IDL.Func([], [IDL.Vec(AturanBebanPerusahaan)], ['query']),
+  'listKamusPekerjaan' : IDL.Func([], [IDL.Vec(KamusPekerjaan)], ['query']),
+  'listMyLayanan' : IDL.Func([], [IDL.Vec(LayananAsistenku)], ['query']),
+  'listMyLayananV2' : IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
+  'listPartnerVerifiedSkills' : IDL.Func(
+      [],
+      [IDL.Vec(IDL.Tuple(IDL.Principal, IDL.Vec(IDL.Text)))],
+      ['query'],
+    ),
+  'listSkillVerified' : IDL.Func([], [IDL.Vec(SkillVerified)], ['query']),
+  'listUsersBasic' : IDL.Func(
+      [IDL.Text],
+      [IDL.Vec(IDL.Tuple(IDL.Principal, IDL.Text, IDL.Text, UserStatus))],
+      ['query'],
+    ),
+  'listUsersByStatus' : IDL.Func(
+      [UserStatus],
+      [IDL.Vec(IDL.Principal)],
+      ['query'],
+    ),
+  'pushMasterData' : IDL.Func([MasterDataKey, IDL.Text], [], []),
   'registerClient' : IDL.Func([ClientProfile], [], []),
   'registerInternal' : IDL.Func([InternalProfile], [], []),
   'registerPartner' : IDL.Func([PartnerProfile], [], []),
   'saveCallerUserProfile' : IDL.Func([UserRole], [], []),
+  'setKonstantaUnitClient' : IDL.Func([IDL.Nat], [], []),
+  'setLayananActive' : IDL.Func([IDL.Text], [], []),
+  'setLayananActiveV2' : IDL.Func([IDL.Text, IDL.Bool], [IDL.Text], []),
+  'setPartnerLevel' : IDL.Func([IDL.Principal, TipePartner], [], []),
+  'setPartnerVerifiedSkills' : IDL.Func(
+      [IDL.Principal, IDL.Vec(IDL.Text)],
+      [],
+      [],
+    ),
+  'setUserStatus' : IDL.Func([IDL.Principal, UserStatus], [], []),
+  'upsertAturanBeban' : IDL.Func(
+      [
+        IDL.Opt(IDL.Text),
+        TipePartner,
+        IDL.Nat,
+        IDL.Nat,
+        IDL.Variant({
+          'TAMBAH_PER_JAM' : IDL.Null,
+          'TAMBAH_JAM_TETAP' : IDL.Null,
+        }),
+        IDL.Nat,
+        IDL.Bool,
+      ],
+      [IDL.Text],
+      [],
+    ),
+  'upsertKamusPekerjaan' : IDL.Func(
+      [
+        IDL.Opt(IDL.Text),
+        IDL.Text,
+        IDL.Text,
+        IDL.Nat,
+        IDL.Vec(TipePartner),
+        IDL.Bool,
+      ],
+      [IDL.Text],
+      [],
+    ),
+  'upsertSkillVerified' : IDL.Func(
+      [IDL.Opt(IDL.Text), IDL.Text, IDL.Text, IDL.Bool],
+      [IDL.Text],
+      [],
+    ),
 });
 
 export const idlInitArgs = [];
@@ -74,6 +273,14 @@ export const idlFactory = ({ IDL }) => {
     'admin' : IDL.Null,
     'user' : IDL.Null,
     'guest' : IDL.Null,
+  });
+  const LayananType = IDL.Variant({
+    'BusinessConsulting' : IDL.Null,
+    'LegalServices' : IDL.Null,
+    'FinancialPlanning' : IDL.Null,
+    'DigitalMarketing' : IDL.Null,
+    'VirtualAssistant' : IDL.Null,
+    'Other' : IDL.Text,
   });
   const ClientProfile = IDL.Record({
     'name' : IDL.Text,
@@ -106,31 +313,230 @@ export const idlFactory = ({ IDL }) => {
     'superadmin' : IDL.Null,
     'partner' : PartnerProfile,
   });
+  const TipePartner = IDL.Variant({
+    'junior' : IDL.Null,
+    'senior' : IDL.Null,
+    'expert' : IDL.Null,
+  });
+  const AturanBebanPerusahaan = IDL.Record({
+    'aktif' : IDL.Bool,
+    'createdAt' : IDL.Int,
+    'jamMax' : IDL.Nat,
+    'jamMin' : IDL.Nat,
+    'nilai' : IDL.Nat,
+    'polaBeban' : IDL.Variant({
+      'TAMBAH_PER_JAM' : IDL.Null,
+      'TAMBAH_JAM_TETAP' : IDL.Null,
+    }),
+    'tipePartner' : TipePartner,
+  });
+  const KamusPekerjaan = IDL.Record({
+    'aktif' : IDL.Bool,
+    'createdAt' : IDL.Int,
+    'tipePartnerBoleh' : IDL.Vec(TipePartner),
+    'kategoriPekerjaan' : IDL.Text,
+    'jenisPekerjaan' : IDL.Text,
+    'jamStandar' : IDL.Nat,
+  });
+  const KonstantaUnitClient = IDL.Record({
+    'unitKeJamPerusahaan' : IDL.Nat,
+    'updatedAt' : IDL.Int,
+  });
+  const LayananMeta = IDL.Record({
+    'unitUsed' : IDL.Nat,
+    'unitTotal' : IDL.Nat,
+    'ownerClient' : IDL.Principal,
+    'createdAt' : IDL.Int,
+    'isActive' : IDL.Bool,
+    'updatedAt' : IDL.Int,
+    'layananId' : IDL.Text,
+    'unitOnHold' : IDL.Nat,
+  });
+  const MasterDataKey = IDL.Text;
+  const UserStatus = IDL.Variant({
+    'active' : IDL.Null,
+    'pending' : IDL.Null,
+    'suspended' : IDL.Null,
+    'blacklisted' : IDL.Null,
+  });
+  const SkillVerified = IDL.Record({
+    'aktif' : IDL.Bool,
+    'kode' : IDL.Text,
+    'nama' : IDL.Text,
+    'createdAt' : IDL.Int,
+    'kategori' : IDL.Text,
+  });
+  const LayananAsistenku = IDL.Record({
+    'id' : IDL.Text,
+    'active' : IDL.Bool,
+    'name' : IDL.Text,
+    'createdAt' : IDL.Int,
+    'createdBy' : IDL.Principal,
+    'type' : LayananType,
+    'description' : IDL.Text,
+    'updatedAt' : IDL.Opt(IDL.Int),
+    'updatedBy' : IDL.Opt(IDL.Principal),
+    'price' : IDL.Nat,
+  });
   
   return IDL.Service({
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole__1], [], []),
     'claimSuperadmin' : IDL.Func([], [], []),
+    'createLayananForClient' : IDL.Func(
+        [IDL.Text, IDL.Text, LayananType, IDL.Nat],
+        [IDL.Text],
+        [],
+      ),
+    'createLayananForClientV2' : IDL.Func(
+        [IDL.Principal, IDL.Text, IDL.Nat],
+        [IDL.Text],
+        [],
+      ),
     'getAllUsers' : IDL.Func(
         [],
         [IDL.Vec(IDL.Tuple(IDL.Principal, UserRole))],
         ['query'],
       ),
+    'getAturanBeban' : IDL.Func(
+        [IDL.Text],
+        [IDL.Opt(AturanBebanPerusahaan)],
+        ['query'],
+      ),
     'getCallerUser' : IDL.Func([], [IDL.Opt(UserRole)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserRole)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole__1], ['query']),
+    'getHourlyRateByLevel' : IDL.Func([TipePartner], [IDL.Nat], ['query']),
+    'getKamusPekerjaan' : IDL.Func(
+        [IDL.Text],
+        [IDL.Opt(KamusPekerjaan)],
+        ['query'],
+      ),
+    'getKonstantaUnitClient' : IDL.Func([], [KonstantaUnitClient], ['query']),
+    'getLayananMeta' : IDL.Func([IDL.Text], [IDL.Opt(LayananMeta)], ['query']),
+    'getMasterData' : IDL.Func([MasterDataKey], [IDL.Text], ['query']),
+    'getMasterDataMap' : IDL.Func(
+        [],
+        [IDL.Opt(IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text)))],
+        ['query'],
+      ),
+    'getMyHourlyRate' : IDL.Func([], [IDL.Nat], ['query']),
+    'getMyLayananMeta' : IDL.Func(
+        [IDL.Text],
+        [IDL.Opt(LayananMeta)],
+        ['query'],
+      ),
+    'getMyPartnerLevel' : IDL.Func([], [TipePartner], ['query']),
     'getMyUserId' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
+    'getMyUserStatus' : IDL.Func([], [UserStatus], ['query']),
+    'getPartnerLevel' : IDL.Func([IDL.Principal], [TipePartner], ['query']),
+    'getPartnerVerifiedSkills' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Vec(IDL.Text)],
+        ['query'],
+      ),
+    'getRates' : IDL.Func([], [IDL.Nat, IDL.Nat, IDL.Nat], ['query']),
+    'getSkillVerified' : IDL.Func(
+        [IDL.Text],
+        [IDL.Opt(SkillVerified)],
+        ['query'],
+      ),
     'getUser' : IDL.Func([IDL.Principal], [IDL.Opt(UserRole)], ['query']),
+    'getUserIdByPrincipal' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Opt(IDL.Text)],
+        ['query'],
+      ),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
         [IDL.Opt(UserRole)],
         ['query'],
       ),
+    'getUserStatus' : IDL.Func([IDL.Principal], [UserStatus], ['query']),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+    'kalkulatorAM' : IDL.Func(
+        [IDL.Text, TipePartner, IDL.Nat],
+        [
+          IDL.Record({
+            'jamKePartner' : IDL.Nat,
+            'unitClient' : IDL.Nat,
+            'jamPerusahaan' : IDL.Nat,
+          }),
+        ],
+        [],
+      ),
+    'listAturanBeban' : IDL.Func(
+        [],
+        [IDL.Vec(AturanBebanPerusahaan)],
+        ['query'],
+      ),
+    'listKamusPekerjaan' : IDL.Func([], [IDL.Vec(KamusPekerjaan)], ['query']),
+    'listMyLayanan' : IDL.Func([], [IDL.Vec(LayananAsistenku)], ['query']),
+    'listMyLayananV2' : IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
+    'listPartnerVerifiedSkills' : IDL.Func(
+        [],
+        [IDL.Vec(IDL.Tuple(IDL.Principal, IDL.Vec(IDL.Text)))],
+        ['query'],
+      ),
+    'listSkillVerified' : IDL.Func([], [IDL.Vec(SkillVerified)], ['query']),
+    'listUsersBasic' : IDL.Func(
+        [IDL.Text],
+        [IDL.Vec(IDL.Tuple(IDL.Principal, IDL.Text, IDL.Text, UserStatus))],
+        ['query'],
+      ),
+    'listUsersByStatus' : IDL.Func(
+        [UserStatus],
+        [IDL.Vec(IDL.Principal)],
+        ['query'],
+      ),
+    'pushMasterData' : IDL.Func([MasterDataKey, IDL.Text], [], []),
     'registerClient' : IDL.Func([ClientProfile], [], []),
     'registerInternal' : IDL.Func([InternalProfile], [], []),
     'registerPartner' : IDL.Func([PartnerProfile], [], []),
     'saveCallerUserProfile' : IDL.Func([UserRole], [], []),
+    'setKonstantaUnitClient' : IDL.Func([IDL.Nat], [], []),
+    'setLayananActive' : IDL.Func([IDL.Text], [], []),
+    'setLayananActiveV2' : IDL.Func([IDL.Text, IDL.Bool], [IDL.Text], []),
+    'setPartnerLevel' : IDL.Func([IDL.Principal, TipePartner], [], []),
+    'setPartnerVerifiedSkills' : IDL.Func(
+        [IDL.Principal, IDL.Vec(IDL.Text)],
+        [],
+        [],
+      ),
+    'setUserStatus' : IDL.Func([IDL.Principal, UserStatus], [], []),
+    'upsertAturanBeban' : IDL.Func(
+        [
+          IDL.Opt(IDL.Text),
+          TipePartner,
+          IDL.Nat,
+          IDL.Nat,
+          IDL.Variant({
+            'TAMBAH_PER_JAM' : IDL.Null,
+            'TAMBAH_JAM_TETAP' : IDL.Null,
+          }),
+          IDL.Nat,
+          IDL.Bool,
+        ],
+        [IDL.Text],
+        [],
+      ),
+    'upsertKamusPekerjaan' : IDL.Func(
+        [
+          IDL.Opt(IDL.Text),
+          IDL.Text,
+          IDL.Text,
+          IDL.Nat,
+          IDL.Vec(TipePartner),
+          IDL.Bool,
+        ],
+        [IDL.Text],
+        [],
+      ),
+    'upsertSkillVerified' : IDL.Func(
+        [IDL.Opt(IDL.Text), IDL.Text, IDL.Text, IDL.Bool],
+        [IDL.Text],
+        [],
+      ),
   });
 };
 

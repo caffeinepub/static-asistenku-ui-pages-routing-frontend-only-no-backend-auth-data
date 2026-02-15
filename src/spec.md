@@ -1,13 +1,13 @@
 # Specification
 
 ## Summary
-**Goal:** Patch the backend to prevent profile overwrites, correct internal role typing, and introduce a stable per-principal `userId` with a query to retrieve it.
+**Goal:** Add an append-only “Layanan Asistenku V2” metadata block to the bottom of `backend/main.mo` to support per-layanan metadata storage and access methods without changing existing (V1) types, storage, or behavior.
 
 **Planned changes:**
-- Modify `backend/main.mo` so `saveCallerUserProfile(profile : UserRole)` keeps its public signature but always traps with `Disabled: profile saving must use register* or admin-approved flows only.` and performs no state writes.
-- Update `InternalRole` to include only `#admin`, `#finance`, `#concierge`, and `#asistenmu` (remove any `#superadmin` usage), while keeping `UserRole.#superadmin` unchanged and leaving `InternalProfile` unchanged.
-- Add `nextUserId`, `userIdByPrincipal`, and helper functions `genUserId()` / `ensureUserId(p)` to assign consistent `U1`, `U2`, ... IDs without adding `userId` fields to any profile record types.
-- Ensure `ignore ensureUserId(caller);` runs immediately before any `userRoles.add(caller, entry);` in `registerClient`, `registerPartner`, `registerInternal`, and before `superadminClaimed := true;` in `claimSuperadmin()`.
-- Add `public query ({ caller }) func getMyUserId() : async ?Text { userIdByPrincipal.get(caller); }` in the “User Queries” section.
+- Append a new section at the very bottom of `backend/main.mo` (before the actor’s final `}`) with the exact header comment `// --- LAYANAN ASISTENKU V2 (APPEND ONLY, NO MIGRATION) ---`.
+- Add a new public type `LayananMeta` with the specified fields and types (without modifying the existing `LayananAsistenku` type).
+- Add new in-canister maps `layananMetaById` and `layananIdsByOwnerClient` with the exact names and types.
+- Reuse existing helper functions for `now()` and `requireAdminOrSuperadminImpl(caller)` if present; otherwise define them in the appended block.
+- Append new V2 public methods: `createLayananForClientV2`, `setLayananActiveV2`, `listMyLayananV2`, `getLayananMeta`, and `getMyLayananMeta` with the specified signatures, authorization/authentication checks, and exact return strings.
 
-**User-visible outcome:** Profile-saving via `saveCallerUserProfile` is disabled (calls trap), internal roles no longer include superadmin, users receive a stable `U...` identifier upon successful registration or superadmin claim, and can query their userId via `getMyUserId()`.
+**User-visible outcome:** Admin/superadmin can create and manage V2 layanan metadata and activation status, while authenticated users can list their layanan IDs and fetch their own layanan metadata when they are the owner.

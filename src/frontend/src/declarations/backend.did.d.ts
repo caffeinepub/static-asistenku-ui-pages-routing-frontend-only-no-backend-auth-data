@@ -10,6 +10,16 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export interface AturanBebanPerusahaan {
+  'aktif' : boolean,
+  'createdAt' : bigint,
+  'jamMax' : bigint,
+  'jamMin' : bigint,
+  'nilai' : bigint,
+  'polaBeban' : { 'TAMBAH_PER_JAM' : null } |
+    { 'TAMBAH_JAM_TETAP' : null },
+  'tipePartner' : TipePartner,
+}
 export interface ClientProfile {
   'name' : string,
   'whatsapp' : string,
@@ -26,6 +36,47 @@ export type InternalRole = { 'admin' : null } |
   { 'finance' : null } |
   { 'concierge' : null } |
   { 'asistenmu' : null };
+export interface KamusPekerjaan {
+  'aktif' : boolean,
+  'createdAt' : bigint,
+  'tipePartnerBoleh' : Array<TipePartner>,
+  'kategoriPekerjaan' : string,
+  'jenisPekerjaan' : string,
+  'jamStandar' : bigint,
+}
+export interface KonstantaUnitClient {
+  'unitKeJamPerusahaan' : bigint,
+  'updatedAt' : bigint,
+}
+export interface LayananAsistenku {
+  'id' : string,
+  'active' : boolean,
+  'name' : string,
+  'createdAt' : bigint,
+  'createdBy' : Principal,
+  'type' : LayananType,
+  'description' : string,
+  'updatedAt' : [] | [bigint],
+  'updatedBy' : [] | [Principal],
+  'price' : bigint,
+}
+export interface LayananMeta {
+  'unitUsed' : bigint,
+  'unitTotal' : bigint,
+  'ownerClient' : Principal,
+  'createdAt' : bigint,
+  'isActive' : boolean,
+  'updatedAt' : bigint,
+  'layananId' : string,
+  'unitOnHold' : bigint,
+}
+export type LayananType = { 'BusinessConsulting' : null } |
+  { 'LegalServices' : null } |
+  { 'FinancialPlanning' : null } |
+  { 'DigitalMarketing' : null } |
+  { 'VirtualAssistant' : null } |
+  { 'Other' : string };
+export type MasterDataKey = string;
 export interface PartnerProfile {
   'keahlian' : string,
   'name' : string,
@@ -33,6 +84,16 @@ export interface PartnerProfile {
   'email' : string,
   'domisili' : string,
 }
+export interface SkillVerified {
+  'aktif' : boolean,
+  'kode' : string,
+  'nama' : string,
+  'createdAt' : bigint,
+  'kategori' : string,
+}
+export type TipePartner = { 'junior' : null } |
+  { 'senior' : null } |
+  { 'expert' : null };
 export type UserRole = { 'client' : ClientProfile } |
   { 'internal' : InternalProfile } |
   { 'superadmin' : null } |
@@ -40,22 +101,97 @@ export type UserRole = { 'client' : ClientProfile } |
 export type UserRole__1 = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
+export type UserStatus = { 'active' : null } |
+  { 'pending' : null } |
+  { 'suspended' : null } |
+  { 'blacklisted' : null };
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole__1], undefined>,
   'claimSuperadmin' : ActorMethod<[], undefined>,
+  'createLayananForClient' : ActorMethod<
+    [string, string, LayananType, bigint],
+    string
+  >,
+  'createLayananForClientV2' : ActorMethod<[Principal, string, bigint], string>,
   'getAllUsers' : ActorMethod<[], Array<[Principal, UserRole]>>,
+  'getAturanBeban' : ActorMethod<[string], [] | [AturanBebanPerusahaan]>,
   'getCallerUser' : ActorMethod<[], [] | [UserRole]>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserRole]>,
   'getCallerUserRole' : ActorMethod<[], UserRole__1>,
+  'getHourlyRateByLevel' : ActorMethod<[TipePartner], bigint>,
+  'getKamusPekerjaan' : ActorMethod<[string], [] | [KamusPekerjaan]>,
+  'getKonstantaUnitClient' : ActorMethod<[], KonstantaUnitClient>,
+  'getLayananMeta' : ActorMethod<[string], [] | [LayananMeta]>,
+  'getMasterData' : ActorMethod<[MasterDataKey], string>,
+  'getMasterDataMap' : ActorMethod<[], [] | [Array<[string, string]>]>,
+  'getMyHourlyRate' : ActorMethod<[], bigint>,
+  'getMyLayananMeta' : ActorMethod<[string], [] | [LayananMeta]>,
+  'getMyPartnerLevel' : ActorMethod<[], TipePartner>,
   'getMyUserId' : ActorMethod<[], [] | [string]>,
+  'getMyUserStatus' : ActorMethod<[], UserStatus>,
+  'getPartnerLevel' : ActorMethod<[Principal], TipePartner>,
+  'getPartnerVerifiedSkills' : ActorMethod<[Principal], Array<string>>,
+  'getRates' : ActorMethod<[], [bigint, bigint, bigint]>,
+  'getSkillVerified' : ActorMethod<[string], [] | [SkillVerified]>,
   'getUser' : ActorMethod<[Principal], [] | [UserRole]>,
+  'getUserIdByPrincipal' : ActorMethod<[Principal], [] | [string]>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserRole]>,
+  'getUserStatus' : ActorMethod<[Principal], UserStatus>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
+  'kalkulatorAM' : ActorMethod<
+    [string, TipePartner, bigint],
+    { 'jamKePartner' : bigint, 'unitClient' : bigint, 'jamPerusahaan' : bigint }
+  >,
+  'listAturanBeban' : ActorMethod<[], Array<AturanBebanPerusahaan>>,
+  'listKamusPekerjaan' : ActorMethod<[], Array<KamusPekerjaan>>,
+  'listMyLayanan' : ActorMethod<[], Array<LayananAsistenku>>,
+  'listMyLayananV2' : ActorMethod<[], Array<string>>,
+  'listPartnerVerifiedSkills' : ActorMethod<
+    [],
+    Array<[Principal, Array<string>]>
+  >,
+  'listSkillVerified' : ActorMethod<[], Array<SkillVerified>>,
+  'listUsersBasic' : ActorMethod<
+    [string],
+    Array<[Principal, string, string, UserStatus]>
+  >,
+  'listUsersByStatus' : ActorMethod<[UserStatus], Array<Principal>>,
+  'pushMasterData' : ActorMethod<[MasterDataKey, string], undefined>,
   'registerClient' : ActorMethod<[ClientProfile], undefined>,
   'registerInternal' : ActorMethod<[InternalProfile], undefined>,
   'registerPartner' : ActorMethod<[PartnerProfile], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserRole], undefined>,
+  'setKonstantaUnitClient' : ActorMethod<[bigint], undefined>,
+  'setLayananActive' : ActorMethod<[string], undefined>,
+  'setLayananActiveV2' : ActorMethod<[string, boolean], string>,
+  'setPartnerLevel' : ActorMethod<[Principal, TipePartner], undefined>,
+  'setPartnerVerifiedSkills' : ActorMethod<
+    [Principal, Array<string>],
+    undefined
+  >,
+  'setUserStatus' : ActorMethod<[Principal, UserStatus], undefined>,
+  'upsertAturanBeban' : ActorMethod<
+    [
+      [] | [string],
+      TipePartner,
+      bigint,
+      bigint,
+      { 'TAMBAH_PER_JAM' : null } |
+        { 'TAMBAH_JAM_TETAP' : null },
+      bigint,
+      boolean,
+    ],
+    string
+  >,
+  'upsertKamusPekerjaan' : ActorMethod<
+    [[] | [string], string, string, bigint, Array<TipePartner>, boolean],
+    string
+  >,
+  'upsertSkillVerified' : ActorMethod<
+    [[] | [string], string, string, boolean],
+    string
+  >,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

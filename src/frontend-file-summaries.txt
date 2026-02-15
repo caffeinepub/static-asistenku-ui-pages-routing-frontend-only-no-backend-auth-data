@@ -16,5 +16,5 @@
   "frontend/src/pages/dashboards/ClientDashboard.tsx": "Static client dashboard with mini header and centered card displaying \"Ruang kendali kamu.\" using native HTML elements.",
   "frontend/src/pages/dashboards/PartnerDashboard.tsx": "Static partner dashboard with mini header and centered card displaying \"Ruang tumbuh dan tanggung jawabmu.\" using native HTML elements.",
   "frontend/src/index.css": "Global CSS file with Tailwind directives and OKLCH color system variables for light and dark modes, defining the complete design token system for the application.",
-  "backend/main.mo": "Complete Motoko backend actor implementing user authentication with superadmin (global role), client, partner, and internal roles (admin/finance/concierge/asistenmu only), userId auto-generation system, disabled saveCallerUserProfile function, and all registration/query functions with proper access control."
+  "backend/main.mo": "Complete Motoko backend actor with user authentication (superadmin, client, partner, internal roles), userId auto-generation, system master data functions, and new appended master data section for partner tiers, skills, pekerjaan, aturan beban, and verified skills management (all superadmin-only)."
 }

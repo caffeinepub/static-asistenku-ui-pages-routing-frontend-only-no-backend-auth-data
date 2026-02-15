@@ -1,46 +1,39 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-15T15:02:57.470Z",
+  "generatedAt": "2026-02-15T16:46:18.208Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 5,
+    "total": 4,
     "implemented": 0,
     "items": [
       {
-        "id": "REQ-33",
-        "summary": "Modify ONLY `backend/main.mo` to disable `saveCallerUserProfile(profile : UserRole)` while preserving its exact public signature, by making the function always call `Runtime.trap(\"Disabled: profile saving must use register* or admin-approved flows only.\");` and removing any `userRoles.add(...)`/write behavior from this function.",
+        "id": "REQ-57",
+        "summary": "Append a new append-only section at the very bottom of backend/main.mo (immediately before the actor’s final closing brace) with the exact header comment `// --- LAYANAN ASISTENKU V2 (APPEND ONLY, NO MIGRATION) ---`, then add the new public type `LayananMeta` exactly as specified (without modifying the existing `LayananAsistenku` type).",
         "status": "unknown",
         "plannedFiles": [],
         "matchedFiles": []
       },
       {
-        "id": "REQ-34",
-        "summary": "Update role typing in `backend/main.mo` so that `InternalRole` contains ONLY `#admin`, `#finance`, `#concierge`, and `#asistenmu`, and does NOT include `#superadmin`. Keep `UserRole`'s `#superadmin` variant unchanged. Keep `InternalProfile` unchanged (fields: name, email, whatsapp, role: InternalRole) with no new fields added.",
+        "id": "REQ-58",
+        "summary": "In the same appended V2 block in backend/main.mo, add new in-canister storage maps exactly named and typed: `let layananMetaById = Map.empty<Text, LayananMeta>();` and `let layananIdsByOwnerClient = Map.empty<Principal, [Text]>();`.",
         "status": "unknown",
         "plannedFiles": [],
         "matchedFiles": []
       },
       {
-        "id": "REQ-35",
-        "summary": "Add an automatic, consistent `userId` system in `backend/main.mo` without adding `userId` fields to any profile record types. Implement storage and helpers exactly as specified: (1) `var nextUserId : Nat = 1;` (2) `let userIdByPrincipal = Map.empty<Principal, Text>();` located near `let userRoles = ...` (3) `func genUserId() : Text` that returns `\"U\" + Nat` (e.g., `U1`, `U2`, ...) and increments `nextUserId` (4) `func ensureUserId(p : Principal) : Text` that returns an existing ID if present in the map, otherwise generates, stores, and returns a new ID.",
+        "id": "REQ-59",
+        "summary": "In the appended V2 block, reuse existing helper functions if already present; only define them if not already present: (1) `func now() : Int` using `Time.now()`; (2) `func requireAdminOrSuperadminImpl(caller : Principal)` that enforces the same authorization logic as the existing admin/superadmin gate in backend/main.mo (e.g., by calling existing `isAdmin`/`isSuperadmin` if those exist, or by reusing the existing `requireAdminOrSuperadminImpl` if already defined).",
         "status": "unknown",
         "plannedFiles": [],
         "matchedFiles": []
       },
       {
-        "id": "REQ-36",
-        "summary": "Ensure `ignore ensureUserId(caller);` is executed immediately before any `userRoles.add(caller, entry);` in ALL existing registration functions (`registerClient`, `registerPartner`, `registerInternal`) and also in `claimSuperadmin()` before setting `superadminClaimed := true;`. Do not change the existing rule that one principal can only register exactly one role, and keep the rest of the core logic unchanged.",
-        "status": "unknown",
-        "plannedFiles": [],
-        "matchedFiles": []
-      },
-      {
-        "id": "REQ-37",
-        "summary": "Add a new query method in the “User Queries” section of `backend/main.mo`: `public query ({ caller }) func getMyUserId() : async ?Text { userIdByPrincipal.get(caller); }` returning `null` if the caller has no userId and `?Text` if present (including superadmin).",
+        "id": "REQ-60",
+        "summary": "Append the following new public methods in the appended V2 block, with the exact names, signatures, and return values specified, and with the specified behavior:\n\n1) `public shared({caller}) func createLayananForClientV2(ownerClient : Principal, layananId : Text, unitTotal : Nat) : async Text`\n- Gate with `requireAdminOrSuperadminImpl(caller)`\n- Validate `layananId` exists in the existing `layananById`; if missing return exactly `\"LAYANAN_NOT_FOUND\"`\n- Create/update meta (overwrite allowed) in `layananMetaById` with: `unitUsed = 0`, `unitOnHold = 0`, `isActive = true`, `createdAt = now()`, `updatedAt = now()` and the provided `ownerClient`, `unitTotal`, `layananId`\n- Ensure `layananId` is present in `layananIdsByOwnerClient[ownerClient]`; append only if not already present\n- Return exactly `\"OK\"`\n\n2) `public shared({caller}) func setLayananActiveV2(layananId : Text, isActive : Bool) : async Text`\n- Gate with `requireAdminOrSuperadminImpl(caller)`\n- If `layananMetaById` has no entry for `layananId`, return exactly `\"NOT_FOUND\"`\n- Otherwise update only `isActive` and `updatedAt` (keep other fields unchanged) and return exactly `\"OK\"`\n\n3) `public query({caller}) func listMyLayananV2() : async [Text]`\n- Caller must be authenticated using the same check style used by the existing `listMyLayanan`\n- Return `layananIdsByOwnerClient[caller]` or `[]` if missing\n\n4) `public query({caller}) func getLayananMeta(layananId : Text) : async ?LayananMeta`\n- Gate with `requireAdminOrSuperadminImpl(caller)`\n- Return `layananMetaById.get(layananId)`\n\n5) `public query({caller}) func getMyLayananMeta(layananId : Text) : async ?LayananMeta`\n- Caller must be authenticated\n- Return the meta only if it exists and `meta.ownerClient == caller`, otherwise return `null`.",
         "status": "unknown",
         "plannedFiles": [],
         "matchedFiles": []
@@ -49,10 +42,8 @@
   },
   "changedFiles": [
     "backend/main.mo",
-    "backend/migration.mo",
     "build-request.json",
     "feature_evidence.json",
-    "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
     "frontend/src/backend.d.ts",
     "frontend/src/backend.ts",

@@ -1,6 +1,6 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Frontend plan: no changes (BuildRequest is backend-only patch)",
+  "title": "No frontend changes required for backend-only V2 metadata append",
   "requirements": []
 }
