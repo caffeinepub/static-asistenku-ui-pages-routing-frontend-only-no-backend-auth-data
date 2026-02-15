@@ -1,13 +1,14 @@
 # Specification
 
 ## Summary
-**Goal:** Add an append-only “Layanan Asistenku V2” metadata block to the bottom of `backend/main.mo` to support per-layanan metadata storage and access methods without changing existing (V1) types, storage, or behavior.
+**Goal:** Enable the full Internal Login flow on `/internal/login` using Internet Identity login and backend role validation/claim checks, while keeping the rest of the app unchanged.
 
 **Planned changes:**
-- Append a new section at the very bottom of `backend/main.mo` (before the actor’s final `}`) with the exact header comment `// --- LAYANAN ASISTENKU V2 (APPEND ONLY, NO MIGRATION) ---`.
-- Add a new public type `LayananMeta` with the specified fields and types (without modifying the existing `LayananAsistenku` type).
-- Add new in-canister maps `layananMetaById` and `layananIdsByOwnerClient` with the exact names and types.
-- Reuse existing helper functions for `now()` and `requireAdminOrSuperadminImpl(caller)` if present; otherwise define them in the appended block.
-- Append new V2 public methods: `createLayananForClientV2`, `setLayananActiveV2`, `listMyLayananV2`, `getLayananMeta`, and `getMyLayananMeta` with the specified signatures, authorization/authentication checks, and exact return strings.
+- Modify only `frontend/src/pages/internal/InternalLogin.tsx` to implement the “Model A” login flow using existing Internet Identity and actor hooks (no new auth implementation, no direct fetch).
+- Add the required UI state machine and sequencing: call `isSuperadminClaimed()` exactly once on mount; allow II login via button; do not auto-call `getCallerUser()` after II login; no auto-redirect on mount.
+- Update the role grid to always show 8 selectable role cards with exact keys: `admin`, `asistenmu`, `concierge`, `strategicpartner`, `manajer`, `finance`, `management`, `superadmin`; selecting clears warning text.
+- Implement “Ruang kerja” gating (enabled only when II logged in + role selected) and on-click decision tree: call `getCallerUser()` once, handle unregistered/mismatch/status warnings, and redirect only to the fixed mapped dashboard route on success.
+- Implement Superadmin claim UI/logic in the Superadmin card area (visibility conditions, `claimSuperadmin()` call, loading state, claimed/already-claimed outcomes, redirect on successful claim).
+- Preserve existing layout/styling and add only minimal UI elements needed (enabled/disabled states, Superadmin claim button placement, and warning text area), with defensive error handling to avoid crashes.
 
-**User-visible outcome:** Admin/superadmin can create and manage V2 layanan metadata and activation status, while authenticated users can list their layanan IDs and fetch their own layanan metadata when they are the owner.
+**User-visible outcome:** Users can log in with Internet Identity on the Internal Login page, select an internal role, and enter the correct dashboard only after backend validation; Superadmin can be claimed from the Superadmin card when available, and clear warnings are shown for unregistered, mismatched role, pending approval, or backend errors.

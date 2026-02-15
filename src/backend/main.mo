@@ -7,9 +7,9 @@ import Principal "mo:core/Principal";
 import Time "mo:core/Time";
 import Array "mo:core/Array";
 import Runtime "mo:core/Runtime";
+import Iter "mo:core/Iter";
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
-import Iter "mo:core/Iter";
 
 actor {
   let accessControlState = AccessControl.initState();
@@ -72,7 +72,7 @@ actor {
   };
 
   let userRoles = Map.empty<Principal, UserRole>();
-  var superadminClaimed = false;
+  stable var superadminClaimed = false;
 
   public shared ({ caller }) func registerClient(profile : ClientProfile) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
@@ -568,6 +568,16 @@ actor {
     };
   };
 
+  func requireActiveStatus(caller : Principal) {
+    let status = getUserStatusInternal(caller);
+    switch (status) {
+      case (#active) { () };
+      case (#pending) { Runtime.trap("Unauthorized: User account is pending approval") };
+      case (#suspended) { Runtime.trap("Unauthorized: User account is suspended") };
+      case (#blacklisted) { Runtime.trap("Unauthorized: User account is blacklisted") };
+    };
+  };
+
   func isPartnerRole(principal : Principal) : Bool {
     switch (userRoles.get(principal)) {
       case (?role) {
@@ -783,6 +793,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only authenticated users can create layanan");
     };
+    requireActiveStatus(caller);
 
     let id = nextLayananId();
     let layanan : LayananAsistenku = {
@@ -962,6 +973,807 @@ actor {
           ?meta;
         };
       };
+    };
+  };
+
+  // --- TASK FLOW V1 (APPEND ONLY, NO MIGRATION) ---
+
+  public type TaskPhase = {
+    #permintaan_baru;
+    #ditolak_partner;
+    #on_progress;
+    #qa_asistenku;
+    #review_client;
+    #revisi;
+    #selesai;
+    #dibatalkan_client;
+  };
+
+  public type Task = {
+    taskId : Text;
+    ownerClient : Principal;
+    layananId : Text;
+    title : Text;
+    detail : Text;
+    requestType : Text;
+    phase : TaskPhase;
+    assignedPartner : ?Principal;
+    jamEfektif : ?Nat;
+    unitTerpakai : ?Nat;
+    breakdownAM : ?Text;
+    lastRejectReason : ?Text;
+    createdAt : Int;
+    updatedAt : Int;
+  };
+
+  stable var taskCounter : Nat = 0;
+  let taskById = Map.empty<Text, Task>();
+  let taskIdsByClient = Map.empty<Principal, [Text]>();
+  let taskIdsByPartner = Map.empty<Principal, [Text]>();
+
+  func nowSync() : Int {
+    Time.now();
+  };
+
+  func pad6(n : Nat) : Text {
+    let size = n.toText().size();
+    let zeros = Int.abs((6 - size).toInt());
+    let zeroPadding = repeatN("0", zeros);
+    let numText = n.toText();
+    zeroPadding.concat(numText);
+  };
+
+  func nextTaskId() : Text {
+    taskCounter += 1;
+    "TSK-" # pad6(taskCounter);
+  };
+
+  //-------------------------------- Internal Helpers ---------------------------------
+  //---------------------------------------- Role Guards
+
+  func requireRegistered(caller : Principal) {
+    if (not userRoles.containsKey(caller)) {
+      Runtime.trap("Anda harus terdaftar sebagai pengguna");
+    };
+  };
+
+  func requireClientRole(caller : Principal) {
+    switch (userRoles.get(caller)) {
+      case (?#client(_profile)) { () };
+      case (_) { Runtime.trap("Akses ditolak: Hanya klien dapat melakukan aksi ini"); };
+    };
+  };
+
+  func requireAsistenmuRole(caller : Principal) {
+    switch (userRoles.get(caller)) {
+      case (?#internal(profile)) {
+        switch (profile.role) {
+          case (#asistenmu) { () };
+          case (_) { Runtime.trap("Akses ditolak: Hanya pengguna asistenmu dapat melakukan aksi ini") };
+        };
+      };
+      case (_) { Runtime.trap("Akses ditolak: Harus pengguna asistenmu dapat melakukan aksi ini") };
+    };
+  };
+
+  func requirePartnerRole(caller : Principal) {
+    switch (userRoles.get(caller)) {
+      case (?#partner(_profile)) { () };
+      case (_) { Runtime.trap("Akses ditolak: Hanya partner dapat melakukan aksi ini") };
+    };
+  };
+
+  func requireAdminOrSuperadmin(caller : Principal) {
+    switch (userRoles.get(caller)) {
+      case (?#superadmin) { () };
+      case (?#internal(profile)) {
+        switch (profile.role) {
+          case (#admin) { () };
+          case (_) { Runtime.trap("Akses ditolak: Hanya admin/superadmin boleh melakukan aksi ini") };
+        };
+      };
+      case (_) { Runtime.trap("Akses ditolak: Hanya admin/superadmin boleh melakukan aksi ini") };
+    };
+  };
+
+  //---------------------------------------- Text Utilities (for Indexing) ------------
+
+  func repeatChar(char : Text, count : Nat) : Text {
+    var result = "";
+    for (i in Nat.range(0, count)) {
+      result #= char;
+    };
+    result;
+  };
+
+  //---------------------------------------- Index Helpers ----------------------------
+
+  func appendUniquePrincipalIndex(map : Map.Map<Principal, [Text]>, key : Principal, id : Text) : () {
+    let current = switch (map.get(key)) {
+      case (?arr) { arr };
+      case (null) { [] };
+    };
+    map.add(key, current.concat([id]));
+  };
+
+  func appendUniqueTextIndex(map : Map.Map<Text, [Text]>, key : Text, id : Text) : () {
+    let current = switch (map.get(key)) {
+      case (?arr) { arr };
+      case (null) { [] };
+    };
+    map.add(key, current.concat([id]));
+  };
+
+  //---------------------------------------- LayananMeta Validations ------------------
+
+  func requireLayananActiveForClient(owner : Principal, layananId : Text) : Bool {
+    switch (layananMetaById.get(layananId)) {
+      case (?meta) { meta.ownerClient == owner and meta.isActive };
+      case (null) { false };
+    };
+  };
+
+  func availableUnit(meta : LayananMeta) : Nat {
+    let total = meta.unitTotal;
+    let used = meta.unitUsed;
+    let held = meta.unitOnHold;
+    if (total < used + held) { 0 } else { total - (used + held) };
+  };
+
+  //-------------------------------- Task Flow ----------------------
+
+  public shared ({ caller }) func createTask(layananId : Text, title : Text, detail : Text, requestType : Text) : async Text {
+    requireRegistered(caller);
+    requireClientRole(caller);
+    requireActiveStatus(caller);
+
+    if (not requireLayananActiveForClient(caller, layananId)) { return "LAYANAN_UNAVAILABLE" };
+
+    let newTaskId = nextTaskId();
+
+    let newTask : Task = {
+      taskId = newTaskId;
+      ownerClient = caller;
+      layananId;
+      title;
+      detail;
+      requestType;
+      phase = #permintaan_baru;
+      assignedPartner = null;
+      jamEfektif = null;
+      unitTerpakai = null;
+      breakdownAM = null;
+      lastRejectReason = null;
+      createdAt = nowSync();
+      updatedAt = nowSync();
+    };
+
+    taskById.add(newTaskId, newTask);
+    appendUniquePrincipalIndex(taskIdsByClient, caller, newTaskId);
+
+    newTaskId;
+  };
+
+  public shared ({ caller }) func cancelTask(taskId : Text) : async Text {
+    requireRegistered(caller);
+    requireClientRole(caller);
+    requireActiveStatus(caller);
+
+    switch (taskById.get(taskId)) {
+      case (?task) {
+        if (task.phase != #permintaan_baru) { return "ALREADY_PROCESSED" };
+        if (task.ownerClient != caller) { return "NOT_OWNER" };
+
+        let updatedTask = { task with phase = #dibatalkan_client; updatedAt = nowSync() };
+        taskById.add(taskId, updatedTask);
+        "OK";
+      };
+      case (null) { "NOT_FOUND" };
+    };
+  };
+
+  public shared ({ caller }) func delegateTask(taskId : Text, partner : Principal, jamEfektif : Nat, unitTerpakai : Nat, breakdownAM : Text) : async Text {
+    requireRegistered(caller);
+    requireAsistenmuRole(caller);
+    requireActiveStatus(caller);
+
+    let partnerStatus = getUserStatusInternal(partner);
+    switch (partnerStatus) {
+      case (#active) { () };
+      case (_) { return "PARTNER_NOT_ACTIVE" };
+    };
+
+    switch (taskById.get(taskId)) {
+      case (?task) {
+        if (task.phase != #permintaan_baru) { return "ALREADY_PROCESSED" };
+
+        switch (layananMetaById.get(task.layananId)) {
+          case (null) { return "LAYANAN_META_NOT_FOUND" };
+          case (?meta) {
+            if (availableUnit(meta) < unitTerpakai) { return "INSUFFICIENT_UNITS" };
+
+            let updatedMeta : LayananMeta = {
+              meta with
+              unitOnHold = meta.unitOnHold + unitTerpakai;
+              updatedAt = nowSync();
+            };
+            layananMetaById.add(task.layananId, updatedMeta);
+
+            let updatedTask = {
+              task with
+              phase = #on_progress;
+              assignedPartner = ?partner;
+              jamEfektif = ?jamEfektif;
+              unitTerpakai = ?unitTerpakai;
+              breakdownAM = ?breakdownAM;
+              updatedAt = nowSync();
+            };
+            taskById.add(taskId, updatedTask);
+            appendUniquePrincipalIndex(taskIdsByPartner, partner, taskId);
+            "OK";
+          };
+        };
+      };
+      case (null) { "NOT_FOUND" };
+    };
+  };
+
+  public shared ({ caller }) func partnerAccept(taskId : Text) : async Text {
+    requireRegistered(caller);
+    requirePartnerRole(caller);
+    requireActiveStatus(caller);
+
+    switch (taskById.get(taskId)) {
+      case (?task) {
+        if (not isTaskOwnerPartner(task, caller)) { return "NOT_OWNER" };
+        if (task.phase != #on_progress) { return "NOT_ALLOWED" };
+        let updatedTask = { task with phase = #qa_asistenku; updatedAt = nowSync() };
+        taskById.add(taskId, updatedTask);
+        "OK";
+      };
+      case (null) { "NOT_FOUND" };
+    };
+  };
+
+  public shared ({ caller }) func partnerReject(taskId : Text, reason : Text) : async Text {
+    requireRegistered(caller);
+    requirePartnerRole(caller);
+    requireActiveStatus(caller);
+
+    switch (taskById.get(taskId)) {
+      case (?task) {
+        if (not isTaskOwnerPartner(task, caller)) { return "NOT_OWNER" };
+        if (task.phase != #on_progress) { return "NOT_ALLOWED" };
+
+        switch (task.unitTerpakai) {
+          case (?units) {
+            switch (layananMetaById.get(task.layananId)) {
+              case (?meta) {
+                let updatedMeta : LayananMeta = {
+                  meta with
+                  unitOnHold = if (meta.unitOnHold >= units) { meta.unitOnHold - units } else { 0 };
+                  updatedAt = nowSync();
+                };
+                layananMetaById.add(task.layananId, updatedMeta);
+              };
+              case (null) { () };
+            };
+          };
+          case (null) { () };
+        };
+
+        let updatedTask = {
+          task with
+          phase = #ditolak_partner;
+          lastRejectReason = ?reason;
+          updatedAt = nowSync();
+        };
+        taskById.add(taskId, updatedTask);
+        "OK";
+      };
+      case (null) { "NOT_FOUND" };
+    };
+  };
+
+  public shared ({ caller }) func moveToQa(taskId : Text) : async Text {
+    requireRegistered(caller);
+    requireAsistenmuRole(caller);
+    requireActiveStatus(caller);
+
+    switch (taskById.get(taskId)) {
+      case (?task) {
+        if (task.phase != #qa_asistenku) { return "NOT_ALLOWED" };
+        let updatedTask = { task with phase = #review_client; updatedAt = nowSync() };
+        taskById.add(taskId, updatedTask);
+        "OK";
+      };
+      case (null) { "NOT_FOUND" };
+    };
+  };
+
+  public shared ({ caller }) func moveToReviewClient(taskId : Text) : async Text {
+    requireRegistered(caller);
+    requireAsistenmuRole(caller);
+    requireActiveStatus(caller);
+
+    switch (taskById.get(taskId)) {
+      case (?task) {
+        if (task.phase != #qa_asistenku) { return "NOT_ALLOWED" };
+        let updatedTask = { task with phase = #review_client; updatedAt = nowSync() };
+        taskById.add(taskId, updatedTask);
+        "OK";
+      };
+      case (null) { "NOT_FOUND" };
+    };
+  };
+
+  func isTaskOwnerPartner(task : Task, partner : Principal) : Bool {
+    switch (task.assignedPartner) {
+      case (null) { false };
+      case (?assigned) { assigned == partner };
+    };
+  };
+
+  public shared ({ caller }) func requestRevisiInternal(taskId : Text, reason : Text) : async Text {
+    requireRegistered(caller);
+    requireAsistenmuRole(caller);
+    requireActiveStatus(caller);
+
+    switch (taskById.get(taskId)) {
+      case (?task) {
+        matchRevisiInternalFlow(task, taskId, reason);
+      };
+      case (null) { "NOT_FOUND" };
+    };
+  };
+
+  func matchRevisiInternalFlow(task : Task, taskId : Text, reason : Text) : Text {
+    switch (task.phase) {
+      case (#qa_asistenku) {
+        let updatedTask = { task with phase = #revisi; lastRejectReason = ?reason; updatedAt = nowSync() };
+        taskById.add(taskId, updatedTask);
+
+        let revResult = setRevisiInternal(taskId, reason);
+        if (revResult == "OK") { "OK" } else { revResult };
+      };
+      case (_) { "NOT_ALLOWED" };
+    };
+  };
+
+  public shared ({ caller }) func requestRevisiClient(taskId : Text, reason : Text) : async Text {
+    requireRegistered(caller);
+    requireClientRole(caller);
+    requireActiveStatus(caller);
+
+    switch (taskById.get(taskId)) {
+      case (?task) {
+        matchRevisiClientFlow(task, taskId, reason);
+      };
+      case (null) { "NOT_FOUND" };
+    };
+  };
+
+  func matchRevisiClientFlow(task : Task, taskId : Text, reason : Text) : Text {
+    switch (task.phase) {
+      case (#review_client) {
+        let updatedTask = { task with phase = #revisi; lastRejectReason = ?reason; updatedAt = nowSync() };
+        taskById.add(taskId, updatedTask);
+
+        let revResult = setRevisiClient(taskId, reason);
+
+        if (revResult == "OK") { "OK" } else { revResult };
+      };
+      case (_) { "NOT_ALLOWED" };
+    };
+  };
+
+  public shared ({ caller }) func backToProgressFromRevisi(taskId : Text) : async Text {
+    requireRegistered(caller);
+    requireAsistenmuRole(caller);
+    requireActiveStatus(caller);
+
+    switch (taskById.get(taskId)) {
+      case (?task) {
+        if (task.phase != #revisi) { return "NOT_ALLOWED" };
+        let updatedTask = { task with phase = #on_progress; updatedAt = nowSync() };
+        taskById.add(taskId, updatedTask);
+        "OK";
+      };
+      case (null) { "NOT_FOUND" };
+    };
+  };
+
+  public shared ({ caller }) func clientMarkSelesai(taskId : Text) : async Text {
+    requireRegistered(caller);
+    requireClientRole(caller);
+    requireActiveStatus(caller);
+
+    switch (taskById.get(taskId)) {
+      case (?task) {
+        matchMarkSelesaiFlow(task, taskId, caller);
+      };
+      case (null) { "NOT_FOUND" };
+    };
+  };
+
+  func matchMarkSelesaiFlow(task : Task, taskId : Text, caller : Principal) : Text {
+    if (task.ownerClient != caller) { return "NOT_OWNER" };
+    switch (task.phase) {
+      case (#review_client) {
+        switch (task.unitTerpakai) {
+          case (?units) {
+            switch (layananMetaById.get(task.layananId)) {
+              case (?meta) {
+                let updatedMeta : LayananMeta = {
+                  meta with
+                  unitOnHold = if (meta.unitOnHold >= units) { meta.unitOnHold - units } else { 0 };
+                  unitUsed = meta.unitUsed + units;
+                  updatedAt = nowSync();
+                };
+                layananMetaById.add(task.layananId, updatedMeta);
+              };
+              case (null) { () };
+            };
+          };
+          case (null) { () };
+        };
+
+        let updatedTask = { task with phase = #selesai; updatedAt = nowSync() };
+        taskById.add(taskId, updatedTask);
+        "OK";
+      };
+      case (#revisi) {
+        switch (task.unitTerpakai) {
+          case (?units) {
+            switch (layananMetaById.get(task.layananId)) {
+              case (?meta) {
+                let updatedMeta : LayananMeta = {
+                  meta with
+                  unitOnHold = if (meta.unitOnHold >= units) { meta.unitOnHold - units } else { 0 };
+                  unitUsed = meta.unitUsed + units;
+                  updatedAt = nowSync();
+                };
+                layananMetaById.add(task.layananId, updatedMeta);
+              };
+              case (null) { () };
+            };
+          };
+          case (null) { () };
+        };
+
+        let updatedTask = { task with phase = #selesai; updatedAt = nowSync() };
+        taskById.add(taskId, updatedTask);
+        "OK";
+      };
+      case (_) { "NOT_ALLOWED" };
+    };
+  };
+
+  //-------------------------------- Query Methods -------------------------------------
+  public query ({ caller }) func listMyTasks() : async [Task] {
+    requireRegistered(caller);
+    fetchTaskListByRole(caller);
+  };
+
+  func fetchTaskListByRole(caller : Principal) : [Task] {
+    fetchRoleKeys(caller, fetchTaskListWorker);
+  };
+
+  func fetchRoleKeys(caller : Principal, fetchTaskListWorker : (Principal, [(Text, Task)]) -> [Task]) : [Task] {
+    let all = taskById.toArray();
+    fetchTaskListWorker(caller, all);
+  };
+
+  func fetchTaskListWorker(caller : Principal, all : [(Text, Task)]) : [Task] {
+    if (isClientRole(caller)) { filterTaskArray(all, filterClient(caller)) } else if (isPartnerRole(caller)) {
+      filterTaskArray(all, filterPartner(caller));
+    } else if (isAsistenmuRole(caller)) { filterTaskArray(all, filterAll) } else {
+      [];
+    };
+  };
+
+  func filterClient(caller : Principal) : Task -> Bool {
+    func(task) { task.ownerClient == caller };
+  };
+
+  func filterPartner(caller : Principal) : Task -> Bool {
+    func(task) { isTaskOwnerPartner(task, caller) };
+  };
+
+  func filterAll(_task : Task) : Bool { true };
+
+  func filterTaskArray(array : [(Text, Task)], predicate : Task -> Bool) : [Task] {
+    let taskArray = List.empty<Task>();
+
+    for (entry in array.values()) {
+      let (k, task) = entry;
+      if (predicate(task)) {
+        taskArray.add(task);
+      };
+    };
+
+    taskArray.toArray();
+  };
+
+  func isClientRole(caller : Principal) : Bool {
+    switch (userRoles.get(caller)) {
+      case (?#client(_profile)) { true };
+      case (_) { false };
+    };
+  };
+
+  func isAsistenmuRole(caller : Principal) : Bool {
+    switch (userRoles.get(caller)) {
+      case (?#internal(profile)) { profile.role == #asistenmu };
+      case (_) { false };
+    };
+  };
+
+  public query ({ caller }) func getTask(taskId : Text) : async ?Task {
+    requireRegistered(caller);
+
+    switch (taskById.get(taskId)) {
+      case (null) { null };
+      case (?task) {
+        if (isClientRole(caller) and task.ownerClient == caller) {
+          ?task;
+        } else if (isPartnerRole(caller) and isTaskOwnerPartner(task, caller)) {
+          ?task;
+        } else if (isAsistenmuRole(caller)) {
+          ?task;
+        } else {
+          null;
+        };
+      };
+    };
+  };
+
+  // --- Placeholder revision functions invoked by requestRevisi methods. Must not be removed.
+  func setRevisiInternal(_taskId : Text, _reason : Text) : Text { "OK" };
+  func setRevisiClient(_taskId : Text, _reason : Text) : Text { "OK" };
+
+  // APPEND-ONLY SECTION: LAYANAN PAKET + SHARING RULE
+  // THIS SECTION MUST COME LAST. DO NOT INSERT CODE BELOW THIS BLOCK.
+
+  public type PaketLayanan = {
+    #tenang;
+    #rapi;
+    #fokus;
+    #jaga;
+  };
+
+  public type LayananPaketMeta = {
+    layananId : Text;
+    ownerClient : Principal;
+    paket : PaketLayanan;
+    harga : Nat;
+    isActive : Bool;
+    sharedWith : [Principal];
+    createdAt : Int;
+    updatedAt : Int;
+  };
+
+  let layananPaketById = Map.empty<Text, LayananPaketMeta>();
+  let layananIdsByPrincipal = Map.empty<Principal, [Text]>();
+
+  func shareLimitV3(p : PaketLayanan) : Nat {
+    switch (p) {
+      case (#tenang) { 2 };
+      case (#rapi) { 2 };
+      case (#fokus) { 3 };
+      case (#jaga) { 4 };
+    };
+  };
+
+  func arrayContainsPrincipalV3(arr : [Principal], p : Principal) : Bool {
+    switch (arr.find(func(x) { x == p })) {
+      case (null) { false };
+      case (?_any) { true };
+    };
+  };
+
+  func upsertIndexV3(principal : Principal, layananId : Text) : () {
+    let current = switch (layananIdsByPrincipal.get(principal)) {
+      case (null) { [] };
+      case (?arr) { arr };
+    };
+    if (not arrayContains(current, layananId)) {
+      layananIdsByPrincipal.add(principal, current.concat([layananId]));
+    };
+  };
+
+  func canAccessLayananV3(principal : Principal, meta : LayananPaketMeta) : Bool {
+    arrayContainsPrincipalV3(meta.sharedWith, principal);
+  };
+
+  func nowIntV3() : Int { Time.now() };
+
+  func requireAdminOrSuperadminV3(caller : Principal) {
+    switch (userRoles.get(caller)) {
+      case (?#superadmin) { () };
+      case (?#internal(profile)) {
+        switch (profile.role) {
+          case (#admin) { () };
+          case (_) { Runtime.trap("Permission denied. Only admin or superadmin can perform this action.") };
+        };
+      };
+      case (_) { Runtime.trap("Permission denied. Only admin or superadmin can perform this action.") };
+    };
+  };
+
+  public shared ({ caller }) func createLayananPaketForClientV3(ownerClient : Principal, paket : PaketLayanan, harga : Nat, layananId : Text) : async Text {
+    requireAdminOrSuperadminV3(caller);
+
+    if (not layananById.containsKey(layananId)) {
+      return "LAYANAN_NOT_FOUND";
+    };
+
+    let newMeta : LayananPaketMeta = {
+      layananId;
+      ownerClient;
+      paket;
+      harga;
+      isActive = true;
+      sharedWith = [ownerClient];
+      createdAt = nowIntV3();
+      updatedAt = nowIntV3();
+    };
+    layananPaketById.add(layananId, newMeta);
+    upsertIndexV3(ownerClient, layananId);
+
+    "OK";
+  };
+
+  public shared ({ caller }) func setLayananPaketActiveV3(layananId : Text, isActive : Bool) : async Text {
+    requireAdminOrSuperadminV3(caller);
+    switch (layananPaketById.get(layananId)) {
+      case (null) { "NOT_FOUND" };
+      case (?existingMeta) {
+        let updatedMeta : LayananPaketMeta = {
+          existingMeta with
+          isActive;
+          updatedAt = nowIntV3();
+        };
+        layananPaketById.add(layananId, updatedMeta);
+        "OK";
+      };
+    };
+  };
+
+  public shared ({ caller }) func shareLayananPaketV3(layananId : Text, target : Principal) : async Text {
+    requireAdminOrSuperadminV3(caller);
+
+    switch (layananPaketById.get(layananId)) {
+      case (null) { "NOT_FOUND" };
+      case (?existingMeta) {
+        let existingShared = existingMeta.sharedWith;
+        if (arrayContainsPrincipalV3(existingShared, target)) { return "ALREADY_SHARED" };
+        let currentCount = existingShared.size();
+        let shareLimit = shareLimitV3(existingMeta.paket);
+
+        if (currentCount >= shareLimit) { return "SHARE_LIMIT_REACHED" };
+        let updatedMeta : LayananPaketMeta = {
+          existingMeta with
+          sharedWith = existingShared.concat([target]);
+          updatedAt = nowIntV3();
+        };
+        layananPaketById.add(layananId, updatedMeta);
+        upsertIndexV3(target, layananId);
+        "OK";
+      };
+    };
+  };
+
+  public query ({ caller }) func listMyLayananPaketIdsV3() : async [Text] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can access this endpoint");
+    };
+    switch (layananIdsByPrincipal.get(caller)) {
+      case (null) { [] };
+      case (?ids) { ids };
+    };
+  };
+
+  public query ({ caller }) func getLayananPaketMetaV3(layananId : Text) : async ?LayananPaketMeta {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can access this endpoint");
+    };
+    switch (layananPaketById.get(layananId)) {
+      case (null) { null };
+      case (?meta) {
+        if (isAdmin(caller)) { ?meta } else if (canAccessLayananV3(caller, meta)) {
+          ?meta;
+        } else {
+          null;
+        };
+      };
+    };
+  };
+
+  // -----------------------------------------------------------------------------
+  // APPEND-ONLY SECTION: Task UI Restrictions
+  // This section must always come last, do not insert code below this block.
+  // -----------------------------------------------------------------------------
+
+  public query ({ caller }) func canCreateTaskUI() : async Bool {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can access this endpoint");
+    };
+
+    requireRegistered(caller);
+
+    if (not isClientRole(caller)) {
+      return false;
+    };
+
+    let status = getUserStatusInternal(caller);
+    switch (status) {
+      case (#active) {};
+      case (_) { return false };
+    };
+
+    switch (layananIdsByOwnerClient.get(caller)) {
+      case (null) { return false };
+      case (?ids) {
+        for (id in ids.vals()) {
+          switch (layananMetaById.get(id)) {
+            case (?meta) {
+              if (meta.isActive) { return true };
+            };
+            case (_) {};
+          };
+        };
+        return false;
+      };
+    };
+  };
+
+  public shared ({ caller }) func transitionTaskPhase(taskId : Text, newPhase : TaskPhase) : async Text {
+    requireRegistered(caller);
+    requireActiveStatus(caller);
+
+    let task = switch (taskById.get(taskId)) {
+      case (null) { return "NOT_FOUND" };
+      case (?task) { task };
+    };
+
+    if (not hasTaskAccess(task, caller)) {
+      return "NOT_AUTHORIZED";
+    };
+
+    if (not isValidTransition(task.phase, newPhase, caller)) {
+      return "INVALID_TRANSITION";
+    };
+
+    let updatedTask = { task with phase = newPhase; updatedAt = nowSync() };
+    taskById.add(taskId, updatedTask);
+    "OK";
+  };
+
+  func hasTaskAccess(task : Task, caller : Principal) : Bool {
+    if (isClientRole(caller)) {
+      task.ownerClient == caller;
+    } else if (isPartnerRole(caller)) {
+      isTaskOwnerPartner(task, caller);
+    } else if (isAsistenmuRole(caller)) {
+      true;
+    } else {
+      false;
+    };
+  };
+
+  func isValidTransition(current : TaskPhase, next : TaskPhase, caller : Principal) : Bool {
+    switch (current, next) {
+      case (#permintaan_baru, #on_progress) { isAsistenmuRole(caller) };
+      case (#on_progress, #qa_asistenku) { isPartnerRole(caller) };
+      case (#qa_asistenku, #review_client) { isAsistenmuRole(caller) };
+      case (#review_client, #selesai) { isClientRole(caller) };
+      case (#review_client, #revisi) { isClientRole(caller) };
+      case (#qa_asistenku, #revisi) { isAsistenmuRole(caller) };
+      case (#on_progress, #ditolak_partner) { isPartnerRole(caller) };
+      case (#permintaan_baru, #dibatalkan_client) { isClientRole(caller) };
+      case (#revisi, #on_progress) { isAsistenmuRole(caller) };
+      case (_) { false };
     };
   };
 };

@@ -1,54 +1,111 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-15T16:46:18.208Z",
+  "generatedAt": "2026-02-15T23:21:29.383Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 4,
-    "implemented": 0,
+    "total": 8,
+    "implemented": 8,
     "items": [
       {
-        "id": "REQ-57",
-        "summary": "Append a new append-only section at the very bottom of backend/main.mo (immediately before the actor’s final closing brace) with the exact header comment `// --- LAYANAN ASISTENKU V2 (APPEND ONLY, NO MIGRATION) ---`, then add the new public type `LayananMeta` exactly as specified (without modifying the existing `LayananAsistenku` type).",
-        "status": "unknown",
-        "plannedFiles": [],
-        "matchedFiles": []
+        "id": "REQ-83",
+        "summary": "Modify ONLY `frontend/src/pages/internal/InternalLogin.tsx` to implement the requested “Model A” Internal Login flow using Internet Identity login and existing backend methods (`getCallerUser()`, `isSuperadminClaimed()`, `claimSuperadmin()`) while keeping all other pages UI-only and unchanged.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/internal/InternalLogin.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/internal/InternalLogin.tsx"
+        ]
       },
       {
-        "id": "REQ-58",
-        "summary": "In the same appended V2 block in backend/main.mo, add new in-canister storage maps exactly named and typed: `let layananMetaById = Map.empty<Text, LayananMeta>();` and `let layananIdsByOwnerClient = Map.empty<Principal, [Text]>();`.",
-        "status": "unknown",
-        "plannedFiles": [],
-        "matchedFiles": []
+        "id": "REQ-84",
+        "summary": "Implement the exact InternalLogin UI state machine and backend call sequencing as specified: `iiLoggedIn`, `selectedRole`, `checking`, `warningText`, `superadminClaimed`, `claimLoading`; call `isSuperadminClaimed()` exactly once on mount to set `superadminClaimed` and do not call `getCallerUser()` automatically after II login.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/internal/InternalLogin.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/internal/InternalLogin.tsx"
+        ]
       },
       {
-        "id": "REQ-59",
-        "summary": "In the appended V2 block, reuse existing helper functions if already present; only define them if not already present: (1) `func now() : Int` using `Time.now()`; (2) `func requireAdminOrSuperadminImpl(caller : Principal)` that enforces the same authorization logic as the existing admin/superadmin gate in backend/main.mo (e.g., by calling existing `isAdmin`/`isSuperadmin` if those exist, or by reusing the existing `requireAdminOrSuperadminImpl` if already defined).",
-        "status": "unknown",
-        "plannedFiles": [],
-        "matchedFiles": []
+        "id": "REQ-85",
+        "summary": "Update the role card grid in `InternalLogin.tsx` so it always shows these clickable role cards and uses their exact role keys for selection/validation: `admin`, `asistenmu`, `concierge`, `strategicpartner`, `manajer`, `finance`, `management`, `superadmin`. Clicking a card must set `selectedRole` to that card’s role key and clear `warningText`. The Superadmin card must always exist and be selectable.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/internal/InternalLogin.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/internal/InternalLogin.tsx"
+        ]
       },
       {
-        "id": "REQ-60",
-        "summary": "Append the following new public methods in the appended V2 block, with the exact names, signatures, and return values specified, and with the specified behavior:\n\n1) `public shared({caller}) func createLayananForClientV2(ownerClient : Principal, layananId : Text, unitTotal : Nat) : async Text`\n- Gate with `requireAdminOrSuperadminImpl(caller)`\n- Validate `layananId` exists in the existing `layananById`; if missing return exactly `\"LAYANAN_NOT_FOUND\"`\n- Create/update meta (overwrite allowed) in `layananMetaById` with: `unitUsed = 0`, `unitOnHold = 0`, `isActive = true`, `createdAt = now()`, `updatedAt = now()` and the provided `ownerClient`, `unitTotal`, `layananId`\n- Ensure `layananId` is present in `layananIdsByOwnerClient[ownerClient]`; append only if not already present\n- Return exactly `\"OK\"`\n\n2) `public shared({caller}) func setLayananActiveV2(layananId : Text, isActive : Bool) : async Text`\n- Gate with `requireAdminOrSuperadminImpl(caller)`\n- If `layananMetaById` has no entry for `layananId`, return exactly `\"NOT_FOUND\"`\n- Otherwise update only `isActive` and `updatedAt` (keep other fields unchanged) and return exactly `\"OK\"`\n\n3) `public query({caller}) func listMyLayananV2() : async [Text]`\n- Caller must be authenticated using the same check style used by the existing `listMyLayanan`\n- Return `layananIdsByOwnerClient[caller]` or `[]` if missing\n\n4) `public query({caller}) func getLayananMeta(layananId : Text) : async ?LayananMeta`\n- Gate with `requireAdminOrSuperadminImpl(caller)`\n- Return `layananMetaById.get(layananId)`\n\n5) `public query({caller}) func getMyLayananMeta(layananId : Text) : async ?LayananMeta`\n- Caller must be authenticated\n- Return the meta only if it exists and `meta.ownerClient == caller`, otherwise return `null`.",
-        "status": "unknown",
-        "plannedFiles": [],
-        "matchedFiles": []
+        "id": "REQ-86",
+        "summary": "Enable the “Ruang kerja” action with the required gating and behavior: it must be enabled only when `iiLoggedIn === true` AND `selectedRole !== null`; on click it must set `checking=true`, clear `warningText`, call `getCallerUser()` exactly once, then enforce the specified decision tree (registration handling, role mismatch warning, status check for non-client/partner/superadmin roles) and redirect only on successful match.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/internal/InternalLogin.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/internal/InternalLogin.tsx"
+        ]
+      },
+      {
+        "id": "REQ-87",
+        "summary": "Implement Superadmin claim behavior in `InternalLogin.tsx`: show a “Claim Superadmin” button only when `iiLoggedIn === true`, `selectedRole === \"superadmin\"`, and `superadminClaimed === false`. On click, set `claimLoading=true` and clear `warningText`, call `claimSuperadmin()` (no parameters; if it requires parameters in the generated types, pass empty/placeholder values without adding any form fields), then handle success/already-claimed outcomes exactly as specified and redirect only on successful claim.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/internal/InternalLogin.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/internal/InternalLogin.tsx"
+        ]
+      },
+      {
+        "id": "REQ-88",
+        "summary": "Implement the fixed dashboard route mapping in `InternalLogin.tsx` redirects (no route changes elsewhere): admin -> `/admin/dashboard`; asistenmu -> `/asistenmu/dashboard`; concierge -> `/concierge/dashboard`; strategicpartner -> `/strategicpartner/dashboard`; manajer -> `/manajer/dashboard`; finance -> `/finance/dashboard`; management -> `/management/dashboard`; superadmin -> `/superadmin/dashboard`.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/internal/InternalLogin.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/internal/InternalLogin.tsx"
+        ]
+      },
+      {
+        "id": "REQ-89",
+        "summary": "Preserve the existing InternalLogin page’s base layout and styling (logo, centered container, card styling, footer). Only add the minimum UI elements needed to support the new logic: enable/disable states, per-role “Ruang kerja” placement (either per-card or a single shared button), Superadmin claim button in the Superadmin card area, and a simple warning text area displayed below the “Ruang kerja” action area.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/internal/InternalLogin.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/internal/InternalLogin.tsx"
+        ]
+      },
+      {
+        "id": "REQ-90",
+        "summary": "Ensure the change compiles and runs without runtime errors, including when the user is not logged in (anonymous actor), when backend calls fail, and when backend return types differ by variant (handle results defensively in `InternalLogin.tsx` without changing shared hooks).",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/internal/InternalLogin.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/internal/InternalLogin.tsx"
+        ]
       }
     ]
   },
   "changedFiles": [
-    "backend/main.mo",
     "build-request.json",
     "feature_evidence.json",
+    "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/backend.d.ts",
-    "frontend/src/backend.ts",
-    "frontend/src/declarations/backend.did.d.ts",
-    "frontend/src/declarations/backend.did.js",
+    "frontend/src/pages/internal/InternalLogin.tsx",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

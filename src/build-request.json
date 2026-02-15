@@ -1,99 +1,185 @@
 {
   "kind": "build_request",
-  "title": "Append Layanan Asistenku V2 metadata block to backend/main.mo (no migration, append-only)",
+  "title": "Enable full Internal Login flow (Internet Identity + backend role validation) in InternalLogin.tsx only",
   "priority": "normal",
   "requirements": [
     {
-      "id": "REQ-57",
-      "text": "Append a new append-only section at the very bottom of backend/main.mo (immediately before the actor’s final closing brace) with the exact header comment `// --- LAYANAN ASISTENKU V2 (APPEND ONLY, NO MIGRATION) ---`, then add the new public type `LayananMeta` exactly as specified (without modifying the existing `LayananAsistenku` type).",
-      "target": "backend",
+      "id": "REQ-83",
+      "text": "Modify ONLY `frontend/src/pages/internal/InternalLogin.tsx` to implement the requested “Model A” Internal Login flow using Internet Identity login and existing backend methods (`getCallerUser()`, `isSuperadminClaimed()`, `claimSuperadmin()`) while keeping all other pages UI-only and unchanged.",
+      "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-1"
         ],
         "quotes": [
-          "Append this section header comment:\n\"// --- LAYANAN ASISTENKU V2 (APPEND ONLY, NO MIGRATION) ---\"\n\nA) Add new metadata type (do NOT touch existing LayananAsistenku):\npublic type LayananMeta = {\n  layananId : Text;\n  ownerClient : Principal;\n  unitTotal : Nat;\n  unitUsed : Nat;\n  unitOnHold : Nat;\n  isActive : Bool;\n  createdAt : Int;\n  updatedAt : Int;\n};"
+          "Batasan UI-only untuk InternalLogin.tsx dicabut. Halaman ini sekarang BOLEH memanggil backend dan menjalankan flow login penuh (II, getCallerUser, isSuperadminClaimed, claimSuperadmin, redirect).",
+          "Aturan UI-only tetap berlaku untuk halaman lain. Hanya InternalLogin.tsx yang diizinkan terhubung ke backend saat ini."
         ]
       },
       "acceptanceCriteria": [
-        "backend/main.mo contains the exact V2 header comment appended at the bottom of the file (before the final `}` of the actor).",
-        "The type `public type LayananMeta = { ... }` exists in the appended block and matches the field names and field types exactly.",
-        "No existing types or methods are modified to add these fields."
+        "Only `frontend/src/pages/internal/InternalLogin.tsx` is modified; no other frontend or backend files change; no new files are created.",
+        "`/internal/login` continues to render without any auto-redirect on initial load.",
+        "The page uses the existing Internet Identity provider/hook to perform II login (no custom auth implementation, no backend changes).",
+        "The page uses the existing actor hook to call backend methods (no direct fetch calls)."
       ]
     },
     {
-      "id": "REQ-58",
-      "text": "In the same appended V2 block in backend/main.mo, add new in-canister storage maps exactly named and typed: `let layananMetaById = Map.empty<Text, LayananMeta>();` and `let layananIdsByOwnerClient = Map.empty<Principal, [Text]>();`.",
-      "target": "backend",
+      "id": "REQ-84",
+      "text": "Implement the exact InternalLogin UI state machine and backend call sequencing as specified: `iiLoggedIn`, `selectedRole`, `checking`, `warningText`, `superadminClaimed`, `claimLoading`; call `isSuperadminClaimed()` exactly once on mount to set `superadminClaimed` and do not call `getCallerUser()` automatically after II login.",
+      "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-1"
         ],
         "quotes": [
-          "B) Add new storage maps:\nlet layananMetaById = Map.empty<Text, LayananMeta>();\nlet layananIdsByOwnerClient = Map.empty<Principal, [Text]>();"
+          "STATE UI InternalLogin:\n\niiLoggedIn: boolean\n\nselectedRole: string | null\n\nchecking: boolean\n\nwarningText: string | null\n\nsuperadminClaimed: boolean | null (loaded dari isSuperadminClaimed setelah page mount)\n\nclaimLoading: boolean\n\n\nON MOUNT:\n\npanggil isSuperadminClaimed() sekali -> set superadminClaimed (true/false)\n\njangan auto redirect apa pun\n\n\nTOMBOL “Login Internet Identity”:\n\nmelakukan login II\n\nsetelah login sukses set iiLoggedIn = true\n\njangan panggil getCallerUser otomatis setelah login"
         ]
       },
       "acceptanceCriteria": [
-        "Both maps are declared in the appended V2 block with the exact names and types.",
-        "The maps compile with the existing Map import used in backend/main.mo."
+        "On initial mount, `isSuperadminClaimed()` is invoked exactly once and `superadminClaimed` becomes `true` or `false` (not left `null`) if the call succeeds.",
+        "Clicking “Login Internet Identity” triggers II login and only updates `iiLoggedIn` after login succeeds; it does not trigger `getCallerUser()` implicitly.",
+        "No automatic navigation occurs on mount or immediately after successful II login."
       ]
     },
     {
-      "id": "REQ-59",
-      "text": "In the appended V2 block, reuse existing helper functions if already present; only define them if not already present: (1) `func now() : Int` using `Time.now()`; (2) `func requireAdminOrSuperadminImpl(caller : Principal)` that enforces the same authorization logic as the existing admin/superadmin gate in backend/main.mo (e.g., by calling existing `isAdmin`/`isSuperadmin` if those exist, or by reusing the existing `requireAdminOrSuperadminImpl` if already defined).",
-      "target": "backend",
+      "id": "REQ-85",
+      "text": "Update the role card grid in `InternalLogin.tsx` so it always shows these clickable role cards and uses their exact role keys for selection/validation: `admin`, `asistenmu`, `concierge`, `strategicpartner`, `manajer`, `finance`, `management`, `superadmin`. Clicking a card must set `selectedRole` to that card’s role key and clear `warningText`. The Superadmin card must always exist and be selectable.",
+      "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-1"
         ],
         "quotes": [
-          "C) Helper (only define if not already present; if present, reuse without redefining):\n- func now() : Int  (use Time.now())\n- func requireAdminOrSuperadminImpl(caller : Principal)  (reuse existing logic; if only isAdmin/isSuperadmin exists, call those)"
+          "GRID KARTU ROLE (selalu tampil): Kartu wajib: admin, asistenmu, concierge, strategicpartner, manajer, finance, management, superadmin\n\nklik kartu => set selectedRole = roleKartu dan clear warningText\n\n\nKartu “Superadmin” wajib ada dan bisa di-klik untuk masuk."
         ]
       },
       "acceptanceCriteria": [
-        "No duplicate-definition compile errors are introduced for `now` or `requireAdminOrSuperadminImpl`.",
-        "The appended V2 methods can call `now()` and `requireAdminOrSuperadminImpl(caller)` successfully."
+        "The role grid contains exactly 8 cards for the required roles and remains visible regardless of login state.",
+        "Selecting any card updates local UI selection styling (consistent with existing pattern) and clears any existing warning text.",
+        "The selected role value used for validation matches the required role keys (lowercase strings listed in the requirement)."
       ]
     },
     {
-      "id": "REQ-60",
-      "text": "Append the following new public methods in the appended V2 block, with the exact names, signatures, and return values specified, and with the specified behavior:\n\n1) `public shared({caller}) func createLayananForClientV2(ownerClient : Principal, layananId : Text, unitTotal : Nat) : async Text`\n- Gate with `requireAdminOrSuperadminImpl(caller)`\n- Validate `layananId` exists in the existing `layananById`; if missing return exactly `\"LAYANAN_NOT_FOUND\"`\n- Create/update meta (overwrite allowed) in `layananMetaById` with: `unitUsed = 0`, `unitOnHold = 0`, `isActive = true`, `createdAt = now()`, `updatedAt = now()` and the provided `ownerClient`, `unitTotal`, `layananId`\n- Ensure `layananId` is present in `layananIdsByOwnerClient[ownerClient]`; append only if not already present\n- Return exactly `\"OK\"`\n\n2) `public shared({caller}) func setLayananActiveV2(layananId : Text, isActive : Bool) : async Text`\n- Gate with `requireAdminOrSuperadminImpl(caller)`\n- If `layananMetaById` has no entry for `layananId`, return exactly `\"NOT_FOUND\"`\n- Otherwise update only `isActive` and `updatedAt` (keep other fields unchanged) and return exactly `\"OK\"`\n\n3) `public query({caller}) func listMyLayananV2() : async [Text]`\n- Caller must be authenticated using the same check style used by the existing `listMyLayanan`\n- Return `layananIdsByOwnerClient[caller]` or `[]` if missing\n\n4) `public query({caller}) func getLayananMeta(layananId : Text) : async ?LayananMeta`\n- Gate with `requireAdminOrSuperadminImpl(caller)`\n- Return `layananMetaById.get(layananId)`\n\n5) `public query({caller}) func getMyLayananMeta(layananId : Text) : async ?LayananMeta`\n- Caller must be authenticated\n- Return the meta only if it exists and `meta.ownerClient == caller`, otherwise return `null`.",
-      "target": "backend",
+      "id": "REQ-86",
+      "text": "Enable the “Ruang kerja” action with the required gating and behavior: it must be enabled only when `iiLoggedIn === true` AND `selectedRole !== null`; on click it must set `checking=true`, clear `warningText`, call `getCallerUser()` exactly once, then enforce the specified decision tree (registration handling, role mismatch warning, status check for non-client/partner/superadmin roles) and redirect only on successful match.",
+      "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-1"
         ],
         "quotes": [
-          "D) Methods:\n\n1) public shared({caller}) func createLayananForClientV2(\n   ownerClient : Principal,\n   layananId : Text,\n   unitTotal : Nat\n) : async Text\n- requireAdminOrSuperadminImpl(caller)\n- Validate layananId exists in layananById; if missing return \"LAYANAN_NOT_FOUND\"\n- Create meta:\n  unitUsed=0, unitOnHold=0, isActive=true, createdAt=now(), updatedAt=now()\n- store in layananMetaById (overwrite allowed)\n- append layananId into layananIdsByOwnerClient[ownerClient] if not already present\n- return \"OK\"\n\n2) public shared({caller}) func setLayananActiveV2(layananId : Text, isActive : Bool) : async Text\n- requireAdminOrSuperadminImpl(caller)\n- if layananMetaById missing => return \"NOT_FOUND\"\n- else update isActive + updatedAt, keep others\n- return \"OK\"\n\n3) public query({caller}) func listMyLayananV2() : async [Text]\n- caller must be authenticated user (same check style as listMyLayanan uses)\n- return layananIdsByOwnerClient[caller] else []\n\n4) public query({caller}) func getLayananMeta(layananId : Text) : async ?LayananMeta\n- requireAdminOrSuperadminImpl(caller)\n- return layananMetaById.get(layananId)\n\n5) public query({caller}) func getMyLayananMeta(layananId : Text) : async ?LayananMeta\n- caller must be authenticated\n- return meta ONLY if meta.ownerClient == caller else null"
+          "TOMBOL “Ruang kerja”:\n\nhanya aktif jika iiLoggedIn == true dan selectedRole != null\n\nsaat diklik:\n\n1. set checking = true; warningText = null\n\n\n2. panggil getCallerUser() sekali\n\n\n3. jika user == null:\n\njika selectedRole == \"superadmin\":\n\njika superadminClaimed == false: tampilkan di area kartu superadmin: tombol “Claim Superadmin” (jangan redirect ke /internal/register)\n\njika superadminClaimed == true: warningText = \"Akun belum terdaftar\" tampil tombol “Ke pendaftaran” -> /internal/register\n\n\njika selectedRole != \"superadmin\": warningText = \"Akun belum terdaftar\" tampil tombol “Ke pendaftaran” -> /internal/register set checking=false; STOP\n\n\n\n4. jika user != null:\n\njika user.role != selectedRole: warningText = \"Klik di Ruang kerja yang sesuai dengan bagian/role kamu\" set checking=false; STOP (tanpa redirect)\n\njika user.role == selectedRole:\n\njika selectedRole bukan client/partner/superadmin dan user.status != \"active\": warningText = \"Menunggu persetujuan.\" set checking=false; STOP\n\nelse redirect sesuai mapping dashboard di atas set checking=false"
         ]
       },
       "acceptanceCriteria": [
-        "All 5 methods compile and are present in backend/main.mo in the appended V2 block with the exact names and signatures.",
-        "createLayananForClientV2 returns exactly \"LAYANAN_NOT_FOUND\" when `layananById` lacks `layananId`, and exactly \"OK\" when meta is stored.",
-        "createLayananForClientV2 overwrites any existing `layananMetaById[layananId]` entry and ensures `layananIdsByOwnerClient[ownerClient]` contains `layananId` without duplicates.",
-        "setLayananActiveV2 returns exactly \"NOT_FOUND\" when meta is absent; otherwise updates only `isActive` and `updatedAt` and returns exactly \"OK\".",
-        "listMyLayananV2 returns `[]` when there is no entry for the caller, and uses the same authentication-check style as the existing `listMyLayanan`.",
-        "getLayananMeta is admin/superadmin-gated and returns the optional meta from `layananMetaById`.",
-        "getMyLayananMeta returns null unless the authenticated caller matches `ownerClient` for the found meta."
+        "“Ruang kerja” is disabled unless the user is II-logged-in and a role card is selected.",
+        "On click, exactly one `getCallerUser()` call is made per click.",
+        "If `getCallerUser()` returns null/none and selectedRole is not `superadmin`, show warning text exactly `\"Akun belum terdaftar\"` and show a “Ke pendaftaran” link/button that navigates to `/internal/register`; no redirect occurs otherwise.",
+        "If `getCallerUser()` returns null/none and selectedRole is `superadmin` and `superadminClaimed === false`, do not navigate to `/internal/register`; instead the Superadmin card area must present the “Claim Superadmin” action (per REQ-87).",
+        "If `user.role` does not match `selectedRole`, show warning text exactly `\"Klik di Ruang kerja yang sesuai dengan bagian/role kamu\"` and do not redirect.",
+        "If role matches and selectedRole is not `client`, `partner`, or `superadmin` and `user.status` is not exactly `\"active\"`, show warning text exactly `\"Menunggu persetujuan.\"` and do not redirect.",
+        "If role matches and passes status check, navigate to the exact dashboard route for that role (see REQ-88)."
+      ]
+    },
+    {
+      "id": "REQ-87",
+      "text": "Implement Superadmin claim behavior in `InternalLogin.tsx`: show a “Claim Superadmin” button only when `iiLoggedIn === true`, `selectedRole === \"superadmin\"`, and `superadminClaimed === false`. On click, set `claimLoading=true` and clear `warningText`, call `claimSuperadmin()` (no parameters; if it requires parameters in the generated types, pass empty/placeholder values without adding any form fields), then handle success/already-claimed outcomes exactly as specified and redirect only on successful claim.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "KARTU SUPERADMIN — CLAIM:\n\ntombol “Claim Superadmin” hanya tampil jika: iiLoggedIn == true AND selectedRole == \"superadmin\" AND superadminClaimed == false\n\nsaat klik “Claim Superadmin”:\n\n1. claimLoading=true; warningText=null\n\n\n2. panggil claimSuperadmin()\n\n\n3. jika hasil sukses (atau string mengandung \"CLAIMED\" / true):\n\nset superadminClaimed = true\n\nredirect /superadmin/dashboard\n\n\n\n4. jika hasil sudah claimed:\n\nset superadminClaimed = true\n\nwarningText = \"Superadmin sudah diklaim.\"\n\n\n\n5. claimLoading=false"
+        ]
+      },
+      "acceptanceCriteria": [
+        "The “Claim Superadmin” button is not visible unless the exact visibility condition is met.",
+        "Clicking “Claim Superadmin” triggers exactly one backend call to `claimSuperadmin()` and shows a loading state while pending.",
+        "On success (including boolean true or a string containing `\"CLAIMED\"`), the UI sets `superadminClaimed=true` and navigates to `/superadmin/dashboard`.",
+        "If the backend indicates it was already claimed, the UI sets `superadminClaimed=true`, sets warning text exactly `\"Superadmin sudah diklaim.\"`, and does not redirect.",
+        "No form fields are added for claiming superadmin."
+      ]
+    },
+    {
+      "id": "REQ-88",
+      "text": "Implement the fixed dashboard route mapping in `InternalLogin.tsx` redirects (no route changes elsewhere): admin -> `/admin/dashboard`; asistenmu -> `/asistenmu/dashboard`; concierge -> `/concierge/dashboard`; strategicpartner -> `/strategicpartner/dashboard`; manajer -> `/manajer/dashboard`; finance -> `/finance/dashboard`; management -> `/management/dashboard`; superadmin -> `/superadmin/dashboard`.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "dashboard mapping: admin -> /admin/dashboard asistenmu -> /asistenmu/dashboard concierge -> /concierge/dashboard strategicpartner -> /strategicpartner/dashboard manajer -> /manajer/dashboard finance -> /finance/dashboard management -> /management/dashboard superadmin -> /superadmin/dashboard"
+        ]
+      },
+      "acceptanceCriteria": [
+        "InternalLogin redirects only to the exact mapped paths when validation passes.",
+        "No new routes are introduced, and existing routes in `frontend/src/App.tsx` are not modified as part of this change set."
+      ]
+    },
+    {
+      "id": "REQ-89",
+      "text": "Preserve the existing InternalLogin page’s base layout and styling (logo, centered container, card styling, footer). Only add the minimum UI elements needed to support the new logic: enable/disable states, per-role “Ruang kerja” placement (either per-card or a single shared button), Superadmin claim button in the Superadmin card area, and a simple warning text area displayed below the “Ruang kerja” action area.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "UI RULES:\n\nJangan ubah layout dasar yang sudah ada, hanya aktifkan logic.\n\nTidak ada auto redirect onLoad.\n\nWarning text tampil di bawah tombol “Ruang kerja” (atau area yang sudah ada) dengan style sederhana."
+        ]
+      },
+      "acceptanceCriteria": [
+        "The page remains visually consistent with its current layout structure; role cards remain in a grid; the main two existing primary actions remain present (now enabled/disabled per state).",
+        "Warning text renders in a simple style beneath the “Ruang kerja” action area when `warningText` is set.",
+        "No other pages’ layouts are changed."
+      ]
+    },
+    {
+      "id": "REQ-90",
+      "text": "Ensure the change compiles and runs without runtime errors, including when the user is not logged in (anonymous actor), when backend calls fail, and when backend return types differ by variant (handle results defensively in `InternalLogin.tsx` without changing shared hooks).",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "OUTPUT:\n\nTerapkan patch ini dan pastikan build sukses tanpa menambah file lain."
+        ]
+      },
+      "acceptanceCriteria": [
+        "TypeScript build succeeds with no new type errors in `InternalLogin.tsx`.",
+        "Visiting `/internal/login` while not logged in does not crash; `isSuperadminClaimed()` failures are handled by showing a warning (or leaving `superadminClaimed` as `null`) without redirecting.",
+        "Clicking “Ruang kerja” while logged in handles backend errors by setting `warningText` and resetting `checking=false` (no crash, no redirect)."
       ]
     }
   ],
   "constraints": [
-    "Do not create, modify, or reference backend/migration.mo; do not add or mention any migration logic or upgrade/state transformation code.",
-    "Modify ONLY backend/main.mo.",
-    "backend/main.mo must be append-only: do not edit, refactor, rename, reorder, or remove any existing line; append new code only at the very bottom of the file within the actor (immediately before the final closing brace `}`).",
-    "Do not change any existing definitions of: `LayananAsistenku`, `nextLayananId()`, `createLayananForClient()`, `setLayananActive()`, `listMyLayanan()`, `layananById`, `layananIdsByClient` (leave them byte-for-byte untouched).",
-    "For helpers, only define `now()` and/or `requireAdminOrSuperadminImpl(caller)` if they do not already exist in backend/main.mo; if already present, reuse without redefining to avoid name conflicts.",
-    "Return values must match exactly: \"OK\", \"NOT_FOUND\", and \"LAYANAN_NOT_FOUND\"."
+    "Only modify `frontend/src/pages/internal/InternalLogin.tsx`.",
+    "Do not modify `backend/main.mo`, do not add `backend/migration.mo`, and do not create any new files.",
+    "Do not modify any other frontend pages (including InternalRegister and all dashboards), and keep them UI-only with no backend calls.",
+    "Do not add or change any routes; keep existing route paths exactly as currently defined.",
+    "No automatic redirects on page load."
   ],
   "nonGoals": [
-    "Any frontend changes.",
-    "Adding or modifying any V1 Layanan storage, types, or methods beyond reading `layananById` for validation.",
-    "Changing any existing authorization model or role storage; the new methods must reuse existing admin/superadmin and authenticated-user checks.",
-    "Any data migration, state upgrade logic, or stable-structure refactors."
+    "Implementing or changing any backend methods or candid interfaces.",
+    "Adding new pages, new routes, or changing `frontend/src/App.tsx` routing logic as part of this change.",
+    "Making other pages (InternalRegister, dashboards, client/partner pages) call the backend or Internet Identity.",
+    "Adding role management/admin features beyond the exact InternalLogin flow described."
   ],
   "imageRequirements": {
     "required": [],
     "edits": []
+  },
+  "userProfileUpdate": {
+    "goalsToAdd": [],
+    "goalsToRemove": [],
+    "preferencesToAdd": [],
+    "preferencesToRemove": [],
+    "miscToAdd": [],
+    "miscToRemove": [],
+    "fieldsToSet": {},
+    "fieldsToDelete": []
   }
 }

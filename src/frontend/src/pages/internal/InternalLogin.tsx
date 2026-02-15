@@ -1,52 +1,292 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useInternetIdentity } from '../../hooks/useInternetIdentity';
+import { useActor } from '../../hooks/useActor';
+import type { UserRole } from '../../backend';
 
-const roles = ['Superadmin', 'Admin', 'Finance', 'Concierge', 'Asistenmu'];
+const REQUIRED_ROLES = [
+  'admin',
+  'asistenmu',
+  'concierge',
+  'strategicpartner',
+  'manajer',
+  'finance',
+  'management',
+  'superadmin'
+] as const;
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: 'Admin',
+  asistenmu: 'Asistenmu',
+  concierge: 'Concierge',
+  strategicpartner: 'Strategic Partner',
+  manajer: 'Manajer',
+  finance: 'Finance',
+  management: 'Management',
+  superadmin: 'Superadmin'
+};
+
+const ROLE_DASHBOARD_MAP: Record<string, string> = {
+  admin: '/admin/dashboard',
+  asistenmu: '/asistenmu/dashboard',
+  concierge: '/concierge/dashboard',
+  strategicpartner: '/strategicpartner/dashboard',
+  manajer: '/manajer/dashboard',
+  finance: '/finance/dashboard',
+  management: '/management/dashboard',
+  superadmin: '/superadmin/dashboard'
+};
+
+function extractRoleKey(userRole: UserRole | null): string | null {
+  if (!userRole) return null;
+  
+  if ('__kind__' in userRole) {
+    const kind = userRole.__kind__;
+    if (kind === 'superadmin') return 'superadmin';
+    if (kind === 'client') return 'client';
+    if (kind === 'partner') return 'partner';
+    if (kind === 'internal' && 'internal' in userRole) {
+      const profile = userRole.internal;
+      if (profile && typeof profile === 'object' && 'role' in profile) {
+        return String(profile.role);
+      }
+    }
+  }
+  
+  return null;
+}
+
+function extractStatus(userRole: UserRole | null): string | null {
+  if (!userRole) return null;
+  
+  if ('__kind__' in userRole) {
+    const kind = userRole.__kind__;
+    if (kind === 'internal' && 'internal' in userRole) {
+      const profile = userRole.internal;
+      if (profile && typeof profile === 'object' && 'status' in profile) {
+        return String(profile.status);
+      }
+    }
+  }
+  
+  return null;
+}
+
+function navigateToPath(path: string) {
+  window.history.pushState({}, '', path);
+  window.dispatchEvent(new PopStateEvent('popstate'));
+}
 
 export default function InternalLogin() {
+  const { login, identity, loginStatus } = useInternetIdentity();
+  const { actor, isFetching: actorFetching } = useActor();
+  
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
+  const [iiLoggedIn, setIiLoggedIn] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [warningText, setWarningText] = useState<string | null>(null);
+  const [superadminClaimed, setSuperadminClaimed] = useState<boolean>(false);
+  const [claimLoading, setClaimLoading] = useState(false);
+
+  // Update iiLoggedIn when identity changes
+  useEffect(() => {
+    if (identity && !identity.getPrincipal().isAnonymous()) {
+      setIiLoggedIn(true);
+    } else {
+      setIiLoggedIn(false);
+    }
+  }, [identity]);
+
+  const handleLoginClick = async () => {
+    try {
+      await login();
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setWarningText(err?.message || 'Login gagal');
+    }
+  };
+
+  const handleRoleCardClick = (role: string) => {
+    setSelectedRole(role);
+    setWarningText(null);
+  };
+
+  const handleRuangKerjaClick = async () => {
+    if (!actor) {
+      setWarningText('Backend belum siap, coba lagi');
+      return;
+    }
+
+    setChecking(true);
+    setWarningText(null);
+
+    try {
+      const user = await actor.getCallerUser();
+      
+      // User is null
+      if (!user) {
+        if (selectedRole === 'superadmin') {
+          if (!superadminClaimed) {
+            // Show claim button in superadmin card area (handled separately)
+            setWarningText(null);
+          } else {
+            setWarningText('Akun belum terdaftar');
+          }
+        } else {
+          setWarningText('Akun belum terdaftar');
+        }
+        setChecking(false);
+        return;
+      }
+
+      // User exists, extract role
+      const userRoleKey = extractRoleKey(user);
+      
+      if (!userRoleKey) {
+        setWarningText('Role tidak valid');
+        setChecking(false);
+        return;
+      }
+
+      // Check role match
+      if (userRoleKey !== selectedRole) {
+        setWarningText('Klik di Ruang kerja yang sesuai dengan bagian/role kamu');
+        setChecking(false);
+        return;
+      }
+
+      // Check status for internal roles (not client/partner/superadmin)
+      if (selectedRole !== 'client' && selectedRole !== 'partner' && selectedRole !== 'superadmin') {
+        const status = extractStatus(user);
+        if (status !== 'active') {
+          setWarningText('Menunggu persetujuan.');
+          setChecking(false);
+          return;
+        }
+      }
+
+      // All checks passed, navigate
+      const dashboardPath = ROLE_DASHBOARD_MAP[selectedRole];
+      if (dashboardPath) {
+        navigateToPath(dashboardPath);
+      } else {
+        setWarningText('Dashboard tidak ditemukan untuk role ini');
+      }
+    } catch (err: any) {
+      console.error('Error checking user:', err);
+      setWarningText(err?.message || 'Terjadi kesalahan, coba lagi');
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const handleClaimSuperadmin = async () => {
+    if (!actor) {
+      setWarningText('Backend belum siap');
+      return;
+    }
+
+    setClaimLoading(true);
+    setWarningText(null);
+
+    try {
+      await actor.claimSuperadmin();
+      
+      // Success
+      setSuperadminClaimed(true);
+      navigateToPath('/superadmin/dashboard');
+    } catch (err: any) {
+      console.error('Claim superadmin error:', err);
+      const errMsg = err?.message || String(err);
+      
+      if (errMsg.includes('already') || errMsg.includes('claimed') || errMsg.includes('allowed')) {
+        setSuperadminClaimed(true);
+        setWarningText('Superadmin sudah diklaim.');
+      } else {
+        setWarningText(errMsg);
+      }
+    } finally {
+      setClaimLoading(false);
+    }
+  };
+
+  const isRuangKerjaEnabled = iiLoggedIn && selectedRole !== null;
+  const showClaimButton = iiLoggedIn && selectedRole === 'superadmin' && !superadminClaimed;
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-6 pt-12">
       <div className="w-full max-w-[760px] space-y-8">
         <div className="flex justify-center mb-12">
-          <img src="asistenku-horizontal.png" alt="Asistenku" height="32" className="h-8" />
+          <img src="/assets/asistenku-horizontal.png" alt="Asistenku" height="32" className="h-8" />
         </div>
 
         <div className="rounded-3xl shadow-lg border border-border/50 p-10 space-y-8 bg-white">
           <div className="text-center space-y-3">
             <h1 className="text-3xl font-semibold text-foreground">Internal Login</h1>
-            <p className="text-muted-foreground text-lg">Pilih role internal (statis dulu).</p>
+            <p className="text-muted-foreground text-lg">Pilih role internal Anda.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            {roles.map((role) => (
-              <button
-                key={role}
-                onClick={() => setSelectedRole(role)}
-                className={`p-6 rounded-2xl border-2 transition-all ${
-                  selectedRole === role
-                    ? 'border-primary bg-primary/5 shadow-md'
-                    : 'border-border hover:border-primary/50 hover:bg-muted/30'
-                }`}
-              >
-                <span className="text-base font-medium">{role}</span>
-              </button>
+            {REQUIRED_ROLES.map((role) => (
+              <div key={role} className="relative">
+                <button
+                  onClick={() => handleRoleCardClick(role)}
+                  disabled={!iiLoggedIn && role !== 'superadmin'}
+                  className={`w-full p-6 rounded-2xl border-2 transition-all ${
+                    selectedRole === role
+                      ? 'border-primary bg-primary/5 shadow-md'
+                      : 'border-border hover:border-primary/50 hover:bg-muted/30'
+                  } ${!iiLoggedIn && role !== 'superadmin' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <span className="text-base font-medium">{ROLE_LABELS[role]}</span>
+                </button>
+                
+                {role === 'superadmin' && showClaimButton && (
+                  <div className="mt-2">
+                    <button
+                      onClick={handleClaimSuperadmin}
+                      disabled={claimLoading}
+                      className="w-full inline-flex items-center justify-center rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {claimLoading ? 'Claiming...' : 'Claim Superadmin'}
+                    </button>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
 
           <div className="space-y-4 pt-4">
             <button 
-              className="w-full inline-flex items-center justify-center rounded-2xl text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-primary text-primary-foreground h-14 px-8 opacity-50 cursor-not-allowed" 
-              disabled
+              onClick={handleLoginClick}
+              disabled={loginStatus === 'logging-in' || iiLoggedIn}
+              className="w-full inline-flex items-center justify-center rounded-2xl text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-primary text-primary-foreground hover:bg-primary/90 h-14 px-8 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Login Internet Identity (Disabled)
+              {loginStatus === 'logging-in' ? 'Logging in...' : iiLoggedIn ? 'Logged In' : 'Login Internet Identity'}
             </button>
+            
             <button 
-              className="w-full inline-flex items-center justify-center rounded-2xl text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-secondary text-secondary-foreground hover:bg-secondary/80 h-14 px-8 opacity-50 cursor-not-allowed" 
-              disabled
+              onClick={handleRuangKerjaClick}
+              disabled={!isRuangKerjaEnabled || checking}
+              className="w-full inline-flex items-center justify-center rounded-2xl text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-secondary text-secondary-foreground hover:bg-secondary/80 h-14 px-8 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Ruang kerja (Disabled)
+              {checking ? 'Checking...' : 'Ruang kerja'}
             </button>
+
+            {warningText && (
+              <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20">
+                <p className="text-sm text-destructive text-center">{warningText}</p>
+                {warningText === 'Akun belum terdaftar' && (
+                  <div className="mt-3 text-center">
+                    <a
+                      href="/internal/register"
+                      className="inline-flex items-center justify-center rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-secondary text-secondary-foreground hover:bg-secondary/80 h-9 px-4"
+                    >
+                      Ke pendaftaran
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="text-center pt-4">

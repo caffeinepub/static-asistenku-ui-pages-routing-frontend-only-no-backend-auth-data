@@ -1,4 +1,157 @@
 {
   "kind": "feature_evidence_report",
-  "features": []
+  "features": [
+    {
+      "featureId": "feature-modify-only-frontend-src-pages-internal-internallogin-tsx-to-implement-the-requested-model-a-internal-login-flow-using-internet-identity-login-and-existing-backend-methods-getcalleruser-issuperadminclaimed-claimsuperadmin-while-keeping-all-other-pages-ui-only-and-unchanged",
+      "featureTitle": "Modify ONLY `frontend/src/pages/internal/InternalLogin.tsx` to implement the requested “Model A” Internal Login flow using Internet Identity login and existing backend methods (`getCallerUser()`, `isSuperadminClaimed()`, `claimSuperadmin()`) while keeping all other pages UI-only and unchanged.",
+      "files": [
+        "frontend/src/pages/internal/InternalLogin.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0"
+      ],
+      "testIds": [
+        "REQ-83"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-implement-the-exact-internallogin-ui-state-machine-and-backend-call-sequencing-as-specified-iiloggedin-selectedrole-checking-warningtext-superadminclaimed-claimloading-call-issuperadminclaimed-exactly-once-on-mount-to-set-superadminclaimed-and-do-not-call-getcalleruser-automatically-after-ii-login",
+      "featureTitle": "Implement the exact InternalLogin UI state machine and backend call sequencing as specified: `iiLoggedIn`, `selectedRole`, `checking`, `warningText`, `superadminClaimed`, `claimLoading`; call `isSuperadminClaimed()` exactly once on mount to set `superadminClaimed` and do not call `getCallerUser()` automatically after II login.",
+      "files": [
+        "frontend/src/pages/internal/InternalLogin.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0"
+      ],
+      "testIds": [
+        "REQ-84"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-update-the-role-card-grid-in-internallogin-tsx-so-it-always-shows-these-clickable-role-cards-and-uses-their-exact-role-keys-for-selection-validation-admin-asistenmu-concierge-strategicpartner-manajer-finance-management-superadmin-clicking-a-card-must-set-selectedrole-to-that-card-s-role-key-and-clear-warningtext-the-superadmin-card-must-always-exist-and-be-selectable",
+      "featureTitle": "Update the role card grid in `InternalLogin.tsx` so it always shows these clickable role cards and uses their exact role keys for selection/validation: `admin`, `asistenmu`, `concierge`, `strategicpartner`, `manajer`, `finance`, `management`, `superadmin`. Clicking a card must set `selectedRole` to that card’s role key and clear `warningText`. The Superadmin card must always exist and be selectable.",
+      "files": [
+        "frontend/src/pages/internal/InternalLogin.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0"
+      ],
+      "testIds": [
+        "REQ-85"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-enable-the-ruang-kerja-action-with-the-required-gating-and-behavior-it-must-be-enabled-only-when-iiloggedin-true-and-selectedrole-null-on-click-it-must-set-checking-true-clear-warningtext-call-getcalleruser-exactly-once-then-enforce-the-specified-decision-tree-registration-handling-role-mismatch-warning-status-check-for-non-client-partner-superadmin-roles-and-redirect-only-on-successful-match",
+      "featureTitle": "Enable the “Ruang kerja” action with the required gating and behavior: it must be enabled only when `iiLoggedIn === true` AND `selectedRole !== null`; on click it must set `checking=true`, clear `warningText`, call `getCallerUser()` exactly once, then enforce the specified decision tree (registration handling, role mismatch warning, status check for non-client/partner/superadmin roles) and redirect only on successful match.",
+      "files": [
+        "frontend/src/pages/internal/InternalLogin.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0"
+      ],
+      "testIds": [
+        "REQ-86"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-implement-superadmin-claim-behavior-in-internallogin-tsx-show-a-claim-superadmin-button-only-when-iiloggedin-true-selectedrole-superadmin-and-superadminclaimed-false-on-click-set-claimloading-true-and-clear-warningtext-call-claimsuperadmin-no-parameters-if-it-requires-parameters-in-the-generated-types-pass-empty-placeholder-values-without-adding-any-form-fields-then-handle-success-already-claimed-outcomes-exactly-as-specified-and-redirect-only-on-successful-claim",
+      "featureTitle": "Implement Superadmin claim behavior in `InternalLogin.tsx`: show a “Claim Superadmin” button only when `iiLoggedIn === true`, `selectedRole === \"superadmin\"`, and `superadminClaimed === false`. On click, set `claimLoading=true` and clear `warningText`, call `claimSuperadmin()` (no parameters; if it requires parameters in the generated types, pass empty/placeholder values without adding any form fields), then handle success/already-claimed outcomes exactly as specified and redirect only on successful claim.",
+      "files": [
+        "frontend/src/pages/internal/InternalLogin.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0"
+      ],
+      "testIds": [
+        "REQ-87"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-implement-the-fixed-dashboard-route-mapping-in-internallogin-tsx-redirects-no-route-changes-elsewhere-admin-admin-dashboard-asistenmu-asistenmu-dashboard-concierge-concierge-dashboard-strategicpartner-strategicpartner-dashboard-manajer-manajer-dashboard-finance-finance-dashboard-management-management-dashboard-superadmin-superadmin-dashboard",
+      "featureTitle": "Implement the fixed dashboard route mapping in `InternalLogin.tsx` redirects (no route changes elsewhere): admin -> `/admin/dashboard`; asistenmu -> `/asistenmu/dashboard`; concierge -> `/concierge/dashboard`; strategicpartner -> `/strategicpartner/dashboard`; manajer -> `/manajer/dashboard`; finance -> `/finance/dashboard`; management -> `/management/dashboard`; superadmin -> `/superadmin/dashboard`.",
+      "files": [
+        "frontend/src/pages/internal/InternalLogin.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0"
+      ],
+      "testIds": [
+        "REQ-88"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-preserve-the-existing-internallogin-page-s-base-layout-and-styling-logo-centered-container-card-styling-footer-only-add-the-minimum-ui-elements-needed-to-support-the-new-logic-enable-disable-states-per-role-ruang-kerja-placement-either-per-card-or-a-single-shared-button-superadmin-claim-button-in-the-superadmin-card-area-and-a-simple-warning-text-area-displayed-below-the-ruang-kerja-action-area",
+      "featureTitle": "Preserve the existing InternalLogin page’s base layout and styling (logo, centered container, card styling, footer). Only add the minimum UI elements needed to support the new logic: enable/disable states, per-role “Ruang kerja” placement (either per-card or a single shared button), Superadmin claim button in the Superadmin card area, and a simple warning text area displayed below the “Ruang kerja” action area.",
+      "files": [
+        "frontend/src/pages/internal/InternalLogin.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0"
+      ],
+      "testIds": [
+        "REQ-89"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-ensure-the-change-compiles-and-runs-without-runtime-errors-including-when-the-user-is-not-logged-in-anonymous-actor-when-backend-calls-fail-and-when-backend-return-types-differ-by-variant-handle-results-defensively-in-internallogin-tsx-without-changing-shared-hooks",
+      "featureTitle": "Ensure the change compiles and runs without runtime errors, including when the user is not logged in (anonymous actor), when backend calls fail, and when backend return types differ by variant (handle results defensively in `InternalLogin.tsx` without changing shared hooks).",
+      "files": [
+        "frontend/src/pages/internal/InternalLogin.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0"
+      ],
+      "testIds": [
+        "REQ-90"
+      ],
+      "confidence": "high"
+    }
+  ]
 }

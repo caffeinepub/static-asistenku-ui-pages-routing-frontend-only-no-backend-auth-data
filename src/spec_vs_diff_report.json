@@ -1,68 +1,88 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-15T16:46:18.205Z",
-  "summary": "The diff does not show the requested append-only Layanan Asistenku V2 metadata block being added to the bottom of backend/main.mo, and it violates key constraints by modifying files other than backend/main.mo and (based on the shown content) editing existing lines rather than append-only changes.",
+  "generatedAt": "2026-02-15T23:21:29.378Z",
+  "summary": "The diff shows substantive work started in `frontend/src/pages/internal/InternalLogin.tsx` (II login hook usage, role constants, dashboard mapping, navigation helper, and part of `Ruang kerja` click handling). However, the change set violates the constraint to modify only `InternalLogin.tsx` (two additional files were modified), and several required behaviors are not evidenced in the truncated diff (notably the required single on-mount `isSuperadminClaimed()` call, exact decision tree completion, exact warning/link behavior, and Superadmin claim flow).",
   "missing_requirements": [
     {
-      "id": "REQ-57",
-      "requirement": "Append a new section at the very bottom of backend/main.mo with the exact header comment `// --- LAYANAN ASISTENKU V2 (APPEND ONLY, NO MIGRATION) ---` and add `public type LayananMeta = { ... }` exactly as specified, without modifying existing types/methods.",
-      "reason": "The provided backend/main.mo diff excerpt shows changes near the top of the file (imports and early actor content) and is truncated; it does not provide evidence of the required exact V2 header comment or the `LayananMeta` type appended at the bottom of the actor.",
+      "id": "REQ-83",
+      "requirement": "Modify ONLY `frontend/src/pages/internal/InternalLogin.tsx`; no other frontend/backend files change; no new files are created.",
+      "reason": "Diff shows two additional modified files beyond `InternalLogin.tsx`.",
       "evidence": [
-        "backend/main.mo (truncated)"
+        "frontend-file-summaries.txt",
+        "project_state.json"
       ]
     },
     {
-      "id": "REQ-58",
-      "requirement": "In the appended V2 block, declare `let layananMetaById = Map.empty<Text, LayananMeta>();` and `let layananIdsByOwnerClient = Map.empty<Principal, [Text]>();`.",
-      "reason": "No evidence in the shown diff excerpt that these two maps are declared with the exact required names and types in an appended V2 block.",
+      "id": "REQ-84",
+      "requirement": "Call `isSuperadminClaimed()` exactly once on mount to set `superadminClaimed` (true/false on success) and do not call `getCallerUser()` automatically after II login.",
+      "reason": "In the shown portion of `InternalLogin.tsx`, there is no `useEffect` that calls `actor.isSuperadminClaimed()` on mount (only an identity->iiLoggedIn effect is visible). Also `superadminClaimed` is initialized to `false` without evidence it is set from `isSuperadminClaimed()`.",
       "evidence": [
-        "backend/main.mo (truncated)"
+        "frontend/src/pages/internal/InternalLogin.tsx"
       ]
     },
     {
-      "id": "REQ-59",
-      "requirement": "Reuse existing helpers; only define `now(): Int` (Time.now) and/or `requireAdminOrSuperadminImpl(caller)` if not already present, avoiding duplicate definitions.",
-      "reason": "The diff excerpt does not show the V2 block or helper definitions/usage, so there is no evidence that `now()` and `requireAdminOrSuperadminImpl` are correctly reused/defined without conflicts.",
+      "id": "REQ-85",
+      "requirement": "Role grid contains exactly 8 clickable cards for the required role keys and remains visible regardless of login state; selecting clears `warningText` and sets `selectedRole` to the exact role key; Superadmin card always exists and selectable.",
+      "reason": "Constants for 8 roles and a click handler are present, but the diff is truncated before any JSX rendering of the grid/cards, so the exact card count, always-visible behavior, and styling/selection behavior cannot be verified from the provided evidence.",
       "evidence": [
-        "backend/main.mo (truncated)"
+        "frontend/src/pages/internal/InternalLogin.tsx"
       ]
     },
     {
-      "id": "REQ-60",
-      "requirement": "Append the 5 new public V2 methods with exact names/signatures/return values and specified behaviors (createLayananForClientV2, setLayananActiveV2, listMyLayananV2, getLayananMeta, getMyLayananMeta).",
-      "reason": "The diff excerpt does not show any of the required V2 method names/signatures or their logic; therefore there is no evidence these methods were added as specified.",
+      "id": "REQ-86",
+      "requirement": "“Ruang kerja” enabled only when `iiLoggedIn===true` and `selectedRole!==null`; on click set `checking=true`, clear warning, call `getCallerUser()` once, enforce full decision tree including showing “Ke pendaftaran” navigation to `/internal/register` when unregistered (non-superadmin), role mismatch warning text, status check warning text, and redirect only on success.",
+      "reason": "The handler `handleRuangKerjaClick` is partially shown and truncated before completing the decision tree. Also, the UI enable/disable state for the “Ruang kerja” action and the required “Ke pendaftaran” link/button rendering are not evidenced in the shown diff.",
       "evidence": [
-        "backend/main.mo (truncated)"
+        "frontend/src/pages/internal/InternalLogin.tsx"
+      ]
+    },
+    {
+      "id": "REQ-87",
+      "requirement": "Implement “Claim Superadmin” button visibility and behavior; call `claimSuperadmin()` once; handle success vs already-claimed outcomes with exact warning text and redirect rules; no added form fields.",
+      "reason": "The shown diff includes `claimLoading` state and comments about showing a claim button, but no actual `claimSuperadmin()` call or claim button rendering/visibility logic is present in the visible portion (file is truncated). Therefore the required claim flow cannot be verified.",
+      "evidence": [
+        "frontend/src/pages/internal/InternalLogin.tsx"
+      ]
+    },
+    {
+      "id": "REQ-89",
+      "requirement": "Preserve existing base layout/styling; role cards in a grid; primary actions remain; warning text area below action area.",
+      "reason": "The diff is truncated before JSX/layout, so preservation of the existing layout/styling and placement of warning text cannot be confirmed from the provided evidence.",
+      "evidence": [
+        "frontend/src/pages/internal/InternalLogin.tsx"
+      ]
+    },
+    {
+      "id": "REQ-90",
+      "requirement": "Defensive handling for backend call failures/variant return types; no crashes when not logged in; `isSuperadminClaimed()` failures handled without redirect; errors reset loading flags appropriately.",
+      "reason": "Some defensive handling is shown for II login errors and missing actor in `handleRuangKerjaClick`, but handling for `isSuperadminClaimed()` failures is not evidenced (no such call shown). Additionally, the remainder of error handling/resetting flags may be in truncated code and cannot be verified.",
+      "evidence": [
+        "frontend/src/pages/internal/InternalLogin.tsx"
       ]
     }
   ],
   "hallucinated_features": [
     {
-      "description": "Modified project_state.json despite the constraint to modify ONLY backend/main.mo.",
-      "reason": "BuildRequest explicitly constrains changes to backend/main.mo only; modifying project_state.json is out of scope.",
+      "description": "Modified `frontend-file-summaries.txt` and `project_state.json` despite the constraint to only modify `frontend/src/pages/internal/InternalLogin.tsx`.",
+      "reason": "BuildRequest explicitly restricts changes to InternalLogin.tsx only; these extra file modifications are out of scope.",
       "evidence": [
-        "project_state.json (truncated)"
+        "frontend-file-summaries.txt",
+        "project_state.json"
       ]
     },
     {
-      "description": "Introduced/modified userId system and related role/registration logic (e.g., nextUserId, userIdByPrincipal, genUserId/ensureUserId, changes around register*/claimSuperadmin).",
-      "reason": "These changes are not requested by REQ-57..REQ-60 (which focus only on appending a Layanan Asistenku V2 metadata block and methods) and they appear within existing sections rather than append-only at the bottom.",
+      "description": "Custom navigation helper using History API (`navigateToPath`) inside `InternalLogin.tsx`.",
+      "reason": "BuildRequest did not request introducing a new navigation utility; it only specified redirect behavior/routes. This may still be acceptable, but it is an additional implementation detail not explicitly requested.",
       "evidence": [
-        "backend/main.mo (truncated)"
-      ]
-    },
-    {
-      "description": "Edited existing lines near the top of backend/main.mo (imports/early actor content), violating the append-only requirement for backend/main.mo.",
-      "reason": "The BuildRequest requires backend/main.mo to be append-only with new code added only at the very bottom; the shown diff excerpt indicates modifications in existing top-of-file/early actor code.",
-      "evidence": [
-        "backend/main.mo (truncated)"
+        "frontend/src/pages/internal/InternalLogin.tsx"
       ]
     }
   ],
   "confidence": 0.74,
   "changed_files": [
-    "backend/main.mo",
+    "frontend-file-summaries.txt",
+    "frontend/src/pages/internal/InternalLogin.tsx",
     "project_state.json"
   ]
 }

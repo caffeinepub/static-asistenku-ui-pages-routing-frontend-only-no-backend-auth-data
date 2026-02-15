@@ -1,4 +1,8 @@
+import { useCanCreateTaskUI } from '../../hooks/useQueries';
+
 export default function ClientDashboard() {
+  const { data: canCreateTask, isLoading } = useCanCreateTaskUI();
+
   return (
     <div className="min-h-screen bg-white">
       <header className="border-b border-border/50 bg-white pt-4">
@@ -15,7 +19,18 @@ export default function ClientDashboard() {
 
       <main className="max-w-4xl mx-auto px-6 py-16">
         <div className="rounded-3xl shadow-lg border border-border/50 p-16 text-center bg-white">
-          <h1 className="text-2xl font-medium text-foreground">Ruang kendali kamu.</h1>
+          <h1 className="text-2xl font-medium text-foreground mb-8">Ruang kendali kamu.</h1>
+          
+          <button
+            disabled={isLoading || !canCreateTask}
+            className={`inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring h-10 px-6 ${
+              isLoading || !canCreateTask
+                ? 'bg-muted text-muted-foreground opacity-50 cursor-not-allowed'
+                : 'bg-primary text-primary-foreground hover:bg-primary/90'
+            }`}
+          >
+            {isLoading ? 'Memuat...' : 'Buat Task'}
+          </button>
         </div>
       </main>
     </div>

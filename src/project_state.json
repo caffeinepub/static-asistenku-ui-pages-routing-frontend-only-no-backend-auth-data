@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 25,
-  "summary": "Backend-only scope reinforced: modify ONLY backend/main.mo (no new files, no frontend/routing changes, do not touch backend/authorization/*). Patch requirements include: disable saveCallerUserProfile by keeping signature but always Runtime.trap; enforce superadmin is NOT part of InternalRole (InternalRole only #admin/#finance/#concierge/#asistenmu) while UserRole still includes #superadmin; add persistent userId system (nextUserId counter + userIdByPrincipal map + genUserId/ensureUserId) where userId is NOT stored in profile records; ensure ensureUserId(caller) is invoked in all register* and claimSuperadmin flows; add query getMyUserId() returning ?Text for caller; keep all other core logic unchanged including 1 principalId = 1 role and existing register/query functions. Additional constraint: patch must be APPEND-ONLY—do not modify/reorder/refactor any existing line; append new code at the very bottom of backend/main.mo immediately before the actor’s final closing brace `}`. New append-only foundations requested: implement UserStatus (pending/active/suspended/blacklisted) with admin/superadmin-gated setters/queries and listing by status; implement Partner Level (TipePartner) + fixed hourly rates; and admin/superadmin-only userId lookup utilities, all using existing role storage and requireSuperadmin/requireAdminOrSuperadmin gates, without creating/modifying any profile records or changing claimSuperadmin behavior.",
+  "projectStateVersion": 37,
+  "summary": "Scope now includes a frontend change: InternalLogin.tsx is the only page allowed to call backend and run a full Internal Login flow (II login, getCallerUser, isSuperadminClaimed, claimSuperadmin, role validation, warnings, and dashboard redirects). All other pages remain static UI-only with no backend calls. Backend persistence work remains focused on upgrade-safe state (stable vars/snapshots) in backend/main.mo.",
   "architectural_notes": [
     "All pages are static UI only: no Internet Identity, no backend calls, no mock data, no role/user logic, no auto-redirects; navigation only via clicks.",
     "Use react-router-dom Routes with explicit mappings and a '*' fallback 404 page with a button back to '/'",
@@ -17,7 +17,8 @@
   "known_issues": [
     "Unintended frontend changes were made previously; must be reverted so frontend has zero diff for this request.",
     "Previous automated patch/build attempt failed to apply the requested backend/main.mo change (tool error).",
-    "saveCallerUserProfile currently overwrites userRoles (can overwrite role) causing repeated/incorrect role state; must be disabled via trap."
+    "saveCallerUserProfile currently overwrites userRoles (can overwrite role) causing repeated/incorrect role state; must be disabled via trap.",
+    "Build/apply attempts for large backend persistence patch and subsequent InternalLogin patch repeatedly failed due to tooling limitations ('AI struggled/couldn't process request')."
   ],
   "isFixRequest": false,
   "existing_features": [
@@ -170,6 +171,70 @@
       "title": "Perform a final rendering/compile sanity pass after the patch: ensure there are no TypeScript/React runtime errors, no blank page on load, and the Landing page at \"/\" renders normally.",
       "reqIds": [
         "REQ-19"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-modify-only-frontend-src-pages-internal-internallogin-tsx-to-implement-the-requested-model-a-internal-login-flow-using-internet-identity-login-and-existing-backend-methods-getcalleruser-issuperadminclaimed-claimsuperadmin-while-keeping-all-other-pages-ui-only-and-unchanged",
+      "title": "Modify ONLY `frontend/src/pages/internal/InternalLogin.tsx` to implement the requested “Model A” Internal Login flow using Internet Identity login and existing backend methods (`getCallerUser()`, `isSuperadminClaimed()`, `claimSuperadmin()`) while keeping all other pages UI-only and unchanged.",
+      "reqIds": [
+        "REQ-83"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-the-exact-internallogin-ui-state-machine-and-backend-call-sequencing-as-specified-iiloggedin-selectedrole-checking-warningtext-superadminclaimed-claimloading-call-issuperadminclaimed-exactly-once-on-mount-to-set-superadminclaimed-and-do-not-call-getcalleruser-automatically-after-ii-login",
+      "title": "Implement the exact InternalLogin UI state machine and backend call sequencing as specified: `iiLoggedIn`, `selectedRole`, `checking`, `warningText`, `superadminClaimed`, `claimLoading`; call `isSuperadminClaimed()` exactly once on mount to set `superadminClaimed` and do not call `getCallerUser()` automatically after II login.",
+      "reqIds": [
+        "REQ-84"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-role-card-grid-in-internallogin-tsx-so-it-always-shows-these-clickable-role-cards-and-uses-their-exact-role-keys-for-selection-validation-admin-asistenmu-concierge-strategicpartner-manajer-finance-management-superadmin-clicking-a-card-must-set-selectedrole-to-that-card-s-role-key-and-clear-warningtext-the-superadmin-card-must-always-exist-and-be-selectable",
+      "title": "Update the role card grid in `InternalLogin.tsx` so it always shows these clickable role cards and uses their exact role keys for selection/validation: `admin`, `asistenmu`, `concierge`, `strategicpartner`, `manajer`, `finance`, `management`, `superadmin`. Clicking a card must set `selectedRole` to that card’s role key and clear `warningText`. The Superadmin card must always exist and be selectable.",
+      "reqIds": [
+        "REQ-85"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-enable-the-ruang-kerja-action-with-the-required-gating-and-behavior-it-must-be-enabled-only-when-iiloggedin-true-and-selectedrole-null-on-click-it-must-set-checking-true-clear-warningtext-call-getcalleruser-exactly-once-then-enforce-the-specified-decision-tree-registration-handling-role-mismatch-warning-status-check-for-non-client-partner-superadmin-roles-and-redirect-only-on-successful-match",
+      "title": "Enable the “Ruang kerja” action with the required gating and behavior: it must be enabled only when `iiLoggedIn === true` AND `selectedRole !== null`; on click it must set `checking=true`, clear `warningText`, call `getCallerUser()` exactly once, then enforce the specified decision tree (registration handling, role mismatch warning, status check for non-client/partner/superadmin roles) and redirect only on successful match.",
+      "reqIds": [
+        "REQ-86"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-superadmin-claim-behavior-in-internallogin-tsx-show-a-claim-superadmin-button-only-when-iiloggedin-true-selectedrole-superadmin-and-superadminclaimed-false-on-click-set-claimloading-true-and-clear-warningtext-call-claimsuperadmin-no-parameters-if-it-requires-parameters-in-the-generated-types-pass-empty-placeholder-values-without-adding-any-form-fields-then-handle-success-already-claimed-outcomes-exactly-as-specified-and-redirect-only-on-successful-claim",
+      "title": "Implement Superadmin claim behavior in `InternalLogin.tsx`: show a “Claim Superadmin” button only when `iiLoggedIn === true`, `selectedRole === \"superadmin\"`, and `superadminClaimed === false`. On click, set `claimLoading=true` and clear `warningText`, call `claimSuperadmin()` (no parameters; if it requires parameters in the generated types, pass empty/placeholder values without adding any form fields), then handle success/already-claimed outcomes exactly as specified and redirect only on successful claim.",
+      "reqIds": [
+        "REQ-87"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-the-fixed-dashboard-route-mapping-in-internallogin-tsx-redirects-no-route-changes-elsewhere-admin-admin-dashboard-asistenmu-asistenmu-dashboard-concierge-concierge-dashboard-strategicpartner-strategicpartner-dashboard-manajer-manajer-dashboard-finance-finance-dashboard-management-management-dashboard-superadmin-superadmin-dashboard",
+      "title": "Implement the fixed dashboard route mapping in `InternalLogin.tsx` redirects (no route changes elsewhere): admin -> `/admin/dashboard`; asistenmu -> `/asistenmu/dashboard`; concierge -> `/concierge/dashboard`; strategicpartner -> `/strategicpartner/dashboard`; manajer -> `/manajer/dashboard`; finance -> `/finance/dashboard`; management -> `/management/dashboard`; superadmin -> `/superadmin/dashboard`.",
+      "reqIds": [
+        "REQ-88"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-preserve-the-existing-internallogin-page-s-base-layout-and-styling-logo-centered-container-card-styling-footer-only-add-the-minimum-ui-elements-needed-to-support-the-new-logic-enable-disable-states-per-role-ruang-kerja-placement-either-per-card-or-a-single-shared-button-superadmin-claim-button-in-the-superadmin-card-area-and-a-simple-warning-text-area-displayed-below-the-ruang-kerja-action-area",
+      "title": "Preserve the existing InternalLogin page’s base layout and styling (logo, centered container, card styling, footer). Only add the minimum UI elements needed to support the new logic: enable/disable states, per-role “Ruang kerja” placement (either per-card or a single shared button), Superadmin claim button in the Superadmin card area, and a simple warning text area displayed below the “Ruang kerja” action area.",
+      "reqIds": [
+        "REQ-89"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-ensure-the-change-compiles-and-runs-without-runtime-errors-including-when-the-user-is-not-logged-in-anonymous-actor-when-backend-calls-fail-and-when-backend-return-types-differ-by-variant-handle-results-defensively-in-internallogin-tsx-without-changing-shared-hooks",
+      "title": "Ensure the change compiles and runs without runtime errors, including when the user is not logged in (anonymous actor), when backend calls fail, and when backend return types differ by variant (handle results defensively in `InternalLogin.tsx` without changing shared hooks).",
+      "reqIds": [
+        "REQ-90"
       ],
       "version": 1
     }
@@ -585,6 +650,224 @@
       "reqIds": [
         "REQ-60"
       ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-56",
+      "summary": "Append-only backend/main.mo: add “TASK FLOW V1 (APPEND ONLY, NO MIGRATION)” implementing TaskPhase/Task, task storage/indexes and TSK- ID generation, role-based gates (client/partner/asistenmu/admin/superadmin) reusing existing patterns, read-only checks against existing LayananMeta V2 for active/ownership + unit availability/holds, task lifecycle methods (create/cancel/delegate/accept/reject/moveToQa/moveToReviewClient/requestRevisiInternal/requestRevisiClient/backToProgressFromRevisi/clientMarkSelesai), and queries (listMyTasks/getTask). Must not reference migration.mo, must not use the word \"service\", must not modify existing LayananAsistenku or LayananMeta V2 types/maps/methods, and must output exactly \"STOP — name conflict\" if any required new type/func name already exists.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-57",
+      "summary": "Update ONLY `backend/main.mo` by appending a new section exactly titled `// --- TASK FLOW V1 (APPEND ONLY, NO MIGRATION) ---` at the very bottom of the actor (immediately before the actor’s final closing brace `}`), without modifying, deleting, reordering, or reformatting any existing line of code.",
+      "reqIds": [
+        "REQ-61"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-58",
+      "summary": "Do not create, modify, import, or reference `backend/migration.mo` or any migration-related code (no OldActor/NewActor/run/transform/upgrade patterns) anywhere in the change.",
+      "reqIds": [
+        "REQ-62"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-59",
+      "summary": "Before adding any new identifiers from the TASK FLOW V1 spec, verify that none of the required new type names or function names already exist in `backend/main.mo`. If ANY name conflict exists for the required new names, stop and output exactly `STOP — name conflict`.",
+      "reqIds": [
+        "REQ-63"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-60",
+      "summary": "In the appended TASK FLOW V1 block, do not use the word \"service\" anywhere (including comments, identifiers, or strings). Use existing domain naming such as `LayananAsistenku` and `LayananMeta` only.",
+      "reqIds": [
+        "REQ-64"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-61",
+      "summary": "Implement TASK FLOW V1 types in the appended block (ONLY if the type names do not already exist): `public type TaskPhase = { #permintaan_baru; #ditolak_partner; #on_progress; #qa_asistenku; #review_client; #revisi; #selesai; #dibatalkan_client; };` and `public type Task = { taskId: Text; ownerClient: Principal; layananId: Text; title: Text; detail: Text; requestType: Text; phase: TaskPhase; assignedPartner: ?Principal; jamEfektif: ?Nat; unitTerpakai: ?Nat; breakdownAM: ?Text; lastRejectReason: ?Text; createdAt: Int; updatedAt: Int; };`.",
+      "reqIds": [
+        "REQ-65"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-62",
+      "summary": "Add TASK FLOW V1 storage and indexes in the appended block: `stable var taskCounter : Nat = 0;`, `let taskById = Map.empty<Text, Task>();`, `let taskIdsByClient = Map.empty<Principal, [Text]>();`, and `let taskIdsByPartner = Map.empty<Principal, [Text]>();`.",
+      "reqIds": [
+        "REQ-66"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-63",
+      "summary": "In the appended TASK FLOW V1 block, implement the required helper functions ONLY if missing; otherwise, reuse existing ones: `now() : Int`, `pad6(n: Nat) : Text`, `nextTaskId() : Text` (format `TSK-` + 6 digits; increments `taskCounter`), role/registration guards (`requireRegistered`, `requireClientRole`, `requireAsistenmuRole`, `requirePartnerRole`, `requireAdminOrSuperadmin`), and index helpers (`appendUniquePrincipalIndex(map: Map<Principal,[Text]>, key: Principal, id: Text) : ()`, and `appendUniqueTextIndex(map: Map<Text,[Text]>, key: Text, id: Text) : ()` only if needed).",
+      "reqIds": [
+        "REQ-67"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-64",
+      "summary": "Implement LayananMeta V2 read-only checks in the appended TASK FLOW V1 block WITHOUT modifying any existing `LayananAsistenku` or `LayananMeta V2` types/maps/methods. Add helper `requireLayananActiveForClient(owner: Principal, layananId: Text) : async Bool` that reads `layananMetaById.get(layananId)` and returns true only when meta exists, `meta.ownerClient == owner`, and `meta.isActive == true`. Add helper `availableUnit(meta: LayananMeta) : Nat` computing `meta.unitTotal - meta.unitUsed - meta.unitOnHold`, treating underflow as 0.",
+      "reqIds": [
+        "REQ-68"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-65",
+      "summary": "Implement the TASK FLOW V1 lifecycle methods in the appended block with the exact public names, parameters, and return strings described: `createTask`, `cancelTask`, `delegateTask`, `partnerAccept`, `partnerReject`, `moveToQa`, `moveToReviewClient`, `requestRevisiInternal`, `requestRevisiClient`, `backToProgressFromRevisi`, and `clientMarkSelesai`. All authorization, phase locks, ownership checks, unit hold/release/finalization behaviors, and return codes must match the user-provided spec exactly.",
+      "reqIds": [
+        "REQ-69"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-66",
+      "summary": "In `requestRevisiInternal` and `requestRevisiClient`, if functions named `setRevisiInternal` and/or `setRevisiClient` already exist in `backend/main.mo`, invoke them as specified; do not create migration code or alter existing revision functions. If the revision functions do not exist, do not add placeholder implementations; proceed without calling them.",
+      "reqIds": [
+        "REQ-70"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-67",
+      "summary": "Implement TASK FLOW V1 query methods in the appended block: `public query ({ caller }) func listMyTasks() : async [Task]` and `public query func getTask(taskId: Text) : async ?Task` with the exact role-based listing rules provided (client: their tasks; partner: assigned tasks; asistenmu: all tasks preferred; others: empty).",
+      "reqIds": [
+        "REQ-71"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-68",
+      "summary": "Ensure the code compiles after appending TASK FLOW V1, and ensure no existing `LayananAsistenku` or `LayananMeta V2` types/maps/methods are modified (read-only usage only).",
+      "reqIds": [
+        "REQ-72"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-69",
+      "summary": "Append-only backend/main.mo: add “LAYANAN PAKET + SHARING RULE” block with PaketLayanan and LayananPaketMeta, new Map storages (layananPaketById, layananIdsByPrincipal), share limit rules (2/2/3/4), helper funcs (nowIntV3/ shareLimitV3/ arrayContainsPrincipalV3/ upsertIndexV3/ canAccessLayananV3), admin-or-superadmin gating (reuse requireAdminOrSuperadminImpl if present else add requireAdminOrSuperadminV3), and public methods createLayananPaketForClientV3/setLayananPaketActiveV3/shareLayananPaketV3 plus authenticated queries listMyLayananPaketIdsV3/getLayananPaketMetaV3; base layananId must already exist in existing layanan stores.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-70",
+      "summary": "Append a new “LAYANAN PAKET + SHARING RULE” block at the very bottom of backend/main.mo (append-only) that introduces the new paket enum type and paket-meta record type using the exact identifiers and variants: `public type PaketLayanan = { #tenang; #rapi; #fokus; #jaga };` and `public type LayananPaketMeta = { layananId : Text; ownerClient : Principal; paket : PaketLayanan; harga : Nat; isActive : Bool; sharedWith : [Principal]; createdAt : Int; updatedAt : Int; };` with `sharedWith` required to include `ownerClient`.",
+      "reqIds": [
+        "REQ-73"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-71",
+      "summary": "Append new in-canister storage maps (new names only) for layanan paket meta and access indexing exactly as specified: `let layananPaketById = Map.empty<Text, LayananPaketMeta>()` and `let layananIdsByPrincipal = Map.empty<Principal, [Text]>()` (index includes owner + shared principals).",
+      "reqIds": [
+        "REQ-74"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-72",
+      "summary": "Append helper functions (new names only) implementing sharing limit and access utilities: `shareLimitV3(p : PaketLayanan) : Nat` returning 2 for #tenang/#rapi, 3 for #fokus, 4 for #jaga; `arrayContainsPrincipalV3(arr:[Principal], p:Principal) : Bool`; `upsertIndexV3(principal:Principal, layananId:Text) : ()` adding the layananId to `layananIdsByPrincipal[principal]` if missing; and `canAccessLayananV3(principal:Principal, meta:LayananPaketMeta) : Bool` returning true when `principal` is in `meta.sharedWith`. Also add `nowIntV3() : Int` only if an existing `now()` helper is not already available; otherwise call the existing `now()` and return its value.",
+      "reqIds": [
+        "REQ-75"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-73",
+      "summary": "Enforce that only admin or superadmin can create, share, or toggle layanan paket. Reuse an existing permission helper if present: call `requireAdminOrSuperadminImpl(caller)` if it exists; otherwise, append a new helper `requireAdminOrSuperadminV3(caller:Principal)` that reuses the existing role-check patterns in backend/main.mo without modifying those existing functions.",
+      "reqIds": [
+        "REQ-76"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-74",
+      "summary": "Append new public methods (new names only) implementing layanan paket lifecycle and sharing, with the exact signatures and return strings: (1) `public shared ({ caller }) func createLayananPaketForClientV3(ownerClient : Principal, paket : PaketLayanan, harga : Nat, layananId : Text) : async Text` gated by admin/superadmin; validate `layananId` already exists in an existing base layanan store (e.g., existing `layananById` or existing layanan meta store) and do not create a base layanan; if base layanan does not exist, return a non-OK string per the user’s rules (do not create data). On success, create `LayananPaketMeta` with `sharedWith=[ownerClient]`, `isActive=true`, timestamps from now, save it in `layananPaketById`, upsert index for `ownerClient`, return exactly `\"OK\"`. (2) `public shared ({ caller }) func setLayananPaketActiveV3(layananId:Text, isActive:Bool) : async Text` gated by admin/superadmin; if missing meta return `\"NOT_FOUND\"`, else update `isActive` + `updatedAt`, return `\"OK\"`. (3) `public shared ({ caller }) func shareLayananPaketV3(layananId:Text, target:Principal) : async Text` gated by admin/superadmin; if missing meta return `\"NOT_FOUND\"`; if duplicate share do not add; enforce share limit based on paket where limit counts total principals in `sharedWith` (including owner); if limit reached return `\"SHARE_LIMIT_REACHED\"`; otherwise add target, update `updatedAt`, save back, upsert index for target, return `\"OK\"`.",
+      "reqIds": [
+        "REQ-77"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-75",
+      "summary": "Append authenticated query methods for access listing and meta retrieval: (1) `public query ({ caller }) func listMyLayananPaketIdsV3() : async [Text]` must require the caller to be authenticated using the existing authentication check pattern already used in backend/main.mo; return `layananIdsByPrincipal.get(caller)` or `[]` if none. (2) `public query ({ caller }) func getLayananPaketMetaV3(layananId:Text) : async ?LayananPaketMeta` must require authentication using the existing pattern; return null if not found; if caller is admin/superadmin return meta; otherwise return meta only when caller is in `meta.sharedWith`, else return null.",
+      "reqIds": [
+        "REQ-78"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-76",
+      "summary": "Append-only backend/main.mo: add a public query `canCreateTaskUI() : async Bool` (no new imports/types/maps/helpers/comments) that enables the frontend “Buat Task” button only when caller is registered, role is client, userStatus is #active, and caller has at least one active layanan meta via existing `layananIdsByOwnerClient` + `layananMetaById` (current requested implementation checks `meta.isActive` for any owned layanan).",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-77",
+      "summary": "Update ONLY `backend/main.mo` by appending the following Motoko function immediately before the final closing brace of the main `actor { ... }` (append-only; do not modify, delete, reorder, or reformat any existing code). Append the function exactly as written (including whitespace and semicolons):\n\npublic query ({ caller }) func canCreateTaskUI() : async Bool {\n    requireRegistered(caller);\n\n    if (not isClientRole(caller)) {\n        return false;\n    };\n\n    let status = getUserStatusInternal(caller);\n    switch (status) {\n        case (#active) {};\n        case (_) { return false };\n    };\n\n    switch (layananIdsByOwnerClient.get(caller)) {\n        case (null) { return false };\n        case (?ids) {\n            for (id in ids.vals()) {\n                switch (layananMetaById.get(id)) {\n                    case (?meta) {\n                        if (meta.isActive) { return true };\n                    };\n                    case (_) {};\n                };\n            };\n            return false;\n        };\n    };\n}",
+      "reqIds": [
+        "REQ-79"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-78",
+      "summary": "Append-only change inside existing createTask: insert the provided hard validation block at the very top of the function body to enforce caller is registered client, status is #active, and caller has at least one active layanan meta; return \"NOT_ALLOWED\" when failing any check; STOP if any referenced identifier is missing.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-79",
+      "summary": "Append-only: add shared method transitionTaskPhase(taskId:Text,newPhase:TaskPhase): async Text before actor closing brace, with role/ownership-based allowed transitions (client/am/partner cases), NOT_FOUND/NOT_ALLOWED/OK return strings, update task.phase and updatedAt = nowSync(), and write back to taskById; STOP if any referenced identifier is missing.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-80",
+      "summary": "Update ONLY `backend/main.mo` by appending the provided Motoko method `transitionTaskPhase(taskId : Text, newPhase : TaskPhase) : async Text` immediately before the actor’s final closing brace `}`. The appended code must be byte-for-byte identical to the user-provided block (no refactors, no formatting changes, no renamed identifiers).",
+      "reqIds": [
+        "REQ-80"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-81",
+      "summary": "Before applying the append, verify that every identifier referenced by the provided `transitionTaskPhase` block already exists in `backend/main.mo` (e.g., `requireRegistered`, `taskById`, `Task`, `TaskPhase`, `isClientRole`, `isAsistenmuRole`, `isPartnerRole`, `nowSync`). If any referenced identifier is missing, do not modify any file and stop the change.",
+      "reqIds": [
+        "REQ-81"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-82",
+      "summary": "Make `superadminClaimed` persist across upgrades by changing its declaration from `var` to `stable var` in backend/main.mo, with no other code changes and no migration files.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-83",
+      "summary": "In `backend/main.mo`, modify ONLY the declaration of `superadminClaimed` by replacing the exact line `var superadminClaimed = false;` with `stable var superadminClaimed = false;`. Do not change any other line, do not add any new files (including `migration.mo`), and do not modify any functions (including `claimSuperadmin`).",
+      "reqIds": [
+        "REQ-82"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-84",
+      "summary": "Implement \"Model A\" Internal Login flow in frontend/src/pages/InternalLogin.tsx ONLY: allow backend calls (getCallerUser, isSuperadminClaimed, claimSuperadmin), II login gating, role card selection, single getCallerUser check on 'Ruang kerja', mismatch/registration/status warnings without auto-redirect, superadmin claim button/redirect logic, and redirect to fixed dashboard routes; do not modify any other frontend file or backend/main.mo.",
+      "reqIds": [],
       "status": "pending"
     }
   ],

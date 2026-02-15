@@ -1,6 +1,141 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "No frontend changes required for backend-only V2 metadata append",
-  "requirements": []
+  "title": "InternalLogin.tsx: Model A Internet Identity login + role validation + superadmin claim",
+  "requirements": [
+    {
+      "id": "REQ-83",
+      "summary": "Implement Model A Internal Login flow using existing Internet Identity and actor hooks, modifying only InternalLogin.tsx and keeping all other pages unchanged/UI-only.",
+      "acceptanceCriteria": [
+        "Only `frontend/src/pages/internal/InternalLogin.tsx` is modified; no other frontend or backend files change; no new files are created.",
+        "`/internal/login` continues to render without any auto-redirect on initial load.",
+        "The page uses the existing Internet Identity provider/hook to perform II login (no custom auth implementation, no backend changes).",
+        "The page uses the existing actor hook to call backend methods (no direct fetch calls)."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/internal/InternalLogin.tsx",
+          "operation": "modify",
+          "description": "Replace the current static/disabled UI logic with the Model A flow using the existing `useInternetIdentity` hook (from the authorization/auth setup) for II login and `useActor` for backend calls to `getCallerUser()`, `isSuperadminClaimed()`, and `claimSuperadmin()`. Ensure no other files change and no new files are created. Verify the component's usage instructions before implementing."
+        }
+      ]
+    },
+    {
+      "id": "REQ-84",
+      "summary": "Add the specified UI state machine and ensure exact call sequencing: isSuperadminClaimed once on mount; no automatic getCallerUser after II login; no auto navigation.",
+      "acceptanceCriteria": [
+        "On initial mount, `isSuperadminClaimed()` is invoked exactly once and `superadminClaimed` becomes `true` or `false` (not left `null`) if the call succeeds.",
+        "Clicking “Login Internet Identity” triggers II login and only updates `iiLoggedIn` after login succeeds; it does not trigger `getCallerUser()` implicitly.",
+        "No automatic navigation occurs on mount or immediately after successful II login."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/internal/InternalLogin.tsx",
+          "operation": "modify",
+          "description": "Introduce and wire the exact states: `iiLoggedIn`, `selectedRole`, `checking`, `warningText`, `superadminClaimed`, `claimLoading`. Add a mount effect that calls `isSuperadminClaimed()` exactly once (guard with a ref so it runs once when the actor becomes available) and sets `superadminClaimed` to true/false on success; handle errors without redirect. Ensure the II login button uses the existing `useInternetIdentity().login()` and only sets `iiLoggedIn=true` after successful login (based on identity/login status) without calling `getCallerUser()` automatically. Verify the component's usage instructions before implementing."
+        }
+      ]
+    },
+    {
+      "id": "REQ-85",
+      "summary": "Update the role selection grid to always show exactly 8 required role cards using the exact lowercase role keys and clear warnings on selection.",
+      "acceptanceCriteria": [
+        "The role grid contains exactly 8 cards for the required roles and remains visible regardless of login state.",
+        "Selecting any card updates local UI selection styling (consistent with existing pattern) and clears any existing warning text.",
+        "The selected role value used for validation matches the required role keys (lowercase strings listed in the requirement)."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/internal/InternalLogin.tsx",
+          "operation": "modify",
+          "description": "Replace the current roles list with exactly these role keys: `admin`, `asistenmu`, `concierge`, `strategicpartner`, `manajer`, `finance`, `management`, `superadmin`. Ensure the grid is always rendered, clicking a card sets `selectedRole` to the exact key and clears `warningText`, and the Superadmin card always exists and is selectable. Maintain existing selection styling pattern (border/background changes). Verify the component's usage instructions before implementing."
+        }
+      ]
+    },
+    {
+      "id": "REQ-86",
+      "summary": "Enable the “Ruang kerja” action with the required gating, single-call backend check, decision tree, warnings, and redirects only on success.",
+      "acceptanceCriteria": [
+        "“Ruang kerja” is disabled unless the user is II-logged-in and a role card is selected.",
+        "On click, exactly one `getCallerUser()` call is made per click.",
+        "If `getCallerUser()` returns null/none and selectedRole is not `superadmin`, show warning text exactly `\"Akun belum terdaftar\"` and show a “Ke pendaftaran” link/button that navigates to `/internal/register`; no redirect occurs otherwise.",
+        "If `getCallerUser()` returns null/none and selectedRole is `superadmin` and `superadminClaimed === false`, do not navigate to `/internal/register`; instead the Superadmin card area must present the “Claim Superadmin” action (per REQ-87).",
+        "If `user.role` does not match `selectedRole`, show warning text exactly `\"Klik di Ruang kerja yang sesuai dengan bagian/role kamu\"` and do not redirect.",
+        "If role matches and selectedRole is not `client`, `partner`, or `superadmin` and `user.status` is not exactly `\"active\"`, show warning text exactly `\"Menunggu persetujuan.\"` and do not redirect.",
+        "If role matches and passes status check, navigate to the exact dashboard route for that role (see REQ-88)."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/internal/InternalLogin.tsx",
+          "operation": "modify",
+          "description": "Implement the “Ruang kerja” button enabled state: only when `iiLoggedIn === true` AND `selectedRole !== null`. On click: set `checking=true`, clear `warningText`, call `actor.getCallerUser()` exactly once, then apply the specified decision tree: (a) if user is null and role != superadmin -> show warning `\"Akun belum terdaftar\"`, show “Ke pendaftaran” navigation to `/internal/register`, stop and set `checking=false`; (b) if user is null and role==superadmin -> either show claim action when `superadminClaimed===false`, or show `\"Akun belum terdaftar\"` + “Ke pendaftaran” when `superadminClaimed===true`; (c) if user exists but role mismatch -> warning `\"Klik di Ruang kerja yang sesuai dengan bagian/role kamu\"` and stop; (d) if role matches and role not in client/partner/superadmin and status != `active` -> warning `\"Menunggu persetujuan.\"` and stop; (e) otherwise navigate using the mapping in REQ-88. Add defensive parsing for backend return shape differences (e.g., variant objects) without changing shared hooks. Verify the component's usage instructions before implementing."
+        }
+      ]
+    },
+    {
+      "id": "REQ-87",
+      "summary": "Add Superadmin claim UI and behavior gated by login/selection/claim status; call claimSuperadmin once and handle outcomes and redirect rules exactly.",
+      "acceptanceCriteria": [
+        "The “Claim Superadmin” button is not visible unless the exact visibility condition is met.",
+        "Clicking “Claim Superadmin” triggers exactly one backend call to `claimSuperadmin()` and shows a loading state while pending.",
+        "On success (including boolean true or a string containing `\"CLAIMED\"`), the UI sets `superadminClaimed=true` and navigates to `/superadmin/dashboard`.",
+        "If the backend indicates it was already claimed, the UI sets `superadminClaimed=true`, sets warning text exactly `\"Superadmin sudah diklaim.\"`, and does not redirect.",
+        "No form fields are added for claiming superadmin."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/internal/InternalLogin.tsx",
+          "operation": "modify",
+          "description": "In the Superadmin card area, conditionally render a “Claim Superadmin” button only when `iiLoggedIn===true`, `selectedRole===\"superadmin\"`, and `superadminClaimed===false`. On click: set `claimLoading=true`, clear `warningText`, call `actor.claimSuperadmin()` exactly once (if generated types require parameters, pass empty/placeholder values without adding any form inputs), then interpret result defensively: treat success as boolean true or string containing `\"CLAIMED\"` -> set `superadminClaimed=true` and navigate to `/superadmin/dashboard`; treat already-claimed outcome -> set `superadminClaimed=true`, set `warningText` to exactly `\"Superadmin sudah diklaim.\"`, and do not redirect; finally set `claimLoading=false`. Verify the component's usage instructions before implementing."
+        }
+      ]
+    },
+    {
+      "id": "REQ-88",
+      "summary": "Redirect only to the fixed per-role dashboard mapping from InternalLogin.tsx without changing any routing elsewhere.",
+      "acceptanceCriteria": [
+        "InternalLogin redirects only to the exact mapped paths when validation passes.",
+        "No new routes are introduced, and existing routes in `frontend/src/App.tsx` are not modified as part of this change set."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/internal/InternalLogin.tsx",
+          "operation": "modify",
+          "description": "Add a fixed role-to-path mapping used only after successful validation: admin→`/admin/dashboard`, asistenmu→`/asistenmu/dashboard`, concierge→`/concierge/dashboard`, strategicpartner→`/strategicpartner/dashboard`, manajer→`/manajer/dashboard`, finance→`/finance/dashboard`, management→`/management/dashboard`, superadmin→`/superadmin/dashboard`. Implement navigation via `window.history.pushState` + dispatching `popstate` (to match the existing App router behavior) or equivalent existing navigation pattern, and ensure no route files are modified. Verify the component's usage instructions before implementing."
+        }
+      ]
+    },
+    {
+      "id": "REQ-89",
+      "summary": "Preserve current base layout/styling and add only minimal UI elements for enabled/disabled states, claim action placement, and warning area.",
+      "acceptanceCriteria": [
+        "The page remains visually consistent with its current layout structure; role cards remain in a grid; the main two existing primary actions remain present (now enabled/disabled per state).",
+        "Warning text renders in a simple style beneath the “Ruang kerja” action area when `warningText` is set.",
+        "No other pages’ layouts are changed."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/internal/InternalLogin.tsx",
+          "operation": "modify",
+          "description": "Keep the existing logo/header/container/card/footer structure and the two primary actions (“Login Internet Identity” and “Ruang kerja”), changing only their enabled/disabled states and labels as needed. Place the Superadmin claim button inside the Superadmin card area. Add a simple warning text area rendered below the “Ruang kerja” action area when `warningText` is non-null, without introducing new layouts or global styling changes. Verify the component's usage instructions before implementing."
+        }
+      ]
+    },
+    {
+      "id": "REQ-90",
+      "summary": "Ensure InternalLogin.tsx compiles and behaves safely across anonymous usage, backend failures, and varying backend return shapes without changing shared hooks.",
+      "acceptanceCriteria": [
+        "TypeScript build succeeds with no new type errors in `InternalLogin.tsx`.",
+        "Visiting `/internal/login` while not logged in does not crash; `isSuperadminClaimed()` failures are handled by showing a warning (or leaving `superadminClaimed` as `null`) without redirecting.",
+        "Clicking “Ruang kerja” while logged in handles backend errors by setting `warningText` and resetting `checking=false` (no crash, no redirect)."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/internal/InternalLogin.tsx",
+          "operation": "modify",
+          "description": "Add defensive error handling around all backend calls (`isSuperadminClaimed`, `getCallerUser`, `claimSuperadmin`): catch exceptions, set `warningText` to a user-friendly message, and always reset `checking`/`claimLoading` appropriately. Handle anonymous actor scenarios by gating actions with `iiLoggedIn` and ensuring actor absence does not crash (e.g., show warning if actor not ready). Because the generated typings may not reflect all backend methods/return shapes, use safe narrowing/casting locally within InternalLogin.tsx (without editing shared hooks/types) to read `role` and `status` from possible variant/object shapes and proceed without runtime errors. Verify the component's usage instructions before implementing."
+        }
+      ]
+    }
+  ]
 }
