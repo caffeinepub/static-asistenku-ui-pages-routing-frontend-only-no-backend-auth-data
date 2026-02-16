@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 41,
+  "projectStateVersion": 43,
   "summary": "Scope now includes a frontend change: InternalLogin.tsx is the only page allowed to call backend and run a full Internal Login flow (II login, getCallerUser, isSuperadminClaimed, claimSuperadmin, role validation, warnings, and dashboard redirects). All other pages remain static UI-only with no backend calls. Backend persistence work remains focused on upgrade-safe state (stable vars/snapshots) in backend/main.mo.",
   "architectural_notes": [
     "All pages are static UI only: no Internet Identity, no backend calls, no mock data, no role/user logic, no auto-redirects; navigation only via clicks.",
@@ -19,7 +19,8 @@
     "Previous automated patch/build attempt failed to apply the requested backend/main.mo change (tool error).",
     "saveCallerUserProfile currently overwrites userRoles (can overwrite role) causing repeated/incorrect role state; must be disabled via trap.",
     "Build/apply attempts for large backend persistence patch and subsequent InternalLogin patch repeatedly failed due to tooling limitations ('AI struggled/couldn't process request').",
-    "Superadmin claim is currently failing because InternalLogin.tsx appears to be calling the wrong backend method (e.g., saveCallerUserProfile/role assignment) leading to \"Unauthorized: Only admins can assign user roles\" instead of calling claimSuperadmin()."
+    "Superadmin claim is currently failing because InternalLogin.tsx appears to be calling the wrong backend method (e.g., saveCallerUserProfile/role assignment) leading to \"Unauthorized: Only admins can assign user roles\" instead of calling claimSuperadmin().",
+    "InternalLogin.tsx shows \"Backend belum siap\" when claim UI is visible/clickable before actor initialization completes; needs UI gating on actorFetching/actor readiness."
   ],
   "isFixRequest": true,
   "existing_features": [
@@ -284,6 +285,22 @@
       "title": "Keep the Superadmin claim mutation behavior unchanged except for the UI placement: the claim action must call ONLY `actor.claimSuperadmin()` and must not call any other backend mutation (directly or indirectly). On success, set `superadminClaimed = true`, hide the claim card, and navigate to `/superadmin/dashboard`. If the backend indicates the superadmin is already claimed, set `superadminClaimed = true`, hide the claim card, and show an inline warning message (no redirect in that case).",
       "reqIds": [
         "REQ-96"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-patch-frontend-src-pages-internal-internallogin-tsx-so-the-claim-superadmin-section-is-not-visible-and-not-actionable-until-the-backend-actor-is-fully-ready-preventing-the-repeated-backend-belum-siap-warning-when-a-user-clicks-too-early",
+      "title": "Patch `frontend/src/pages/internal/InternalLogin.tsx` so the \"Claim Superadmin\" section is not visible and not actionable until the backend actor is fully ready, preventing the repeated \"Backend belum siap\" warning when a user clicks too early.",
+      "reqIds": [
+        "REQ-97"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-patch-frontend-src-pages-internal-internallogin-tsx-so-the-internet-identity-button-changes-from-a-post-login-state-to-a-true-logout-action-once-ii-login-succeeds-the-button-label-becomes-logout-and-clicking-it-logs-the-user-out-clears-identity",
+      "title": "Patch `frontend/src/pages/internal/InternalLogin.tsx` so the Internet Identity button changes from a post-login state to a true logout action: once II login succeeds, the button label becomes \"Logout\" and clicking it logs the user out (clears identity).",
+      "reqIds": [
+        "REQ-98"
       ],
       "version": 1
     }
@@ -928,6 +945,12 @@
     {
       "id": "AR-86",
       "summary": "Update InternalLogin.tsx to (1) guard Claim Superadmin click when actor is not ready (show inline warning instead of calling backend), (2) display a separate \"Claim Superadmin\" card that does not require selecting the superadmin role first, and (3) automatically hide/remove that claim card once superadmin has been successfully claimed (or when isSuperadminClaimed indicates already claimed).",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-87",
+      "summary": "Patch InternalLogin.tsx so the Claim Superadmin card/action is hidden/disabled until the backend actor is fully ready (e.g., require actorFetching===false), preventing repeated \"Backend belum siap\" warnings; also update the II button so after successful login it changes to \"Logout\".",
       "reqIds": [],
       "status": "pending"
     }

@@ -75,7 +75,7 @@ function navigateToPath(path: string) {
 }
 
 export default function InternalLogin() {
-  const { login, identity, loginStatus } = useInternetIdentity();
+  const { login, clear, identity, loginStatus } = useInternetIdentity();
   const { actor, isFetching: actorFetching } = useActor();
   
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
@@ -120,12 +120,31 @@ export default function InternalLogin() {
     })();
   }, [actor, actorFetching]);
 
-  const handleLoginClick = async () => {
-    try {
-      await login();
-    } catch (err: any) {
-      console.error('Login error:', err);
-      setWarningText(err?.message || 'Login gagal');
+  const handleAuthClick = async () => {
+    if (iiLoggedIn) {
+      // Logout
+      try {
+        await clear();
+        // Reset local state to safe defaults
+        setSelectedRole(null);
+        setWarningText(null);
+        setChecking(false);
+        setClaimLoading(false);
+        setSuperadminClaimed(false);
+        setClaimCheckDone(false);
+        claimCheckRef.current = false;
+      } catch (err: any) {
+        console.error('Logout error:', err);
+        setWarningText(err?.message || 'Logout gagal');
+      }
+    } else {
+      // Login
+      try {
+        await login();
+      } catch (err: any) {
+        console.error('Login error:', err);
+        setWarningText(err?.message || 'Login gagal');
+      }
     }
   };
 
@@ -226,7 +245,8 @@ export default function InternalLogin() {
   };
 
   const isRuangKerjaEnabled = iiLoggedIn && selectedRole !== null;
-  const showClaimCard = iiLoggedIn && claimCheckDone && !superadminClaimed;
+  // Gate Claim Superadmin card: only show when actor is ready AND logged in AND check done AND not claimed
+  const showClaimCard = iiLoggedIn && claimCheckDone && !superadminClaimed && !!actor && !actorFetching;
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-6 pt-12">
@@ -278,11 +298,11 @@ export default function InternalLogin() {
 
           <div className="space-y-4 pt-4">
             <button 
-              onClick={handleLoginClick}
-              disabled={loginStatus === 'logging-in' || iiLoggedIn}
+              onClick={handleAuthClick}
+              disabled={loginStatus === 'logging-in'}
               className="w-full inline-flex items-center justify-center rounded-2xl text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-primary text-primary-foreground hover:bg-primary/90 h-14 px-8 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loginStatus === 'logging-in' ? 'Logging in...' : iiLoggedIn ? 'Logged In' : 'Login Internet Identity'}
+              {loginStatus === 'logging-in' ? 'Logging in...' : iiLoggedIn ? 'Logout' : 'Login Internet Identity'}
             </button>
             
             <button 

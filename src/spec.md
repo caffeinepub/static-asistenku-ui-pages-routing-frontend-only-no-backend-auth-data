@@ -1,12 +1,12 @@
 # Specification
 
 ## Summary
-**Goal:** Make the Superadmin claim flow independent from role selection, hide it once claimed, and prevent claim calls when the actor isn’t ready—by updating only `frontend/src/pages/internal/InternalLogin.tsx`.
+**Goal:** Improve the Internal Login page UX by preventing early Superadmin-claim interactions before the backend actor is ready, and by turning the post-login Internet Identity button into a true logout action.
 
 **Planned changes:**
-- Add a dedicated, separate “Claim Superadmin” card/section that is shown only when `iiLoggedIn === true`, `claimCheckDone === true`, and `superadminClaimed === false`, and does not require `selectedRole === "superadmin"`.
-- Keep the existing role selection grid behavior unchanged, including still requiring a role selection for the “Ruang kerja” action.
-- Harden the “Claim Superadmin” button handler: if `actor` is missing or `actorFetching` is true, exit early and show an inline warning using the existing `warningText` area (no crash, no backend call).
-- Keep the claim mutation behavior the same: call only `actor.claimSuperadmin()`. On success set `superadminClaimed = true`, hide the claim card, and navigate to `/superadmin/dashboard`. If already claimed, set `superadminClaimed = true`, hide the claim card, and show an inline warning (no redirect).
+- Update `frontend/src/pages/internal/InternalLogin.tsx` to hide (not render) the "Claim Superadmin" section while `iiLoggedIn === true` but the actor is not ready (`actor` is null/undefined or `actorFetching === true`), then allow it to render again once ready (still respecting existing conditions like `claimCheckDone === true` and `superadminClaimed === false`).
+- Keep the existing Claim Superadmin click handler guard so it early-returns when the actor is not ready and shows an inline warning via the existing warning mechanism (without calling the backend).
+- Update `frontend/src/pages/internal/InternalLogin.tsx` so after a successful Internet Identity login (`iiLoggedIn === true`), the button label becomes "Logout" and clicking it calls the existing Internet Identity context logout/clear function.
+- After logout, reset the UI to a safe default state (logged-out state with role selection/warnings reset) without modifying any other pages/files.
 
-**User-visible outcome:** Logged-in II users can claim Superadmin from a dedicated section without selecting the Superadmin role; the claim UI disappears after claiming (or if already claimed), and clicking claim while the backend actor isn’t ready shows a warning instead of failing.
+**User-visible outcome:** Users won’t see or be able to click "Claim Superadmin" until the backend is ready (avoiding repeated “Backend belum siap” warnings), and once logged in via Internet Identity they can click "Logout" to properly sign out and return to a stable logged-out UI.

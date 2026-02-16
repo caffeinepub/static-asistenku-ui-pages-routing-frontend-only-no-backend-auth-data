@@ -1,18 +1,18 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-16T00:48:06.846Z",
+  "generatedAt": "2026-02-16T01:05:14.518Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 3,
-    "implemented": 3,
+    "total": 2,
+    "implemented": 2,
     "items": [
       {
-        "id": "REQ-94",
-        "summary": "Update ONLY `frontend/src/pages/internal/InternalLogin.tsx` to show a dedicated, separate \"Claim Superadmin\" card/section that does not require selecting the \"superadmin\" role first. The claim section must be visible only when the user is logged in with Internet Identity (`iiLoggedIn === true`), the one-time claim-check has completed (`claimCheckDone === true`), and `superadminClaimed === false`.",
+        "id": "REQ-97",
+        "summary": "Patch `frontend/src/pages/internal/InternalLogin.tsx` so the \"Claim Superadmin\" section is not visible and not actionable until the backend actor is fully ready, preventing the repeated \"Backend belum siap\" warning when a user clicks too early.",
         "status": "implemented",
         "plannedFiles": [
           "frontend/src/pages/internal/InternalLogin.tsx"
@@ -22,19 +22,8 @@
         ]
       },
       {
-        "id": "REQ-95",
-        "summary": "In `frontend/src/pages/internal/InternalLogin.tsx`, harden the \"Claim Superadmin\" click handler so it never calls the backend when the actor is not ready. If `actor` is null/undefined OR `actorFetching` is true, the handler must exit early and show a non-crashing inline warning (reuse the existing warning mechanism) instead of attempting the call.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/pages/internal/InternalLogin.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/pages/internal/InternalLogin.tsx"
-        ]
-      },
-      {
-        "id": "REQ-96",
-        "summary": "Keep the Superadmin claim mutation behavior unchanged except for the UI placement: the claim action must call ONLY `actor.claimSuperadmin()` and must not call any other backend mutation (directly or indirectly). On success, set `superadminClaimed = true`, hide the claim card, and navigate to `/superadmin/dashboard`. If the backend indicates the superadmin is already claimed, set `superadminClaimed = true`, hide the claim card, and show an inline warning message (no redirect in that case).",
+        "id": "REQ-98",
+        "summary": "Patch `frontend/src/pages/internal/InternalLogin.tsx` so the Internet Identity button changes from a post-login state to a true logout action: once II login succeeds, the button label becomes \"Logout\" and clicking it logs the user out (clears identity).",
         "status": "implemented",
         "plannedFiles": [
           "frontend/src/pages/internal/InternalLogin.tsx"

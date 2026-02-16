@@ -1,45 +1,31 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-16T00:48:06.842Z",
-  "summary": "Diff shows changes to InternalLogin.tsx but also modifies two additional non-requested files, violating the constraint to update ONLY frontend/src/pages/internal/InternalLogin.tsx. Within InternalLogin.tsx, the truncated snippet confirms new state/claim-check scaffolding, but does not provide enough evidence to verify the required UI placement/visibility rules or the hardened click-handler/backend-call behavior.",
+  "generatedAt": "2026-02-16T01:05:14.514Z",
+  "summary": "REQ-98 (II button becomes Logout and calls clear() with local state reset) appears implemented in InternalLogin.tsx. REQ-97’s UI gating for the Claim Superadmin section is indicated by the summary text (gated behind !!actor && !actorFetching), but the patch violates the constraint/AC that only InternalLogin.tsx be modified because two additional non-requested files were also modified.",
   "missing_requirements": [
     {
-      "id": "REQ-94",
-      "requirement": "Update ONLY frontend/src/pages/internal/InternalLogin.tsx to show a dedicated, separate \"Claim Superadmin\" card/section visible only when iiLoggedIn === true, claimCheckDone === true, and superadminClaimed === false; must not require selecting the superadmin role; role selection grid gating for \"Ruang kerja\" unchanged.",
-      "reason": "InternalLogin.tsx is truncated before the rendered JSX and role/workspace gating logic, so the presence/placement of the dedicated claim card and its exact visibility conditions (iiLoggedIn/claimCheckDone/superadminClaimed) cannot be verified from the provided diff excerpt.",
+      "id": "REQ-97",
+      "requirement": "No other pages or files are modified (modify only `frontend/src/pages/internal/InternalLogin.tsx` for this patch).",
+      "reason": "Diff shows additional modified files besides `InternalLogin.tsx`, violating the constraint/AC.",
       "evidence": [
-        "frontend/src/pages/internal/InternalLogin.tsx (truncated; stops mid-handleRoleCardClick, no JSX shown)"
-      ]
-    },
-    {
-      "id": "REQ-95",
-      "requirement": "Harden the \"Claim Superadmin\" click handler to exit early and show an inline warning via warningText when actor is null/undefined or actorFetching is true; must not call backend when actor not ready.",
-      "reason": "The diff excerpt does not include the \"Claim Superadmin\" click handler implementation, so the required actor-readiness guard and warningText behavior cannot be confirmed.",
-      "evidence": [
-        "frontend/src/pages/internal/InternalLogin.tsx (truncated; claim click handler not shown)"
-      ]
-    },
-    {
-      "id": "REQ-96",
-      "requirement": "Claim action must call ONLY actor.claimSuperadmin(); on success set superadminClaimed=true, hide claim card, and navigate to /superadmin/dashboard; if already claimed, set superadminClaimed=true, hide card, show warning, and do not redirect.",
-      "reason": "The diff excerpt does not include the claim mutation handler body, so it cannot be verified that only actor.claimSuperadmin() is called, nor that success/already-claimed behaviors (state update, hiding UI, navigation vs warning/no redirect) are implemented as specified.",
-      "evidence": [
-        "frontend/src/pages/internal/InternalLogin.tsx (truncated; claim handler and navigation logic not shown)"
+        "frontend/src/pages/internal/InternalLogin.tsx",
+        "frontend-file-summaries.txt",
+        "project_state.json"
       ]
     }
   ],
   "hallucinated_features": [
     {
-      "description": "Modified files other than frontend/src/pages/internal/InternalLogin.tsx, violating the constraint to update ONLY that file.",
-      "reason": "BuildRequest explicitly restricts changes to a single file; the diff reports additional modified files.",
+      "description": "Modified repository meta/summary files (`frontend-file-summaries.txt` and `project_state.json`).",
+      "reason": "BuildRequest explicitly constrained the patch to modify only `frontend/src/pages/internal/InternalLogin.tsx` and not change other frontend files; these edits are not requested by REQ-97/REQ-98.",
       "evidence": [
-        "frontend-file-summaries.txt (modified)",
-        "project_state.json (modified)"
+        "frontend-file-summaries.txt",
+        "project_state.json"
       ]
     }
   ],
-  "confidence": 0.72,
+  "confidence": 0.78,
   "changed_files": [
     "frontend-file-summaries.txt",
     "frontend/src/pages/internal/InternalLogin.tsx",
