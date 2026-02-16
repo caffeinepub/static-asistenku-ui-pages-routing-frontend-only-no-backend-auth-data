@@ -1,56 +1,125 @@
 {
   "kind": "build_request",
-  "title": "Fix superadmin claim by bootstrapping first admin without AccessControl.assignRole",
-  "priority": "high",
+  "title": "Superadmin Master Data: saving guards, soft-delete UX, and reliable Ringkasan refresh",
+  "projectName": "Asistenku Admin",
+  "priority": "normal",
   "requirements": [
     {
-      "id": "REQ-113",
-      "text": "Patch `backend/main.mo` in `public shared ({ caller }) func claimSuperadmin() : async ()` to remove the admin-gated call to `AccessControl.assignRole(...)` and instead bootstrap the first admin by directly writing to `accessControlState`.\n\nSpecifically, replace ONLY the single line:\n- `AccessControl.assignRole(accessControlState, caller, caller, #admin);`\n\nwith EXACTLY these two lines (and nothing else):\n- `accessControlState.userRoles.add(caller, #admin);`\n- `accessControlState.adminAssigned := true;`\n\nAll other logic and ordering inside `claimSuperadmin()` must remain unchanged.",
-      "target": "backend",
+      "id": "REQ-161",
+      "text": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to add per-section “saving guards” for all Master Data mutations to prevent double submit. Add boolean state guards at minimum: `kamusSaving`, `aturanSaving`, `mapSaving`, `konstantaSaving`. Every Master Data save/update/delete handler must: (1) exit early if its guard is already true, (2) set the guard to true immediately before awaiting any `actor.*` mutation call, and (3) set the guard back to false in a `finally` block. Update the UI so that any button that triggers a guarded action is disabled while its guard is true, and its label changes while saving (use English labels exactly: “Saving...”, “Deleting...”, “Updating...”).",
+      "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-1"
+          "msg-4"
         ],
         "quotes": [
-          "Pastikan hanya mengganti 1 baris AccessControl.assignRole(...) menjadi 2 baris bootstrap state di atas."
+          "A) Tambahkan “saving guards” per section ... kamusSaving aturanSaving mapSaving konstantaSaving ... Disable tombol Save/Update/Delete ketika sedang saving. Ubah label tombol ketika saving: “Saving...” / “Deleting...” / “Updating...”"
         ]
       },
       "acceptanceCriteria": [
-        "In `backend/main.mo`, inside `claimSuperadmin()`, the only functional change is replacing `AccessControl.assignRole(accessControlState, caller, caller, #admin);` with:\n  - `accessControlState.userRoles.add(caller, #admin);`\n  - `accessControlState.adminAssigned := true;`",
-        "No other lines in `claimSuperadmin()` are modified (no refactors, no reordered checks, no changed trap messages, no added gates).",
-        "No other files are modified."
+        "The Kamus section has an in-flight guard (kamusSaving) and all Kamus create/update/delete handlers return immediately if kamusSaving is already true.",
+        "The Aturan section has an in-flight guard (aturanSaving) and all Aturan create/update/delete handlers return immediately if aturanSaving is already true.",
+        "The Master Data Map section has an in-flight guard (mapSaving) and all map save/delete handlers return immediately if mapSaving is already true.",
+        "The Konstanta Unit Client section has an in-flight guard (konstantaSaving) and its update handler returns immediately if konstantaSaving is already true.",
+        "All Master Data mutation handlers set their guard true before awaiting the actor call and always reset it in a finally block.",
+        "While saving/deleting/updating is in progress, the relevant action buttons are disabled and show the correct English label: “Saving...”, “Deleting...”, or “Updating...”.",
+        "Acceptance checklist #1 is satisfied: clicking “Save” once creates only one record (no duplicates)."
       ]
     },
     {
-      "id": "REQ-114",
-      "text": "Ensure the backend compiles and the superadmin claim no longer fails with the error text \"Only admins can assign user roles\" when the first caller claims superadmin.",
-      "target": "backend",
+      "id": "REQ-162",
+      "text": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to eliminate any double-trigger submit paths inside Master Data dialogs/forms. For every button inside Master Data dialogs: (1) ensure `type=\"button\"` for any button that is not intended to submit a form, and (2) ensure the same mutation handler cannot be invoked via both `onSubmit` and `onClick`. Use the safest approach: remove `onSubmit`-driven mutations for Master Data dialogs and invoke mutations only via explicit `onClick` handlers combined with the saving guards.",
+      "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-1"
+          "msg-4"
         ],
         "quotes": [
-          "Setelah build, tombol Claim Superadmin harus tidak lagi menghasilkan error: “Only admins can assign user roles”."
+          "B) Pastikan tombol tidak memicu submit ganda ... Pastikan type=\"button\" ... Pilih opsi paling aman: tanpa onSubmit, semua lewat onClick + saving guard."
         ]
       },
       "acceptanceCriteria": [
-        "Project builds successfully after the patch (no Motoko compile errors).",
-        "Calling `claimSuperadmin()` as the first eligible authenticated user succeeds without throwing an \"Only admins can assign user roles\"-type error."
+        "All Master Data dialog buttons that are not true submit controls use `type=\"button\"`.",
+        "No Master Data mutation handler is wired to both a form `onSubmit` and a button `onClick` at the same time.",
+        "Rapid repeated clicks while a guard is true do not trigger additional backend calls.",
+        "Acceptance checklist #1 is satisfied: clicking “Save” once creates only one record (no duplicates)."
+      ]
+    },
+    {
+      "id": "REQ-163",
+      "text": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to implement soft-delete UX display rules for both “Kamus Pekerjaan” and “Aturan Beban” sections: (1) by default, tables show only active items (`aktif === true`), (2) add a per-section toggle control labeled in English exactly “Show Archived” that switches between active-only and active+inactive views, (3) keep the delete action as a soft delete by persisting `aktif=false` via the existing backend behavior, then refresh that section’s dataset, (4) after soft delete, the item disappears from the default active-only table view, and (5) show status badges: active shows a green badge labeled exactly “Active”; inactive shows a gray badge labeled exactly “Archived” (the inactive badge is only visible when “Show Archived” is ON).",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "C) Soft delete tampil benar: “Aktif only + Toggle Arsip” ... Default table menampilkan hanya data aktif ... Tambahkan toggle UI per section ... Tambahkan juga badge/label untuk status: Aktif → badge hijau “Aktif”; Nonaktif → badge abu “Nonaktif” (muncul hanya kalau arsip ditampilkan)"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Kamus Pekerjaan table defaults to showing only items where `aktif === true`.",
+        "Aturan Beban table defaults to showing only items where `aktif === true`.",
+        "Each of Kamus and Aturan sections has an independent toggle labeled exactly “Show Archived”.",
+        "When “Show Archived” is OFF, inactive items are not displayed; when ON, inactive items are included.",
+        "After clicking Delete on an active item, the app performs a soft delete (persisting `aktif=false` through existing actor methods) and refreshes the relevant section; the deleted item disappears from the table when “Show Archived” is OFF.",
+        "Badges are rendered as: green “Active” for active items; gray “Archived” for inactive items, and the inactive badge is only visible when “Show Archived” is ON.",
+        "Acceptance checklist #2 and #3 are satisfied: deleting an active item removes it from the default view immediately after refresh; turning “Show Archived” ON reveals archived items."
+      ]
+    },
+    {
+      "id": "REQ-164",
+      "text": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to make the Ringkasan (Summary) tab reliably fetch and render data and stay up-to-date after Master Data changes. Implement all of the following, without adding new backend endpoints: (A) When the Ringkasan tab is opened, or when the Ringkasan Refresh button is clicked, fetch summary from the backend using existing actor endpoints and render at minimum: Total Users (number), Master Data Keys (number), and a Partner Rates snapshot. (B) Add Ringkasan Master Data summary counts computed from already-fetched Master Data state (no new endpoints): Kamus Pekerjaan activeCount vs archivedCount, Aturan Beban activeCount vs archivedCount, Master Data Map total keys (when available), and Konstanta Unit Client value + updatedAt. (C) If the Master Data datasets needed for these counts are not present in state when Ringkasan is opened/refreshed, trigger a lightweight fetch of the existing Master Data reads already implemented in this file, then compute and render the counts. (D) Ringkasan Refresh must refresh both the backend summary data and the Master Data derived counts without reloading the page.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "STEP 3 — Pastikan Ringkasan muncul & update ... Ringkasan harus selalu fetch + render ... Tambahkan ringkasan Master Data “Aktif vs Arsip” ... Refresh behavior ..."
+        ]
+      },
+      "acceptanceCriteria": [
+        "Opening the Ringkasan tab triggers a summary fetch (when logged in and actor is available) and renders non-empty values for Total Users, Master Data Keys, and Partner Rates snapshot.",
+        "Ringkasan additionally displays Master Data derived counts: Kamus active vs archived counts, Aturan active vs archived counts, Master Data Map key count (if available), and Konstanta value + updatedAt.",
+        "If Ringkasan is opened before Master Data has been fetched, Ringkasan triggers the necessary lightweight Master Data reads already present in `SuperadminDashboard.tsx` and then computes the derived counts.",
+        "After a Master Data mutation (save/update/delete) and subsequent refresh, Ringkasan shows updated numbers without a full page reload.",
+        "Acceptance checklist #4 is satisfied: Ringkasan is not blank and updates after Master Data changes."
+      ]
+    },
+    {
+      "id": "REQ-165",
+      "text": "Ensure the changes compile and run without runtime errors, while preserving the existing dashboard layout and keeping the scope strictly limited to `frontend/src/pages/dashboards/SuperadminDashboard.tsx`. Handle anonymous identity and actor-initializing states gracefully: do not attempt actor calls when identity is anonymous, and keep mutation buttons disabled when `actor` is unavailable or `actorFetching` is true. Any new user-facing text introduced by this change (e.g., toggle labels and in-progress labels) must be in English.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4",
+          "msg-6"
+        ],
+        "quotes": [
+          "Use English for any user-facing text in the build request.",
+          "Ensure Ringkasan menampilkan angka dan tidak kosong, serta ter-update setelah perubahan Master Data."
+        ]
+      },
+      "acceptanceCriteria": [
+        "The app compiles with no TypeScript errors after modifying only `frontend/src/pages/dashboards/SuperadminDashboard.tsx`.",
+        "No Master Data mutation attempts are made when `actor` is undefined/null or while `actorFetching` is true; relevant buttons remain disabled in that state.",
+        "All newly introduced user-facing labels for this change are in English (e.g., “Show Archived”, “Saving...”, “Deleting...”, “Updating...”)."
       ]
     }
   ],
   "constraints": [
-    "Use English for any user-facing text in this build request.",
-    "Modify only `backend/main.mo`.",
-    "Within `claimSuperadmin()`, change only the single `AccessControl.assignRole(...)` line into the two specified bootstrap lines; do not change any other logic in the function.",
-    "Do not modify any other backend functions, types, storage variables, imports, or authorization modules.",
-    "Do not modify any frontend files.",
-    "Do not add or modify `backend/migration.mo`."
+    "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx`. Do not create or edit any other file.",
+    "Do not change or add any backend code (no Motoko changes, no new endpoints, no schema/type changes).",
+    "Do not add new routes or change routing behavior.",
+    "Use existing actor methods already available in the generated actor typings; do not introduce new backend calls beyond those already in scope for Ringkasan/Master Data.",
+    "Prefer explicit onClick handlers (with saving guards) over form onSubmit for Master Data dialogs to avoid double-submit."
   ],
   "nonGoals": [
-    "Do not redesign the overall role/registration model.",
-    "Do not change any other authorization behavior beyond the specified bootstrap change.",
-    "Do not implement new UI/UX changes or adjust InternalLogin behavior in this patch."
+    "No redesign of other Superadmin dashboard tabs beyond the Ringkasan behavior required here.",
+    "No changes to Users tab behavior, search UX, collapsibles, or detail modal beyond what is necessary to keep the app compiling.",
+    "No changes to global styling, shared components, or any other pages.",
+    "No hard-delete behavior for Kamus Pekerjaan or Aturan Beban; deletion remains soft delete via `aktif=false` and existing backend behavior."
   ],
   "imageRequirements": {
     "required": [],

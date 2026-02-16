@@ -1,4 +1,105 @@
 {
   "kind": "feature_evidence_report",
-  "features": []
+  "features": [
+    {
+      "featureId": "feature-modify-only-frontend-src-pages-dashboards-superadmindashboard-tsx-to-add-per-section-saving-guards-for-all-master-data-mutations-to-prevent-double-submit-add-boolean-state-guards-at-minimum-kamussaving-aturansaving-mapsaving-konstantasaving-every-master-data-save-update-delete-handler-must-1-exit-early-if-its-guard-is-already-true-2-set-the-guard-to-true-immediately-before-awaiting-any-actor-mutation-call-and-3-set-the-guard-back-to-false-in-a-finally-block-update-the-ui-so-that-any-button-that-triggers-a-guarded-action-is-disabled-while-its-guard-is-true-and-its-label-changes-while-saving-use-english-labels-exactly-saving-deleting-updating",
+      "featureTitle": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to add per-section “saving guards” for all Master Data mutations to prevent double submit. Add boolean state guards at minimum: `kamusSaving`, `aturanSaving`, `mapSaving`, `konstantaSaving`. Every Master Data save/update/delete handler must: (1) exit early if its guard is already true, (2) set the guard to true immediately before awaiting any `actor.*` mutation call, and (3) set the guard back to false in a `finally` block. Update the UI so that any button that triggers a guarded action is disabled while its guard is true, and its label changes while saving (use English labels exactly: “Saving...”, “Deleting...”, “Updating...”).",
+      "files": [
+        "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0",
+        "user-approval@3.0.0"
+      ],
+      "testIds": [
+        "REQ-161"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-modify-only-frontend-src-pages-dashboards-superadmindashboard-tsx-to-eliminate-any-double-trigger-submit-paths-inside-master-data-dialogs-forms-for-every-button-inside-master-data-dialogs-1-ensure-type-button-for-any-button-that-is-not-intended-to-submit-a-form-and-2-ensure-the-same-mutation-handler-cannot-be-invoked-via-both-onsubmit-and-onclick-use-the-safest-approach-remove-onsubmit-driven-mutations-for-master-data-dialogs-and-invoke-mutations-only-via-explicit-onclick-handlers-combined-with-the-saving-guards",
+      "featureTitle": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to eliminate any double-trigger submit paths inside Master Data dialogs/forms. For every button inside Master Data dialogs: (1) ensure `type=\"button\"` for any button that is not intended to submit a form, and (2) ensure the same mutation handler cannot be invoked via both `onSubmit` and `onClick`. Use the safest approach: remove `onSubmit`-driven mutations for Master Data dialogs and invoke mutations only via explicit `onClick` handlers combined with the saving guards.",
+      "files": [
+        "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0",
+        "user-approval@3.0.0"
+      ],
+      "testIds": [
+        "REQ-162"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-modify-only-frontend-src-pages-dashboards-superadmindashboard-tsx-to-implement-soft-delete-ux-display-rules-for-both-kamus-pekerjaan-and-aturan-beban-sections-1-by-default-tables-show-only-active-items-aktif-true-2-add-a-per-section-toggle-control-labeled-in-english-exactly-show-archived-that-switches-between-active-only-and-active-inactive-views-3-keep-the-delete-action-as-a-soft-delete-by-persisting-aktif-false-via-the-existing-backend-behavior-then-refresh-that-section-s-dataset-4-after-soft-delete-the-item-disappears-from-the-default-active-only-table-view-and-5-show-status-badges-active-shows-a-green-badge-labeled-exactly-active-inactive-shows-a-gray-badge-labeled-exactly-archived-the-inactive-badge-is-only-visible-when-show-archived-is-on",
+      "featureTitle": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to implement soft-delete UX display rules for both “Kamus Pekerjaan” and “Aturan Beban” sections: (1) by default, tables show only active items (`aktif === true`), (2) add a per-section toggle control labeled in English exactly “Show Archived” that switches between active-only and active+inactive views, (3) keep the delete action as a soft delete by persisting `aktif=false` via the existing backend behavior, then refresh that section’s dataset, (4) after soft delete, the item disappears from the default active-only table view, and (5) show status badges: active shows a green badge labeled exactly “Active”; inactive shows a gray badge labeled exactly “Archived” (the inactive badge is only visible when “Show Archived” is ON).",
+      "files": [
+        "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0",
+        "user-approval@3.0.0"
+      ],
+      "testIds": [
+        "REQ-163"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-modify-only-frontend-src-pages-dashboards-superadmindashboard-tsx-to-make-the-ringkasan-summary-tab-reliably-fetch-and-render-data-and-stay-up-to-date-after-master-data-changes-implement-all-of-the-following-without-adding-new-backend-endpoints-a-when-the-ringkasan-tab-is-opened-or-when-the-ringkasan-refresh-button-is-clicked-fetch-summary-from-the-backend-using-existing-actor-endpoints-and-render-at-minimum-total-users-number-master-data-keys-number-and-a-partner-rates-snapshot-b-add-ringkasan-master-data-summary-counts-computed-from-already-fetched-master-data-state-no-new-endpoints-kamus-pekerjaan-activecount-vs-archivedcount-aturan-beban-activecount-vs-archivedcount-master-data-map-total-keys-when-available-and-konstanta-unit-client-value-updatedat-c-if-the-master-data-datasets-needed-for-these-counts-are-not-present-in-state-when-ringkasan-is-opened-refreshed-trigger-a-lightweight-fetch-of-the-existing-master-data-reads-already-implemented-in-this-file-then-compute-and-render-the-counts-d-ringkasan-refresh-must-refresh-both-the-backend-summary-data-and-the-master-data-derived-counts-without-reloading-the-page",
+      "featureTitle": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to make the Ringkasan (Summary) tab reliably fetch and render data and stay up-to-date after Master Data changes. Implement all of the following, without adding new backend endpoints: (A) When the Ringkasan tab is opened, or when the Ringkasan Refresh button is clicked, fetch summary from the backend using existing actor endpoints and render at minimum: Total Users (number), Master Data Keys (number), and a Partner Rates snapshot. (B) Add Ringkasan Master Data summary counts computed from already-fetched Master Data state (no new endpoints): Kamus Pekerjaan activeCount vs archivedCount, Aturan Beban activeCount vs archivedCount, Master Data Map total keys (when available), and Konstanta Unit Client value + updatedAt. (C) If the Master Data datasets needed for these counts are not present in state when Ringkasan is opened/refreshed, trigger a lightweight fetch of the existing Master Data reads already implemented in this file, then compute and render the counts. (D) Ringkasan Refresh must refresh both the backend summary data and the Master Data derived counts without reloading the page.",
+      "files": [
+        "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0",
+        "user-approval@3.0.0"
+      ],
+      "testIds": [
+        "REQ-164"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-ensure-the-changes-compile-and-run-without-runtime-errors-while-preserving-the-existing-dashboard-layout-and-keeping-the-scope-strictly-limited-to-frontend-src-pages-dashboards-superadmindashboard-tsx-handle-anonymous-identity-and-actor-initializing-states-gracefully-do-not-attempt-actor-calls-when-identity-is-anonymous-and-keep-mutation-buttons-disabled-when-actor-is-unavailable-or-actorfetching-is-true-any-new-user-facing-text-introduced-by-this-change-e-g-toggle-labels-and-in-progress-labels-must-be-in-english",
+      "featureTitle": "Ensure the changes compile and run without runtime errors, while preserving the existing dashboard layout and keeping the scope strictly limited to `frontend/src/pages/dashboards/SuperadminDashboard.tsx`. Handle anonymous identity and actor-initializing states gracefully: do not attempt actor calls when identity is anonymous, and keep mutation buttons disabled when `actor` is unavailable or `actorFetching` is true. Any new user-facing text introduced by this change (e.g., toggle labels and in-progress labels) must be in English.",
+      "files": [
+        "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0",
+        "user-approval@3.0.0"
+      ],
+      "testIds": [
+        "REQ-165"
+      ],
+      "confidence": "high"
+    }
+  ]
 }

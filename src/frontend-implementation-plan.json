@@ -1,6 +1,98 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Frontend plan: no changes (backend-only superadmin bootstrap fix)",
-  "requirements": []
+  "title": "Superadmin Master Data: saving guards, soft-delete UX, and reliable Ringkasan refresh",
+  "requirements": [
+    {
+      "id": "REQ-161",
+      "summary": "Add per-section saving guards for all Master Data mutations; disable relevant buttons and show in-progress English labels to prevent double submit.",
+      "acceptanceCriteria": [
+        "The Kamus section has an in-flight guard (kamusSaving) and all Kamus create/update/delete handlers return immediately if kamusSaving is already true.",
+        "The Aturan section has an in-flight guard (aturanSaving) and all Aturan create/update/delete handlers return immediately if aturanSaving is already true.",
+        "The Master Data Map section has an in-flight guard (mapSaving) and all map save/delete handlers return immediately if mapSaving is already true.",
+        "The Konstanta Unit Client section has an in-flight guard (konstantaSaving) and its update handler returns immediately if konstantaSaving is already true.",
+        "All Master Data mutation handlers set their guard true before awaiting the actor call and always reset it in a finally block.",
+        "While saving/deleting/updating is in progress, the relevant action buttons are disabled and show the correct English label: “Saving...”, “Deleting...”, or “Updating...”.",
+        "Acceptance checklist #1 is satisfied: clicking “Save” once creates only one record (no duplicates)."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/dashboards/SuperadminDashboard.tsx",
+          "operation": "modify",
+          "description": "Implement boolean in-flight guards (kamusSaving, aturanSaving, mapSaving, konstantaSaving) and apply them to every Master Data mutation handler (create/update/soft-delete/map push/konstanta update): early-return when guard is true, set guard true immediately before awaiting any actor mutation call, and reset in finally. Update all UI buttons that trigger guarded actions to be disabled while guard is true (and also when actor is unavailable/actorFetching), and switch labels to exactly “Saving...”, “Deleting...”, “Updating...” as appropriate. Use existing shadcn-ui Button and related UI components for disabled states and labels; verify the component's usage instructions before implementing."
+        }
+      ]
+    },
+    {
+      "id": "REQ-162",
+      "summary": "Eliminate double-trigger submit paths in Master Data dialogs by using explicit onClick-only mutations and correct button types.",
+      "acceptanceCriteria": [
+        "All Master Data dialog buttons that are not true submit controls use `type=\"button\"`.",
+        "No Master Data mutation handler is wired to both a form `onSubmit` and a button `onClick` at the same time.",
+        "Rapid repeated clicks while a guard is true do not trigger additional backend calls.",
+        "Acceptance checklist #1 is satisfied: clicking “Save” once creates only one record (no duplicates)."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/dashboards/SuperadminDashboard.tsx",
+          "operation": "modify",
+          "description": "Within all Master Data dialogs/forms (Kamus Pekerjaan, Aturan Beban, Master Data Map, Konstanta Unit Client), remove any form onSubmit-driven mutation wiring and invoke mutations only via explicit onClick handlers that are protected by the relevant saving guards. Ensure every non-submit button inside dialogs has type=\"button\" to prevent implicit submits. Use existing shadcn-ui Dialog, Button, Input, Select, Checkbox components and verify the component's usage instructions before implementing."
+        }
+      ]
+    },
+    {
+      "id": "REQ-163",
+      "summary": "Implement soft-delete UX for Kamus Pekerjaan and Aturan Beban with active-only default, “Show Archived” toggles, and Active/Archived badges.",
+      "acceptanceCriteria": [
+        "Kamus Pekerjaan table defaults to showing only items where `aktif === true`.",
+        "Aturan Beban table defaults to showing only items where `aktif === true`.",
+        "Each of Kamus and Aturan sections has an independent toggle labeled exactly “Show Archived”.",
+        "When “Show Archived” is OFF, inactive items are not displayed; when ON, inactive items are included.",
+        "After clicking Delete on an active item, the app performs a soft delete (persisting `aktif=false` through existing actor methods) and refreshes the relevant section; the deleted item disappears from the table when “Show Archived” is OFF.",
+        "Badges are rendered as: green “Active” for active items; gray “Archived” for inactive items, and the inactive badge is only visible when “Show Archived” is ON.",
+        "Acceptance checklist #2 and #3 are satisfied: deleting an active item removes it from the default view immediately after refresh; turning “Show Archived” ON reveals archived items."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/dashboards/SuperadminDashboard.tsx",
+          "operation": "modify",
+          "description": "Add per-section UI state for archived visibility (e.g., kamusShowArchived and aturanShowArchived) and render toggle controls labeled exactly “Show Archived” (independent per section). Update Kamus and Aturan table rendering to default to aktif===true only; when toggle is ON include aktif===false rows. After Delete, keep deletion as soft delete by persisting aktif=false via existing actor mutation behavior, then refresh the respective dataset so the item disappears from default view. Render status badges using shadcn-ui Badge: active rows show green badge labeled exactly “Active”; archived rows show gray badge labeled exactly “Archived”, only when “Show Archived” is ON. Verify the component's usage instructions before implementing."
+        }
+      ]
+    },
+    {
+      "id": "REQ-164",
+      "summary": "Make Ringkasan fetch reliably on open/refresh and include derived Master Data counts computed from existing Master Data state, fetching lightweight reads when needed.",
+      "acceptanceCriteria": [
+        "Opening the Ringkasan tab triggers a summary fetch (when logged in and actor is available) and renders non-empty values for Total Users, Master Data Keys, and Partner Rates snapshot.",
+        "Ringkasan additionally displays Master Data derived counts: Kamus active vs archived counts, Aturan active vs archived counts, Master Data Map key count (if available), and Konstanta value + updatedAt.",
+        "If Ringkasan is opened before Master Data has been fetched, Ringkasan triggers the necessary lightweight Master Data reads already present in `SuperadminDashboard.tsx` and then computes the derived counts.",
+        "After a Master Data mutation (save/update/delete) and subsequent refresh, Ringkasan shows updated numbers without a full page reload.",
+        "Acceptance checklist #4 is satisfied: Ringkasan is not blank and updates after Master Data changes."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/dashboards/SuperadminDashboard.tsx",
+          "operation": "modify",
+          "description": "Adjust Ringkasan behavior so opening the Ringkasan tab and clicking the Ringkasan Refresh control always (1) fetches backend summary data using existing actor calls already used in this file (no new backend capabilities), and (2) computes and renders Master Data derived counts from already-fetched Master Data state: Kamus activeCount vs archivedCount, Aturan activeCount vs archivedCount, Master Data Map key count (when available), and Konstanta Unit Client value + updatedAt. If the necessary Master Data datasets are missing in state when Ringkasan is opened/refreshed, trigger the lightweight existing Master Data reads already implemented in this file (e.g., listKamusPekerjaan/listAturanBeban/getMasterDataMap/getKonstantaUnitClient or the existing fetch helpers) before computing counts. Ensure Ringkasan Refresh updates both backend summary and derived counts without page reload. Use existing shadcn-ui Tabs, Button, Card, Table, Badge components for rendering; verify the component's usage instructions before implementing."
+        }
+      ]
+    },
+    {
+      "id": "REQ-165",
+      "summary": "Keep scope limited to SuperadminDashboard.tsx; compile cleanly; gracefully handle anonymous/actor-loading states; ensure new UI text is English.",
+      "acceptanceCriteria": [
+        "The app compiles with no TypeScript errors after modifying only `frontend/src/pages/dashboards/SuperadminDashboard.tsx`.",
+        "No Master Data mutation attempts are made when `actor` is undefined/null or while `actorFetching` is true; relevant buttons remain disabled in that state.",
+        "All newly introduced user-facing labels for this change are in English (e.g., “Show Archived”, “Saving...”, “Deleting...”, “Updating...”)."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/dashboards/SuperadminDashboard.tsx",
+          "operation": "modify",
+          "description": "Ensure all newly added/modified logic remains within this file only and does not alter routing or backend. Guard all actor calls (especially Master Data mutations and Ringkasan refresh) so they do not run when identity is anonymous, actor is unavailable, or actorFetching is true; keep mutation buttons disabled in these states in addition to saving guards. Audit newly introduced labels to ensure English-only text: “Show Archived”, “Saving...”, “Deleting...”, “Updating...”. Continue using existing shadcn-ui components already imported (Tabs, Button, Dialog, Badge, etc.) and verify the component's usage instructions before implementing."
+        }
+      ]
+    }
+  ]
 }

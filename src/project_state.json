@@ -1,9 +1,8 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 51,
-  "summary": "Scope includes backend fix: in backend/main.mo (active full-feature backend), patch claimSuperadmin() to stop calling AccessControl.assignRole (which requires an existing admin) and instead bootstrap the first admin by directly adding caller to accessControlState.userRoles and setting accessControlState.adminAssigned=true; keep all other claimSuperadmin logic unchanged. Backend is confirmed editable and active.",
+  "projectStateVersion": 63,
+  "summary": "Scope update: modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` (no new files, no route changes, no moving/merging) to implement Master Data tab CRUD UX fixes per STEP 2 and ensure Ringkasan always fetches/renders per STEP 3. Add per-section saving guards (map/kamus/aturan/konstanta) to prevent double submit and disable/rename action buttons while saving; ensure Dialog buttons do not double-trigger (prefer no form onSubmit; use onClick + type=\"button\"); implement soft-delete UX for Kamus & Aturan with default 'Aktif only' view plus a per-section 'Tampilkan Arsip' toggle that reveals nonaktif items and shows Aktif/Nonaktif badges; delete uses soft delete via upsert aktif=false then refresh so item disappears from default view. Ringkasan tab must fetch and render totals (Total Users, Master Data Keys, Partner Rates snapshot) and also compute Master Data aktif vs arsip counts from already-fetched Master Data state (trigger lightweight Master Data fetch if needed); Ringkasan Refresh must refresh ringkasan + master data counts without page reload. No changes to other tabs beyond the requested Ringkasan behavior, and continue to use existing backend actor endpoints only.",
   "architectural_notes": [
-    "All pages are static UI only: no Internet Identity, no backend calls, no mock data, no role/user logic, no auto-redirects; navigation only via clicks.",
     "Use react-router-dom Routes with explicit mappings and a '*' fallback 404 page with a button back to '/'",
     "Ensure App.tsx uses BrowserRouter + Routes from react-router-dom and does not crash on load.",
     "All specified page files must default-export a React component; all import paths must be valid (no missing files).",
@@ -12,7 +11,8 @@
     "Add sufficient top padding so the logo is not covered; ensure no TS/React compile errors and no blank page—route \"/\" must render normally.",
     "Backend is now in-scope: backend/main.mo may be fully implemented per the backend spec (no longer required to be empty/untouched).",
     "For the current backend build request, ONLY modify backend/main.mo; do not change any frontend files.",
-    "Global frontend styling updated: apply dashboard-reference colors/layout (e.g., dark/blue + beige split/background) and matching card shape/shadows across ALL pages, using the user-uploaded image as the styling baseline."
+    "Global frontend styling updated: apply dashboard-reference colors/layout (e.g., dark/blue + beige split/background) and matching card shape/shadows across ALL pages, using the user-uploaded image as the styling baseline.",
+    "Override prior UI-only rule for dashboards: dashboard pages are now allowed to call backend queries (read-only) via existing hooks; InternalLogin is no longer the only frontend page permitted to call the backend."
   ],
   "known_issues": [
     "Unintended frontend changes were made previously; must be reverted so frontend has zero diff for this request.",
@@ -417,6 +417,414 @@
       "title": "Update `frontend/src/pages/internal/InternalLogin.tsx` claim error handling so the red error message is shown only when the claim truly fails. On claim errors, the UI must perform a single follow-up `isSuperadminClaimed()` re-check: if now claimed, treat as success (hide card permanently, no redirect); otherwise show a friendly error message and do not expose raw backend authorization strings to the user.",
       "reqIds": [
         "REQ-112"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-modify-only-frontend-src-pages-dashboards-superadmindashboard-tsx-to-replace-the-placeholder-content-with-a-real-superadmin-dashboard-that-includes-an-in-page-tab-navigation-and-read-only-data-fetching-from-existing-backend-query-methods-including-calm-loading-and-error-states-while-preserving-the-existing-visual-style-gradient-background-centered-layout-header-with-logo-and-disabled-logout-and-keeping-the-existing-footer-text-unchanged",
+      "title": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to replace the placeholder content with a real Superadmin dashboard that includes an in-page tab navigation and read-only data fetching from existing backend query methods, including calm loading and error states, while preserving the existing visual style (gradient background, centered layout, header with logo, and disabled Logout) and keeping the existing footer text unchanged.",
+      "reqIds": [
+        "REQ-115"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-tabs-inside-superadmindashboard-tsx-no-routing-changes-ringkasan-users-master-data-rates-tasks-default-active-tab-on-first-mount-must-be-ringkasan-and-it-should-auto-load-its-data-on-mount",
+      "title": "Implement tabs inside `SuperadminDashboard.tsx` (no routing changes): Ringkasan, Users, Master Data, Rates, Tasks. Default active tab on first mount must be Ringkasan and it should auto-load its data on mount.",
+      "reqIds": [
+        "REQ-116"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-anonymous-identity-gating-in-superadmindashboard-tsx-using-useinternetidentity-if-the-current-identity-is-anonymous-not-logged-in-show-a-calm-banner-message-instructing-the-user-to-log-in-with-internet-identity-first-and-do-not-call-any-backend-actor-methods-while-in-this-state",
+      "title": "Add anonymous-identity gating in `SuperadminDashboard.tsx` using `useInternetIdentity()`: if the current identity is anonymous / not logged in, show a calm banner message instructing the user to log in with Internet Identity first, and do not call any backend actor methods while in this state.",
+      "reqIds": [
+        "REQ-117"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-use-the-existing-hooks-useactor-and-useinternetidentity-from-within-superadmindashboard-tsx-to-call-existing-backend-queries-read-only-per-tab-with-each-tab-having-its-own-independent-loading-error-data-state-provide-a-per-tab-refresh-button-that-re-fetches-only-that-tab-s-data",
+      "title": "Use the existing hooks `useActor()` and `useInternetIdentity()` from within `SuperadminDashboard.tsx` to call existing backend queries (read-only) per tab, with each tab having its own independent loading + error + data state. Provide a per-tab Refresh button that re-fetches only that tab’s data.",
+      "reqIds": [
+        "REQ-118"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-the-ringkasan-tab-when-logged-in-fetch-in-parallel-actor-listusersbasic-actor-getmasterdatamap-and-actor-getrates-render-summary-cards-for-total-users-and-master-data-key-count-and-render-a-small-rates-snapshot-table-derived-from-getrates-results",
+      "title": "Implement the Ringkasan tab: when logged in, fetch in parallel `actor.listUsersBasic()`, `actor.getMasterDataMap()`, and `actor.getRates()`. Render summary cards for total users and master data key count, and render a small rates snapshot table derived from `getRates()` results.",
+      "reqIds": [
+        "REQ-119"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-the-users-tab-fetch-actor-listusersbasic-and-render-a-table-with-columns-principal-rolekey-derived-from-backend-variant-status-if-available-userid-if-available-if-a-field-is-not-present-in-the-returned-item-shape-display-for-that-cell",
+      "title": "Implement the Users tab: fetch `actor.listUsersBasic()` and render a table with columns: principal, roleKey (derived from backend variant), status (if available), userId (if available). If a field is not present in the returned item shape, display “-” for that cell.",
+      "reqIds": [
+        "REQ-120"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-the-master-data-tab-fetch-actor-getmasterdatamap-actor-listkamuspekerjaan-actor-listaturanbeban-and-actor-getkonstantaunitclient-render-1-a-key-value-table-for-masterdatamap-2-kamuspekerjaan-table-with-columns-kategori-jenis-jamstandar-partnerallowed-if-present-3-aturanbeban-table-with-columns-tipepartner-jammin-jammax-pola-nilai-and-4-a-konstanta-card-showing-unitkejamperusahaan-and-updatedat",
+      "title": "Implement the Master Data tab: fetch `actor.getMasterDataMap()`, `actor.listKamusPekerjaan()`, `actor.listAturanBeban()`, and `actor.getKonstantaUnitClient()`. Render: (1) a key/value table for MasterDataMap, (2) KamusPekerjaan table with columns kategori, jenis, jamStandar, partnerAllowed if present, (3) AturanBeban table with columns tipePartner, jamMin, jamMax, pola, nilai, and (4) a Konstanta card showing unitKeJamPerusahaan and updatedAt.",
+      "reqIds": [
+        "REQ-121"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-the-rates-tab-fetch-actor-getrates-and-render-a-clean-table-of-all-returned-entries-also-attempt-to-query-actor-gethourlyratebylevel-junior-actor-gethourlyratebylevel-senior-and-actor-gethourlyratebylevel-expert-as-text-arguments-and-display-the-returned-values-in-small-summary-cards-rows-defensively-handling-missing-method-shape-errors-as-regular-tab-errors",
+      "title": "Implement the Rates tab: fetch `actor.getRates()` and render a clean table of all returned entries. Also attempt to query `actor.getHourlyRateByLevel('junior')`, `actor.getHourlyRateByLevel('senior')`, and `actor.getHourlyRateByLevel('expert')` (as Text arguments) and display the returned values in small summary cards/rows (defensively handling missing method/shape errors as regular tab errors).",
+      "reqIds": [
+        "REQ-122"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-the-tasks-tab-fetch-actor-listmytasks-and-render-a-table-showing-taskid-plus-phase-status-like-fields-if-present-in-the-returned-task-objects-if-listmytasks-returns-an-empty-list-display-the-empty-state-text-belum-ada-task",
+      "title": "Implement the Tasks tab: fetch `actor.listMyTasks()` and render a table showing taskId plus phase/status-like fields if present in the returned task objects. If `listMyTasks()` returns an empty list, display the empty-state text “Belum ada task”.",
+      "reqIds": [
+        "REQ-123"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-within-superadmindashboard-tsx-implement-small-local-helper-functions-defined-in-the-same-file-only-for-safe-display-formatting-and-role-derivation-safestring-countarray-and-rolekeyfromvariant-do-not-export-new-components-from-the-file-keep-everything-self-contained",
+      "title": "Within `SuperadminDashboard.tsx`, implement small local helper functions (defined in the same file only) for safe display formatting and role derivation: `safeString()`, `countArray()`, and `roleKeyFromVariant()`. Do not export new components from the file; keep everything self-contained.",
+      "reqIds": [
+        "REQ-124"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-frontend-src-pages-internal-internalregister-tsx-to-use-the-logo-path-exactly-src-assets-asistenku-horizontal-png-replacing-any-previous-internal-relative-or-rootless-paths-and-enlarge-the-logo-using-the-exact-classname-h-12-md-h-14-w-auto",
+      "title": "Update `frontend/src/pages/internal/InternalRegister.tsx` to use the logo path exactly `src=\"/assets/asistenku-horizontal.png\"` (replacing any previous internal-relative or rootless paths) and enlarge the logo using the exact className `h-12 md:h-14 w-auto`.",
+      "reqIds": [
+        "REQ-125"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-an-explicit-no-auto-redirect-no-on-load-backend-calls-internet-identity-login-gate-in-frontend-src-pages-internal-internalregister-tsx-using-the-existing-hooks-useinternetidentity-and-useactor-when-the-user-is-not-logged-in-with-internet-identity-show-only-a-login-card-title-login-internet-identity-text-please-log-in-first-to-continue-internal-registration-with-a-primary-button-labeled-login-internet-identity-that-calls-login-on-click-hide-or-lock-the-registration-form-until-logged-in",
+      "title": "Implement an explicit (no auto-redirect / no on-load backend calls) Internet Identity login gate in `frontend/src/pages/internal/InternalRegister.tsx` using the existing hooks `useInternetIdentity()` and `useActor()`: when the user is not logged in with Internet Identity, show only a login card (title \"Login Internet Identity\", text \"Please log in first to continue internal registration.\") with a primary button labeled \"Login Internet Identity\" that calls `login()` on click; hide or lock the registration form until logged in.",
+      "reqIds": [
+        "REQ-126"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-when-the-user-is-logged-in-with-internet-identity-in-internalregister-tsx-show-a-a-small-logged-in-badge-b-an-optional-logout-button-that-calls-clear-and-c-the-internal-registration-form-the-submit-button-must-be-disabled-when-any-of-the-following-are-true-not-logged-in-backend-actor-is-not-ready-actor-is-null-undefined-or-actor-is-still-fetching-required-fields-are-incomplete-or-submission-is-currently-loading",
+      "title": "When the user is logged in with Internet Identity in `InternalRegister.tsx`, show: (a) a small \"Logged in\" badge, (b) an optional \"Logout\" button that calls `clear()`, and (c) the internal registration form. The submit button must be disabled when any of the following are true: not logged in, backend actor is not ready (actor is null/undefined or actor is still fetching), required fields are incomplete, or submission is currently loading.",
+      "reqIds": [
+        "REQ-127"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-replace-the-current-role-select-in-internalregister-tsx-with-a-role-picker-presented-as-a-grid-of-selectable-cards-with-exactly-these-options-admin-finance-supervisor-management-asistenmu-concierge-selection-must-be-stored-in-local-state-and-required-for-submission",
+      "title": "Replace the current role select in `InternalRegister.tsx` with a role picker presented as a grid of selectable cards with exactly these options: Admin, Finance, Supervisor, Management, Asistenmu, Concierge. Selection must be stored in local state and required for submission.",
+      "reqIds": [
+        "REQ-128"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-the-internal-registration-form-fields-in-internalregister-tsx-as-controlled-typable-inputs-for-name-nama-email-and-whatsapp-whatsapp-no-auto-submit-submission-must-occur-only-via-an-explicit-submit-button-click",
+      "title": "Implement the internal registration form fields in `InternalRegister.tsx` as controlled, typable inputs for: name (nama), email, and WhatsApp (whatsapp). No auto-submit; submission must occur only via an explicit submit button click.",
+      "reqIds": [
+        "REQ-129"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-on-submit-button-click-in-internalregister-tsx-perform-the-backend-mutation-exactly-via-await-actor-registerinternal-nama-email-whatsapp-role-selectedrolevariant-using-the-actor-from-useactor-implement-ui-state-for-loading-clear-prior-error-success-before-calling-show-a-destructive-error-alert-area-with-error-message-or-a-safe-fallback-on-failure-and-on-success-set-a-success-state-and-switch-to-a-success-screen",
+      "title": "On submit button click in `InternalRegister.tsx`, perform the backend mutation exactly via `await actor.registerInternal({ nama, email, whatsapp, role: selectedRoleVariant })` using the actor from `useActor()`. Implement UI state for `loading`, clear prior error/success before calling, show a destructive error alert area with `error.message` (or a safe fallback) on failure, and on success set a success state and switch to a success screen.",
+      "reqIds": [
+        "REQ-130"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-after-a-successful-internal-registration-in-internalregister-tsx-do-not-auto-navigate-instead-display-a-success-screen-containing-the-exact-message-registration-successful-awaiting-approval-and-a-button-labeled-back-to-internal-login-that-navigates-to-internal-login-only-when-clicked",
+      "title": "After a successful internal registration in `InternalRegister.tsx`, do not auto-navigate. Instead, display a success screen containing the exact message: \"Registration successful. Awaiting approval.\" and a button labeled \"Back to Internal Login\" that navigates to `/internal/login` only when clicked.",
+      "reqIds": [
+        "REQ-131"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-frontend-src-app-tsx-with-minimal-wiring-only-if-needed-so-that-the-path-internal-daftar-renders-internalregister-tsx-and-is-not-a-placeholder-if-existing-routing-already-supports-this-exact-path-do-not-change-other-routes",
+      "title": "Update `frontend/src/App.tsx` with minimal wiring (only if needed) so that the path `/internal/daftar` renders `InternalRegister.tsx` (and is not a placeholder). If existing routing already supports this exact path, do not change other routes.",
+      "reqIds": [
+        "REQ-132"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-perform-a-compile-runtime-sanity-pass-for-the-modified-pages-to-ensure-there-are-no-typescript-errors-and-that-internal-daftar-works-in-both-logged-out-and-logged-in-states-without-crashes-including-when-the-actor-is-still-initializing",
+      "title": "Perform a compile/runtime sanity pass for the modified pages to ensure there are no TypeScript errors, and that `/internal/daftar` works in both logged-out and logged-in states without crashes (including when the actor is still initializing).",
+      "reqIds": [
+        "REQ-133"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-modify-only-frontend-src-pages-dashboards-superadmindashboard-tsx-to-update-the-superadmin-dashboard-header-as-follows-1-change-the-logo-to-use-the-exact-path-assets-asistenku-horizontal-png-not-asistenku-horizontal-png-and-make-it-slightly-larger-than-the-current-h-6-2-add-centered-header-text-exactly-hello-superadmin-welcome-to-your-control-room-with-soft-non-dominating-styling-3-enable-the-logout-control-so-it-becomes-clickable-and-performs-a-real-logout-by-calling-clear-from-useinternetidentity-then-redirects-to-the-landing-page-at",
+      "title": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to update the Superadmin dashboard header as follows: (1) change the logo to use the exact path `/assets/asistenku-horizontal.png` (not `/asistenku-horizontal.png`) and make it slightly larger than the current `h-6`; (2) add centered header text exactly: \"Hello, Superadmin — welcome to your control room.\" with soft, non-dominating styling; (3) enable the Logout control so it becomes clickable and performs a real logout by calling `clear()` from `useInternetIdentity()`, then redirects to the landing page at `/`.",
+      "reqIds": [
+        "REQ-134"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-frontend-src-pages-dashboards-superadmindashboard-tsx-update-the-users-tab-ui-to-include-a-real-time-case-insensitive-client-side-search-bar-placed-at-the-top-of-the-users-tab-content-the-search-input-must-use-the-placeholder-text-exactly-search-by-user-id-principal-name-and-filter-the-currently-loaded-users-tab-dataset-as-the-user-types-no-new-backend-calls-for-searching",
+      "title": "In `frontend/src/pages/dashboards/SuperadminDashboard.tsx`, update the Users tab UI to include a real-time, case-insensitive, client-side search bar placed at the top of the Users tab content. The search input must use the placeholder text exactly: \"Search by User ID / Principal / Name\" and filter the currently loaded Users tab dataset as the user types (no new backend calls for searching).",
+      "reqIds": [
+        "REQ-135"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-frontend-src-pages-dashboards-superadmindashboard-tsx-restructure-the-users-tab-into-four-main-cards-sections-in-this-exact-order-1-pending-users-all-2-client-3-partner-4-internal-each-section-must-render-a-table-with-the-columns-specified-by-the-user-and-must-be-derived-from-the-already-fetched-users-tab-dataset-plus-any-additional-existing-backend-reads-that-are-already-available-in-the-generated-actor-typings-do-not-add-backend-changes",
+      "title": "In `frontend/src/pages/dashboards/SuperadminDashboard.tsx`, restructure the Users tab into four main cards/sections in this exact order: (1) \"Pending Users (All)\", (2) \"Client\", (3) \"Partner\", (4) \"Internal\". Each section must render a table with the columns specified by the user and must be derived from the already-fetched Users tab dataset plus any additional existing backend reads that are already available in the generated actor typings (do not add backend changes).",
+      "reqIds": [
+        "REQ-136"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-the-pending-users-all-card-in-the-users-tab-to-show-all-users-whose-status-is-pending-across-all-roles-in-a-table-with-these-columns-user-id-name-principal-role-status-action-the-action-column-must-include-an-activate-button-for-each-row-that-calls-the-existing-backend-endpoint-to-update-the-user-status-to-active-then-refreshes-the-users-tab-data-on-success-do-not-change-the-backend-user-id-format-or-any-role-claim-logic",
+      "title": "Implement the \"Pending Users (All)\" card in the Users tab to show ALL users whose status is pending (across all roles) in a table with these columns: User ID, Name, Principal, Role, Status, Action. The Action column must include an \"Activate\" button for each row that calls the existing backend endpoint to update the user status to active, then refreshes the Users tab data on success. Do not change the backend User ID format or any role/claim logic.",
+      "reqIds": [
+        "REQ-137"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-the-client-card-in-the-users-tab-with-sub-sections-by-status-active-suspended-blacklisted-each-sub-section-must-show-a-table-with-columns-user-id-name-principal-status-action-the-action-must-include-a-details-button-that-opens-a-modal-allowing-editing-of-all-client-profile-fields-and-updating-them-via-existing-backend-endpoints-when-clicking-an-update-button-in-the-modal",
+      "title": "Implement the \"Client\" card in the Users tab with sub-sections by status: Active, Suspended, Blacklisted. Each sub-section must show a table with columns: User ID, Name, Principal, Status, Action. The Action must include a \"Details\" button that opens a modal allowing editing of all client profile fields and updating them via existing backend endpoints when clicking an \"Update\" button in the modal.",
+      "reqIds": [
+        "REQ-138"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-the-partner-card-in-the-users-tab-with-sub-sections-by-status-active-pending-suspended-blacklisted-each-sub-section-must-show-a-table-with-columns-user-id-name-principal-partner-level-status-action-the-action-must-include-a-details-button-that-opens-a-modal-allowing-editing-of-partner-profile-fields-plus-1-partner-level-dropdown-options-exactly-junior-senior-expert-and-2-status-dropdown-clicking-update-must-call-existing-backend-endpoints-to-persist-changes-then-refresh-the-users-tab-data-on-success",
+      "title": "Implement the \"Partner\" card in the Users tab with sub-sections by status: Active, Pending, Suspended, Blacklisted. Each sub-section must show a table with columns: User ID, Name, Principal, Partner Level, Status, Action. The Action must include a \"Details\" button that opens a modal allowing editing of partner profile fields plus: (1) Partner Level (dropdown options exactly: Junior, Senior, Expert) and (2) Status (dropdown). Clicking \"Update\" must call existing backend endpoints to persist changes, then refresh the Users tab data on success.",
+      "reqIds": [
+        "REQ-139"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-the-internal-card-in-the-users-tab-with-sub-sections-active-and-pending-each-sub-section-must-show-a-table-with-columns-user-id-name-internal-role-status-action-the-action-must-include-a-details-button-that-opens-a-modal-where-the-admin-can-update-the-user-status-via-an-existing-backend-endpoint-then-refresh-the-users-tab-data-on-success",
+      "title": "Implement the \"Internal\" card in the Users tab with sub-sections: Active and Pending. Each sub-section must show a table with columns: User ID, Name, Internal Role, Status, Action. The Action must include a \"Details\" button that opens a modal where the admin can update the user status via an existing backend endpoint, then refresh the Users tab data on success.",
+      "reqIds": [
+        "REQ-140"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-keep-the-scope-strictly-limited-to-frontend-src-pages-dashboards-superadmindashboard-tsx-and-to-the-requested-elements-users-tab-only-plus-header-message-logo-logout-do-not-change-other-tabs-behavior-or-their-backend-calls-do-not-change-routing-do-not-change-claim-superadmin-flow-do-not-change-backend-id-formats-and-do-not-change-role-logic-all-new-user-facing-strings-introduced-by-this-change-e-g-placeholders-button-labels-must-be-in-english",
+      "title": "Keep the scope strictly limited to `frontend/src/pages/dashboards/SuperadminDashboard.tsx` and to the requested elements: Users tab only (plus header message/logo/logout). Do not change other tabs' behavior or their backend calls, do not change routing, do not change claim-superadmin flow, do not change backend ID formats, and do not change role logic. All new user-facing strings introduced by this change (e.g., placeholders, button labels) must be in English.",
+      "reqIds": [
+        "REQ-141"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-ensure-the-updated-frontend-src-pages-dashboards-superadmindashboard-tsx-compiles-and-runs-without-runtime-errors-it-must-handle-these-cases-gracefully-1-anonymous-not-logged-in-identity-no-actor-calls-show-an-english-guidance-banner-2-actor-still-initializing-disable-mutation-buttons-and-show-an-english-inline-notice-if-needed-and-3-missing-backend-methods-for-update-actions-show-a-calm-english-error-message-instead-of-crashing",
+      "title": "Ensure the updated `frontend/src/pages/dashboards/SuperadminDashboard.tsx` compiles and runs without runtime errors. It must handle these cases gracefully: (1) anonymous/not logged-in identity (no actor calls; show an English guidance banner), (2) actor still initializing (disable mutation buttons and show an English inline notice if needed), and (3) missing backend methods for update actions (show a calm English error message instead of crashing).",
+      "reqIds": [
+        "REQ-142"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-modify-only-frontend-src-pages-dashboards-superadmindashboard-tsx-to-update-the-users-tab-details-modal-to-support-view-edit-modes-with-explicit-action-buttons-default-view-mode-an-edit-button-to-enter-edit-mode-a-cancel-button-to-revert-to-view-mode-without-saving-and-an-update-button-to-submit-changes-after-a-successful-update-close-the-modal-and-automatically-refresh-the-users-list",
+      "title": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to update the Users-tab Details modal to support View/Edit modes with explicit action buttons: default View mode, an \"Edit\" button to enter Edit mode, a \"Cancel\" button to revert to View mode without saving, and an \"Update\" button to submit changes. After a successful Update, close the modal and automatically refresh the Users list.",
+      "reqIds": [
+        "REQ-143"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-within-frontend-src-pages-dashboards-superadmindashboard-tsx-enforce-per-role-editability-rules-in-the-details-modal-client-all-client-profile-fields-editable-in-edit-mode-partner-partner-profile-fields-editable-plus-partner-level-dropdown-options-exactly-junior-senior-expert-and-status-dropdown-internal-only-status-is-editable-dropdown-while-other-fields-remain-view-only-even-in-edit-mode",
+      "title": "Within `frontend/src/pages/dashboards/SuperadminDashboard.tsx`, enforce per-role editability rules in the Details modal: Client = all client profile fields editable in Edit mode; Partner = partner profile fields editable plus Partner Level dropdown (options exactly Junior/Senior/Expert) and Status dropdown; Internal = only Status is editable (dropdown) while other fields remain view-only even in Edit mode.",
+      "reqIds": [
+        "REQ-144"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-frontend-src-pages-dashboards-superadmindashboard-tsx-make-all-users-tab-main-sections-collapsible-with-a-clickable-header-area-title-chevron-or-equivalent-and-expand-collapse-labels-main-cards-in-this-order-pending-users-all-client-partner-internal-default-open-state-only-pending-users-all-is-expanded-the-other-three-are-collapsed-on-first-render",
+      "title": "In `frontend/src/pages/dashboards/SuperadminDashboard.tsx`, make all Users tab main sections collapsible with a clickable header area (title + chevron or equivalent) and Expand/Collapse labels: main cards in this order: \"Pending Users (All)\", \"Client\", \"Partner\", \"Internal\". Default open state: only \"Pending Users (All)\" is expanded; the other three are collapsed on first render.",
+      "reqIds": [
+        "REQ-145"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-frontend-src-pages-dashboards-superadmindashboard-tsx-make-users-tab-subsections-collapsible-as-subcards-client-subsections-active-suspended-blacklisted-partner-subsections-active-pending-suspended-blacklisted-internal-subsections-active-pending-these-subsections-should-be-independently-collapsible-and-visually-nested-under-their-parent-card",
+      "title": "In `frontend/src/pages/dashboards/SuperadminDashboard.tsx`, make Users tab subsections collapsible as subcards: Client subsections \"Active\", \"Suspended\", \"Blacklisted\"; Partner subsections \"Active\", \"Pending\", \"Suspended\", \"Blacklisted\"; Internal subsections \"Active\", \"Pending\". These subsections should be independently collapsible and visually nested under their parent card.",
+      "reqIds": [
+        "REQ-146"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-frontend-src-pages-dashboards-superadmindashboard-tsx-change-users-tab-search-behavior-so-that-typing-in-the-existing-search-bar-shows-a-separate-panel-titled-search-results-directly-below-the-search-bar-this-panel-must-show-results-from-all-users-across-all-roles-and-statuses-using-client-side-filtering-only-no-new-backend-calls-and-must-match-query-against-userid-principal-name-and-optionally-role-string-when-the-query-is-empty-the-search-results-panel-is-hidden",
+      "title": "In `frontend/src/pages/dashboards/SuperadminDashboard.tsx`, change Users tab search behavior so that typing in the existing search bar shows a separate panel titled \"Search Results\" directly below the search bar. This panel must show results from ALL users (across all roles and statuses) using client-side filtering only (no new backend calls) and must match query against userId, principal, name, and optionally role string. When the query is empty, the \"Search Results\" panel is hidden.",
+      "reqIds": [
+        "REQ-147"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-frontend-src-pages-dashboards-superadmindashboard-tsx-implement-pagination-for-the-users-tab-search-results-panel-maximum-5-rows-per-page-buttons-labeled-exactly-prev-and-next-and-a-page-indicator-formatted-exactly-page-x-of-y-if-no-matches-exist-show-the-message-exactly-no-results-found-within-the-search-results-panel",
+      "title": "In `frontend/src/pages/dashboards/SuperadminDashboard.tsx`, implement pagination for the Users-tab \"Search Results\" panel: maximum 5 rows per page, buttons labeled exactly \"Prev\" and \"Next\", and a page indicator formatted exactly \"Page X of Y\". If no matches exist, show the message exactly \"No results found\" within the Search Results panel.",
+      "reqIds": [
+        "REQ-148"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-frontend-src-pages-dashboards-superadmindashboard-tsx-enhance-the-ringkasan-tab-total-users-card-to-include-a-collapsible-breakdown-default-collapsed-showing-counts-by-role-and-status-client-active-pending-suspended-blacklisted-partner-active-pending-suspended-blacklisted-internal-active-pending-superadmin-active-pending-the-collapsed-state-must-show-only-the-total-number-prominently-expanding-reveals-the-breakdown-details",
+      "title": "In `frontend/src/pages/dashboards/SuperadminDashboard.tsx`, enhance the Ringkasan tab \"Total Users\" card to include a collapsible breakdown (default collapsed) showing counts by role and status: Client (Active/Pending/Suspended/Blacklisted), Partner (Active/Pending/Suspended/Blacklisted), Internal (Active/Pending), Superadmin (Active/Pending). The collapsed state must show only the total number prominently; expanding reveals the breakdown details.",
+      "reqIds": [
+        "REQ-149"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-frontend-src-pages-dashboards-superadmindashboard-tsx-add-new-collapsible-summary-cards-in-the-ringkasan-tab-all-default-collapsed-with-consistent-styling-1-asistenku-services-with-totals-active-inactive-and-optional-breakdown-by-package-tenang-rapi-fokus-jaga-when-data-is-available-2-tasks-with-total-and-breakdown-per-phase-permintaan-baru-ditolak-partner-on-progress-qa-asistenku-review-client-revisi-selesai-dibatalkan-client-3-financial-overview-showing-gmv-and-margin-fields-if-endpoints-exist-and-4-master-data-showing-master-data-keys-kamus-pekerjaan-count-aturan-beban-count-and-konstanta-unit-client-value-if-an-endpoint-for-a-card-is-unavailable-render-the-card-anyway-and-show-the-placeholder-text-exactly-no-data-yet-endpoint-not-available-in-the-card-content",
+      "title": "In `frontend/src/pages/dashboards/SuperadminDashboard.tsx`, add new collapsible summary cards in the Ringkasan tab (all default collapsed) with consistent styling: (1) \"Asistenku Services\" with totals/active/inactive and optional breakdown by package (Tenang/Rapi/Fokus/Jaga) when data is available, (2) \"Tasks\" with total and breakdown per phase (permintaan_baru, ditolak_partner, on_progress, qa_asistenku, review_client, revisi, selesai, dibatalkan_client), (3) \"Financial Overview\" showing GMV and margin fields if endpoints exist, and (4) \"Master Data\" showing master data keys, kamus pekerjaan count, aturan beban count, and konstanta unit client value. If an endpoint for a card is unavailable, render the card anyway and show the placeholder text exactly \"No data yet / endpoint not available\" in the card content.",
+      "reqIds": [
+        "REQ-150"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-frontend-src-pages-dashboards-superadmindashboard-tsx-keep-ui-consistency-all-new-cards-subcards-use-the-same-card-styling-and-collapsible-headers-are-fully-clickable-title-chevron-indicator-do-not-change-the-global-dashboard-header-layout-navigation-and-do-not-change-behavior-of-other-tabs-besides-the-requested-ringkasan-and-users-changes",
+      "title": "In `frontend/src/pages/dashboards/SuperadminDashboard.tsx`, keep UI consistency: all new cards/subcards use the same card styling, and collapsible headers are fully clickable (title + chevron/indicator). Do not change the global dashboard header layout/navigation, and do not change behavior of other tabs besides the requested Ringkasan and Users changes.",
+      "reqIds": [
+        "REQ-151"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-ensure-frontend-src-pages-dashboards-superadmindashboard-tsx-compiles-and-runs-without-runtime-errors-after-these-changes-including-anonymous-identity-state-no-actor-calls-show-the-existing-english-guidance-banner-actor-still-initializing-disable-mutation-buttons-and-show-calm-english-messaging-if-needed-and-missing-backend-methods-for-any-new-optional-ringkasan-cards-show-the-required-placeholder-instead-of-crashing",
+      "title": "Ensure `frontend/src/pages/dashboards/SuperadminDashboard.tsx` compiles and runs without runtime errors after these changes, including: anonymous identity state (no actor calls; show the existing English guidance banner), actor still initializing (disable mutation buttons and show calm English messaging if needed), and missing backend methods for any new optional Ringkasan cards (show the required placeholder instead of crashing).",
+      "reqIds": [
+        "REQ-152"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-modify-only-frontend-src-pages-dashboards-superadmindashboard-tsx-to-implement-the-master-data-tab-enhancements-described-in-step-1-3-without-creating-any-new-files-or-routes-and-without-moving-merging-code-into-other-paths-the-master-data-work-must-stay-inside-the-existing-in-page-tab-named-master-data-no-routing-changes",
+      "title": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to implement the Master Data tab enhancements described in STEP 1–3, without creating any new files or routes and without moving/merging code into other paths. The Master Data work must stay inside the existing in-page tab named “Master Data” (no routing changes).",
+      "reqIds": [
+        "REQ-153"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-frontend-src-pages-dashboards-superadmindashboard-tsx-implement-the-master-data-tab-with-4-collapsible-sections-expand-collapse-a-master-data-map-b-kamus-pekerjaan-c-aturan-beban-d-konstanta-unit-client-each-section-must-have-its-own-independent-loading-error-and-data-state-a-section-specific-refresh-button-that-only-loads-that-section-a-loading-spinner-using-loader2-and-an-error-alert-ui-consistent-with-other-tabs-card-alert",
+      "title": "In `frontend/src/pages/dashboards/SuperadminDashboard.tsx`, implement the Master Data tab with 4 collapsible sections (expand/collapse): (A) Master Data Map, (B) Kamus Pekerjaan, (C) Aturan Beban, (D) Konstanta Unit Client. Each section must have its own independent `loading`, `error`, and `data` state, a section-specific “Refresh” button that only loads that section, a loading spinner using `Loader2`, and an error alert UI consistent with other tabs (Card + Alert).",
+      "reqIds": [
+        "REQ-154"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-section-a-master-data-map-key-value-ui-logic-inside-the-master-data-tab-using-only-these-actor-endpoints-getmasterdatamap-pushmasterdata-key-data-deletemasterdata-key-ui-must-include-a-refresh-button-an-inline-add-update-form-above-the-table-with-key-text-input-and-value-text-input-or-small-textarea-and-a-save-button-calling-pushmasterdata-key-value-render-a-table-with-columns-key-value-action-and-an-action-delete-button-per-row-with-confirm-that-calls-deletemasterdata-key-after-successful-save-or-delete-auto-refresh-only-this-section-if-map-is-empty-show-the-empty-state-text-exactly-belum-ada-data",
+      "title": "Implement section A: “Master Data Map (Key / Value)” UI + logic inside the Master Data tab using ONLY these actor endpoints: `getMasterDataMap()`, `pushMasterData(key, data)`, `deleteMasterData(key)`. UI must include: a Refresh button, an inline add/update form above the table with Key (text input) and Value (text input or small textarea), and a Save button calling `pushMasterData(key, value)`. Render a table with columns Key | Value | Action, and an Action Delete button per row with confirm that calls `deleteMasterData(key)`. After successful save or delete, auto-refresh ONLY this section. If map is empty, show the empty state text exactly “Belum ada data”.",
+      "reqIds": [
+        "REQ-155"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-section-b-kamus-pekerjaan-crud-ui-logic-using-only-these-actor-endpoints-listkamuspekerjaan-upsertkamuspekerjaan-item-deletekamuspekerjaan-id-ui-must-include-refresh-button-tambah-kamus-button-a-table-with-columns-kategori-jenis-jam-standar-partner-allowed-aktif-action-and-an-add-edit-form-use-a-small-modal-or-inline-expandable-choose-the-most-stable-approach-form-fields-must-include-kategoripekerjaan-text-jenispekerjaan-text-jamstandar-nat-tipepartnerboleh-tipepartner-as-a-simple-multi-select-via-checkboxes-and-aktif-bool-default-true-row-actions-edit-prefill-form-then-submit-via-upsertkamuspekerjaan-item-and-delete-confirm-then-deletekamuspekerjaan-id-rendering-may-include-inactive-rows-but-inactive-rows-must-show-a-nonaktif-badge-after-create-update-delete-auto-refresh-only-section-b",
+      "title": "Implement section B: “Kamus Pekerjaan (CRUD)” UI + logic using ONLY these actor endpoints: `listKamusPekerjaan()`, `upsertKamusPekerjaan(item)`, `deleteKamusPekerjaan(id)`. UI must include: Refresh button, “+ Tambah Kamus” button, a table with columns Kategori | Jenis | Jam Standar | Partner Allowed | Aktif | Action, and an Add/Edit form (use a small modal or inline expandable—choose the most stable approach). Form fields must include: `kategoriPekerjaan` (Text), `jenisPekerjaan` (Text), `jamStandar` (Nat), `tipePartnerBoleh` ([TipePartner]) as a simple multi-select via checkboxes, and `aktif` (Bool, default true). Row actions: Edit (prefill form, then submit via `upsertKamusPekerjaan(item)`) and Delete (confirm then `deleteKamusPekerjaan(id)`). Rendering may include inactive rows, but inactive rows must show a “Nonaktif” badge. After create/update/delete, auto-refresh ONLY section B.",
+      "reqIds": [
+        "REQ-156"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-section-c-aturan-beban-crud-ui-logic-using-only-these-actor-endpoints-listaturanbeban-upsertaturanbeban-item-deleteaturanbeban-id-ui-must-include-refresh-button-tambah-aturan-button-a-table-with-columns-tipe-partner-jam-min-jam-max-pola-beban-nilai-aktif-action-and-an-add-edit-form-with-fields-tipepartner-tipepartner-dropdown-jammin-nat-jammax-nat-polabeban-dropdown-with-exact-options-tambah-jam-tetap-and-tambah-per-jam-nilai-nat-and-aktif-bool-default-true-actions-per-row-edit-submit-upsertaturanbeban-item-and-delete-confirm-then-deleteaturanbeban-id-render-an-inactive-badge-when-aktif-false-after-create-update-delete-auto-refresh-only-section-c",
+      "title": "Implement section C: “Aturan Beban (CRUD)” UI + logic using ONLY these actor endpoints: `listAturanBeban()`, `upsertAturanBeban(item)`, `deleteAturanBeban(id)`. UI must include: Refresh button, “+ Tambah Aturan” button, a table with columns Tipe Partner | Jam Min | Jam Max | Pola Beban | Nilai | Aktif | Action, and an Add/Edit form with fields: `tipePartner` (TipePartner dropdown), `jamMin` (Nat), `jamMax` (Nat), `polaBeban` dropdown with EXACT options `TAMBAH_JAM_TETAP` and `TAMBAH_PER_JAM`, `nilai` (Nat), and `aktif` (Bool, default true). Actions per row: Edit (submit `upsertAturanBeban(item)`) and Delete (confirm then `deleteAturanBeban(id)`). Render an inactive badge when `aktif=false`. After create/update/delete, auto-refresh ONLY section C.",
+      "reqIds": [
+        "REQ-157"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-section-d-konstanta-unit-client-single-config-ui-logic-using-only-these-actor-endpoints-getkonstantaunitclient-and-setkonstantaunitclient-unitkejamperusahaan-ui-must-include-refresh-button-an-info-card-showing-exactly-unit-ke-jam-perusahaan-value-and-updated-at-formatted-or-updated-at-if-not-available-and-an-input-form-for-unitkejamperusahaan-nat-with-an-update-button-calling-setkonstantaunitclient-value-if-getkonstantaunitclient-returns-null-show-default-value-2-read-only-and-updated-at-until-set-after-update-auto-refresh-only-section-d",
+      "title": "Implement section D: “Konstanta Unit Client (single config)” UI + logic using ONLY these actor endpoints: `getKonstantaUnitClient()` and `setKonstantaUnitClient(unitKeJamPerusahaan)`. UI must include: Refresh button; an info card showing exactly “Unit ke Jam Perusahaan: {value}” and “Updated At: {formatted}” (or “Updated At: -” if not available); and an input form for `unitKeJamPerusahaan` (Nat) with an Update button calling `setKonstantaUnitClient(value)`. If `getKonstantaUnitClient()` returns null, show default value 2 (read-only) and Updated At: - until set. After update, auto-refresh ONLY section D.",
+      "reqIds": [
+        "REQ-158"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-frontend-src-pages-dashboards-superadmindashboard-tsx-add-small-local-helper-utilities-required-by-the-master-data-tab-if-not-already-present-formattipepartner-formatpolabeban-and-formattimestamp-ensure-nat-inputs-are-parsed-safely-string-number-and-converted-to-the-correct-actor-typing-e-g-bigint-nat-without-runtime-errors-do-not-introduce-new-exported-components-or-new-files",
+      "title": "In `frontend/src/pages/dashboards/SuperadminDashboard.tsx`, add small local helper utilities required by the Master Data tab (if not already present): `formatTipePartner`, `formatPolaBeban`, and `formatTimestamp`. Ensure Nat inputs are parsed safely (string -> number) and converted to the correct actor typing (e.g., BigInt/Nat) without runtime errors. Do not introduce new exported components or new files.",
+      "reqIds": [
+        "REQ-159"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-perform-a-compile-runtime-sanity-pass-focused-on-the-updated-frontend-src-pages-dashboards-superadmindashboard-tsx-the-master-data-tab-must-render-in-logged-in-state-without-errors-must-not-crash-when-any-dataset-is-empty-and-all-crud-config-actions-must-trigger-the-correct-actor-calls-and-then-refresh-only-their-respective-section",
+      "title": "Perform a compile/runtime sanity pass focused on the updated `frontend/src/pages/dashboards/SuperadminDashboard.tsx`: the Master Data tab must render in logged-in state without errors, must not crash when any dataset is empty, and all CRUD/config actions must trigger the correct actor calls and then refresh only their respective section.",
+      "reqIds": [
+        "REQ-160"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-modify-only-frontend-src-pages-dashboards-superadmindashboard-tsx-to-add-per-section-saving-guards-for-all-master-data-mutations-to-prevent-double-submit-add-boolean-state-guards-at-minimum-kamussaving-aturansaving-mapsaving-konstantasaving-every-master-data-save-update-delete-handler-must-1-exit-early-if-its-guard-is-already-true-2-set-the-guard-to-true-immediately-before-awaiting-any-actor-mutation-call-and-3-set-the-guard-back-to-false-in-a-finally-block-update-the-ui-so-that-any-button-that-triggers-a-guarded-action-is-disabled-while-its-guard-is-true-and-its-label-changes-while-saving-use-english-labels-exactly-saving-deleting-updating",
+      "title": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to add per-section “saving guards” for all Master Data mutations to prevent double submit. Add boolean state guards at minimum: `kamusSaving`, `aturanSaving`, `mapSaving`, `konstantaSaving`. Every Master Data save/update/delete handler must: (1) exit early if its guard is already true, (2) set the guard to true immediately before awaiting any `actor.*` mutation call, and (3) set the guard back to false in a `finally` block. Update the UI so that any button that triggers a guarded action is disabled while its guard is true, and its label changes while saving (use English labels exactly: “Saving...”, “Deleting...”, “Updating...”).",
+      "reqIds": [
+        "REQ-161"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-modify-only-frontend-src-pages-dashboards-superadmindashboard-tsx-to-eliminate-any-double-trigger-submit-paths-inside-master-data-dialogs-forms-for-every-button-inside-master-data-dialogs-1-ensure-type-button-for-any-button-that-is-not-intended-to-submit-a-form-and-2-ensure-the-same-mutation-handler-cannot-be-invoked-via-both-onsubmit-and-onclick-use-the-safest-approach-remove-onsubmit-driven-mutations-for-master-data-dialogs-and-invoke-mutations-only-via-explicit-onclick-handlers-combined-with-the-saving-guards",
+      "title": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to eliminate any double-trigger submit paths inside Master Data dialogs/forms. For every button inside Master Data dialogs: (1) ensure `type=\"button\"` for any button that is not intended to submit a form, and (2) ensure the same mutation handler cannot be invoked via both `onSubmit` and `onClick`. Use the safest approach: remove `onSubmit`-driven mutations for Master Data dialogs and invoke mutations only via explicit `onClick` handlers combined with the saving guards.",
+      "reqIds": [
+        "REQ-162"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-modify-only-frontend-src-pages-dashboards-superadmindashboard-tsx-to-implement-soft-delete-ux-display-rules-for-both-kamus-pekerjaan-and-aturan-beban-sections-1-by-default-tables-show-only-active-items-aktif-true-2-add-a-per-section-toggle-control-labeled-in-english-exactly-show-archived-that-switches-between-active-only-and-active-inactive-views-3-keep-the-delete-action-as-a-soft-delete-by-persisting-aktif-false-via-the-existing-backend-behavior-then-refresh-that-section-s-dataset-4-after-soft-delete-the-item-disappears-from-the-default-active-only-table-view-and-5-show-status-badges-active-shows-a-green-badge-labeled-exactly-active-inactive-shows-a-gray-badge-labeled-exactly-archived-the-inactive-badge-is-only-visible-when-show-archived-is-on",
+      "title": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to implement soft-delete UX display rules for both “Kamus Pekerjaan” and “Aturan Beban” sections: (1) by default, tables show only active items (`aktif === true`), (2) add a per-section toggle control labeled in English exactly “Show Archived” that switches between active-only and active+inactive views, (3) keep the delete action as a soft delete by persisting `aktif=false` via the existing backend behavior, then refresh that section’s dataset, (4) after soft delete, the item disappears from the default active-only table view, and (5) show status badges: active shows a green badge labeled exactly “Active”; inactive shows a gray badge labeled exactly “Archived” (the inactive badge is only visible when “Show Archived” is ON).",
+      "reqIds": [
+        "REQ-163"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-modify-only-frontend-src-pages-dashboards-superadmindashboard-tsx-to-make-the-ringkasan-summary-tab-reliably-fetch-and-render-data-and-stay-up-to-date-after-master-data-changes-implement-all-of-the-following-without-adding-new-backend-endpoints-a-when-the-ringkasan-tab-is-opened-or-when-the-ringkasan-refresh-button-is-clicked-fetch-summary-from-the-backend-using-existing-actor-endpoints-and-render-at-minimum-total-users-number-master-data-keys-number-and-a-partner-rates-snapshot-b-add-ringkasan-master-data-summary-counts-computed-from-already-fetched-master-data-state-no-new-endpoints-kamus-pekerjaan-activecount-vs-archivedcount-aturan-beban-activecount-vs-archivedcount-master-data-map-total-keys-when-available-and-konstanta-unit-client-value-updatedat-c-if-the-master-data-datasets-needed-for-these-counts-are-not-present-in-state-when-ringkasan-is-opened-refreshed-trigger-a-lightweight-fetch-of-the-existing-master-data-reads-already-implemented-in-this-file-then-compute-and-render-the-counts-d-ringkasan-refresh-must-refresh-both-the-backend-summary-data-and-the-master-data-derived-counts-without-reloading-the-page",
+      "title": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to make the Ringkasan (Summary) tab reliably fetch and render data and stay up-to-date after Master Data changes. Implement all of the following, without adding new backend endpoints: (A) When the Ringkasan tab is opened, or when the Ringkasan Refresh button is clicked, fetch summary from the backend using existing actor endpoints and render at minimum: Total Users (number), Master Data Keys (number), and a Partner Rates snapshot. (B) Add Ringkasan Master Data summary counts computed from already-fetched Master Data state (no new endpoints): Kamus Pekerjaan activeCount vs archivedCount, Aturan Beban activeCount vs archivedCount, Master Data Map total keys (when available), and Konstanta Unit Client value + updatedAt. (C) If the Master Data datasets needed for these counts are not present in state when Ringkasan is opened/refreshed, trigger a lightweight fetch of the existing Master Data reads already implemented in this file, then compute and render the counts. (D) Ringkasan Refresh must refresh both the backend summary data and the Master Data derived counts without reloading the page.",
+      "reqIds": [
+        "REQ-164"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-ensure-the-changes-compile-and-run-without-runtime-errors-while-preserving-the-existing-dashboard-layout-and-keeping-the-scope-strictly-limited-to-frontend-src-pages-dashboards-superadmindashboard-tsx-handle-anonymous-identity-and-actor-initializing-states-gracefully-do-not-attempt-actor-calls-when-identity-is-anonymous-and-keep-mutation-buttons-disabled-when-actor-is-unavailable-or-actorfetching-is-true-any-new-user-facing-text-introduced-by-this-change-e-g-toggle-labels-and-in-progress-labels-must-be-in-english",
+      "title": "Ensure the changes compile and run without runtime errors, while preserving the existing dashboard layout and keeping the scope strictly limited to `frontend/src/pages/dashboards/SuperadminDashboard.tsx`. Handle anonymous identity and actor-initializing states gracefully: do not attempt actor calls when identity is anonymous, and keep mutation buttons disabled when `actor` is unavailable or `actorFetching` is true. Any new user-facing text introduced by this change (e.g., toggle labels and in-progress labels) must be in English.",
+      "reqIds": [
+        "REQ-165"
       ],
       "version": 1
     }
@@ -1114,6 +1522,42 @@
       "reqIds": [
         "REQ-114"
       ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-95",
+      "summary": "Update ONLY `frontend/src/pages/SuperadminDashboard.tsx` to become a real tabbed Superadmin dashboard that fetches read-only data from existing backend queries via `useActor()`/`useInternetIdentity()`, with per-tab loading+error states, refresh buttons, anonymous-user gating (no actor calls), and no new pages/routes or backend changes; preserve existing visual style and footer.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-96",
+      "summary": "Fix/upgrade InternalRegister.tsx (/internal/daftar): require Internet Identity login before the registration form is shown/enabled; use /assets/asistenku-horizontal.png logo (bigger h-12 md:h-14); add role picker cards (Admin/Finance/Supervisor/Management/Asistenmu/Concierge); submit via button calling actor.registerInternal({nama,email,whatsapp,role}) with disabled gating (not logged in, actor not ready, incomplete, loading); show success screen with manual \"Kembali ke Internal Login\" navigation; only modify InternalRegister.tsx and minimal App.tsx wiring if needed; no auto redirect/onLoad; do not touch external flows.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-97",
+      "summary": "Update ONLY `SuperadminDashboard.tsx` Users tab: add real-time case-insensitive client-side search; restructure into 4 main cards (Pending Users all roles with Activate->set status active + refresh; Client/Partner/Internal sections grouped by status with tables; Detail modals allowing profile edits plus status updates and partner level (Junior/Senior/Expert) updates via existing backend endpoints). Also update header with centered welcome text, fix dashboard logo path to `/assets/asistenku-horizontal.png` (slightly larger), and enable Logout to clear identity and redirect to landing—do not change other tabs, routing, backend ID format/role logic/claim flow, or existing state structure.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-98",
+      "summary": "Update ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` UX: (1) Details modal supports View/Edit modes with Edit/Cancel/Update buttons; Client fields editable; Partner editable + Level (Junior/Senior/Expert) + Status; Internal can update Status only; on successful Update close modal and auto-refresh Users list. (2) Make Users tab main cards and their subsections collapsible with Expand/Collapse (default open only Pending Users; others collapsed). (3) Replace in-card filtering search with separate \"Search Results\" panel (client-side across ALL users) shown only when query non-empty; compact table + pagination 5 rows/page with Prev/Next + Page X of Y; show \"No results found\" if none. (4) Ringkasan tab: Total Users card includes collapsible breakdown by role+status; add collapsible summary cards for Layanan Asistenku, Tasks, Financial Overview, and Master Data with placeholders when endpoints unavailable; keep Rates Snapshot as-is. (5) Keep UI styling consistent with existing cards and do not change global header/nav or other tabs’ behavior/routing/backend.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-99",
+      "summary": "In `frontend/src/pages/dashboards/SuperadminDashboard.tsx`, implement Master Data tab with 4 collapsible sections and CRUD/config flows using existing actor endpoints: (A) Master Data Map table + inline key/value form (pushMasterData) + row delete (deleteMasterData); (B) Kamus Pekerjaan CRUD with add/edit form (modal or inline), multi-select TipePartner via checkboxes, upsertKamusPekerjaan + deleteKamusPekerjaan; (C) Aturan Beban CRUD with add/edit form, dropdowns for TipePartner and Pola Beban, upsertAturanBeban + deleteAturanBeban; (D) Konstanta Unit Client single-config card + update form via setKonstantaUnitClient, default display when null. Each section has independent loading/error/data + Refresh, uses same UI patterns as other tabs (white cards, Alert error, Loader2 spinner), and auto-refreshes its list after mutations; add small helpers for formatting + safe Nat parsing; do not change other tabs or routing and do not create new files.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-100",
+      "summary": "STEP 2–3 SuperadminDashboard.tsx fixes: add per-section saving guards to prevent double-submit; fix dialog button types/handlers to avoid duplicate triggers; implement Kamus/Aturan soft-delete UX with default aktif-only tables plus 'Tampilkan Arsip' toggle and Aktif/Nonaktif badges; ensure Ringkasan tab always fetches/renders totals + partner rates snapshot and computes Master Data aktif vs arsip counts from fetched state (fetch Master Data if needed) with proper Refresh behavior.",
+      "reqIds": [],
       "status": "pending"
     }
   ],

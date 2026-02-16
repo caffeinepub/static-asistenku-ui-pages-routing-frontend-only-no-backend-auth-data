@@ -61,6 +61,8 @@ export default function App() {
         return <InternalLogin />;
       case '/internal/register':
         return <InternalRegister />;
+      case '/internal/daftar':
+        return <InternalRegister />;
       case '/superadmin/dashboard':
         return <SuperadminDashboard />;
       case '/admin/dashboard':

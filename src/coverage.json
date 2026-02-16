@@ -1,40 +1,78 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-16T09:22:02.819Z",
+  "generatedAt": "2026-02-16T18:52:42.268Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 2,
-    "implemented": 0,
+    "total": 5,
+    "implemented": 5,
     "items": [
       {
-        "id": "REQ-113",
-        "summary": "Patch `backend/main.mo` in `public shared ({ caller }) func claimSuperadmin() : async ()` to remove the admin-gated call to `AccessControl.assignRole(...)` and instead bootstrap the first admin by directly writing to `accessControlState`.\n\nSpecifically, replace ONLY the single line:\n- `AccessControl.assignRole(accessControlState, caller, caller, #admin);`\n\nwith EXACTLY these two lines (and nothing else):\n- `accessControlState.userRoles.add(caller, #admin);`\n- `accessControlState.adminAssigned := true;`\n\nAll other logic and ordering inside `claimSuperadmin()` must remain unchanged.",
-        "status": "unknown",
-        "plannedFiles": [],
-        "matchedFiles": []
+        "id": "REQ-161",
+        "summary": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to add per-section “saving guards” for all Master Data mutations to prevent double submit. Add boolean state guards at minimum: `kamusSaving`, `aturanSaving`, `mapSaving`, `konstantaSaving`. Every Master Data save/update/delete handler must: (1) exit early if its guard is already true, (2) set the guard to true immediately before awaiting any `actor.*` mutation call, and (3) set the guard back to false in a `finally` block. Update the UI so that any button that triggers a guarded action is disabled while its guard is true, and its label changes while saving (use English labels exactly: “Saving...”, “Deleting...”, “Updating...”).",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+        ]
       },
       {
-        "id": "REQ-114",
-        "summary": "Ensure the backend compiles and the superadmin claim no longer fails with the error text \"Only admins can assign user roles\" when the first caller claims superadmin.",
-        "status": "unknown",
-        "plannedFiles": [],
-        "matchedFiles": []
+        "id": "REQ-162",
+        "summary": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to eliminate any double-trigger submit paths inside Master Data dialogs/forms. For every button inside Master Data dialogs: (1) ensure `type=\"button\"` for any button that is not intended to submit a form, and (2) ensure the same mutation handler cannot be invoked via both `onSubmit` and `onClick`. Use the safest approach: remove `onSubmit`-driven mutations for Master Data dialogs and invoke mutations only via explicit `onClick` handlers combined with the saving guards.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+        ]
+      },
+      {
+        "id": "REQ-163",
+        "summary": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to implement soft-delete UX display rules for both “Kamus Pekerjaan” and “Aturan Beban” sections: (1) by default, tables show only active items (`aktif === true`), (2) add a per-section toggle control labeled in English exactly “Show Archived” that switches between active-only and active+inactive views, (3) keep the delete action as a soft delete by persisting `aktif=false` via the existing backend behavior, then refresh that section’s dataset, (4) after soft delete, the item disappears from the default active-only table view, and (5) show status badges: active shows a green badge labeled exactly “Active”; inactive shows a gray badge labeled exactly “Archived” (the inactive badge is only visible when “Show Archived” is ON).",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+        ]
+      },
+      {
+        "id": "REQ-164",
+        "summary": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to make the Ringkasan (Summary) tab reliably fetch and render data and stay up-to-date after Master Data changes. Implement all of the following, without adding new backend endpoints: (A) When the Ringkasan tab is opened, or when the Ringkasan Refresh button is clicked, fetch summary from the backend using existing actor endpoints and render at minimum: Total Users (number), Master Data Keys (number), and a Partner Rates snapshot. (B) Add Ringkasan Master Data summary counts computed from already-fetched Master Data state (no new endpoints): Kamus Pekerjaan activeCount vs archivedCount, Aturan Beban activeCount vs archivedCount, Master Data Map total keys (when available), and Konstanta Unit Client value + updatedAt. (C) If the Master Data datasets needed for these counts are not present in state when Ringkasan is opened/refreshed, trigger a lightweight fetch of the existing Master Data reads already implemented in this file, then compute and render the counts. (D) Ringkasan Refresh must refresh both the backend summary data and the Master Data derived counts without reloading the page.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+        ]
+      },
+      {
+        "id": "REQ-165",
+        "summary": "Ensure the changes compile and run without runtime errors, while preserving the existing dashboard layout and keeping the scope strictly limited to `frontend/src/pages/dashboards/SuperadminDashboard.tsx`. Handle anonymous identity and actor-initializing states gracefully: do not attempt actor calls when identity is anonymous, and keep mutation buttons disabled when `actor` is unavailable or `actorFetching` is true. Any new user-facing text introduced by this change (e.g., toggle labels and in-progress labels) must be in English.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+        ]
       }
     ]
   },
   "changedFiles": [
-    "backend/main.mo",
     "build-request.json",
     "feature_evidence.json",
+    "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/backend.d.ts",
-    "frontend/src/backend.ts",
-    "frontend/src/declarations/backend.did.d.ts",
-    "frontend/src/declarations/backend.did.js",
+    "frontend/src/pages/dashboards/SuperadminDashboard.tsx",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",
