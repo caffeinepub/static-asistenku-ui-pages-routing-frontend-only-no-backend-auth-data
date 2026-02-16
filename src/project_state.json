@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 49,
-  "summary": "Scope expanded: update ALL frontend pages to match the uploaded dashboard reference styling (background layout + card shapes/colors), and update InternalLogin behavior/UI: role cards limited to admin/finance/concierge/asistenmu/superadmin, each role card has its own \"Workspace\" button that checks only that role, keep Model A superadmin-claim behavior BUT fix Claim card timing (no multi-minute delay) and claim error handling; after successful claim, permanently hide the Claim card with NO redirect; show error only when claim truly fails; and update footer text to \"Asistenku © 2026 PT. Asistenku Digital Indonesia\".",
+  "projectStateVersion": 51,
+  "summary": "Scope includes backend fix: in backend/main.mo (active full-feature backend), patch claimSuperadmin() to stop calling AccessControl.assignRole (which requires an existing admin) and instead bootstrap the first admin by directly adding caller to accessControlState.userRoles and setting accessControlState.adminAssigned=true; keep all other claimSuperadmin logic unchanged. Backend is confirmed editable and active.",
   "architectural_notes": [
     "All pages are static UI only: no Internet Identity, no backend calls, no mock data, no role/user logic, no auto-redirects; navigation only via clicks.",
     "Use react-router-dom Routes with explicit mappings and a '*' fallback 404 page with a button back to '/'",
@@ -23,7 +23,8 @@
     "InternalLogin.tsx shows \"Backend belum siap\" when claim UI is visible/clickable before actor initialization completes; needs UI gating on actorFetching/actor readiness.",
     "InternalLogin still surfaces/admin-only role-assignment messaging during Superadmin claim; superadmin should be exempt and claim should activate successfully without triggering admin-only validation paths.",
     "InternalLogin: Claim Superadmin card can take >5 minutes to appear due to actor/claim-check timing leaving claimCheckDone false.",
-    "InternalLogin: Clicking Claim Superadmin can show a generic red error message even when claim may have succeeded; needs improved recheck/error handling per updated flow."
+    "InternalLogin: Clicking Claim Superadmin can show a generic red error message even when claim may have succeeded; needs improved recheck/error handling per updated flow.",
+    "Superadmin claim fails because claimSuperadmin() calls AccessControl.assignRole(...), which is admin-gated; must bootstrap first admin directly in access control state during claimSuperadmin."
   ],
   "isFixRequest": true,
   "existing_features": [
@@ -1091,6 +1092,28 @@
       "id": "AR-91",
       "summary": "Fix InternalLogin Claim Superadmin flow in frontend only: make the Claim card appear promptly once actor is ready (no multi-minute delay), ensure claim retry/recheck logic so errors are shown only when claim truly fails, and after successful claim permanently hide the Claim card with no redirect to dashboard.",
       "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-92",
+      "summary": "Patch backend/main.mo claimSuperadmin(): replace AccessControl.assignRole(...) call with direct bootstrap of first admin (accessControlState.userRoles.add(caller,#admin); accessControlState.adminAssigned:=true;) while leaving all other logic unchanged; no other files modified.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-93",
+      "summary": "Patch `backend/main.mo` in `public shared ({ caller }) func claimSuperadmin() : async ()` to remove the admin-gated call to `AccessControl.assignRole(...)` and instead bootstrap the first admin by directly writing to `accessControlState`.\n\nSpecifically, replace ONLY the single line:\n- `AccessControl.assignRole(accessControlState, caller, caller, #admin);`\n\nwith EXACTLY these two lines (and nothing else):\n- `accessControlState.userRoles.add(caller, #admin);`\n- `accessControlState.adminAssigned := true;`\n\nAll other logic and ordering inside `claimSuperadmin()` must remain unchanged.",
+      "reqIds": [
+        "REQ-113"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-94",
+      "summary": "Ensure the backend compiles and the superadmin claim no longer fails with the error text \"Only admins can assign user roles\" when the first caller claims superadmin.",
+      "reqIds": [
+        "REQ-114"
+      ],
       "status": "pending"
     }
   ],

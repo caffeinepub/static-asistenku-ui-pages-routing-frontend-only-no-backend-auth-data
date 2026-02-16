@@ -125,7 +125,8 @@ actor {
     ignore ensureUserId(caller);
     superadminClaimed := true;
     userRoles.add(caller, #superadmin);
-    AccessControl.assignRole(accessControlState, caller, caller, #admin);
+    accessControlState.userRoles.add(caller, #admin);
+    accessControlState.adminAssigned := true;
   };
 
   public query ({ caller }) func getCallerUser() : async ?UserRole {
@@ -1777,3 +1778,4 @@ actor {
     };
   };
 };
+

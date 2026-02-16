@@ -1,76 +1,56 @@
 {
   "kind": "build_request",
-  "title": "Fix InternalLogin superadmin-claim timing and error handling (no redirect; hide card on success)",
-  "priority": "normal",
+  "title": "Fix superadmin claim by bootstrapping first admin without AccessControl.assignRole",
+  "priority": "high",
   "requirements": [
     {
-      "id": "REQ-110",
-      "text": "Update `frontend/src/pages/internal/InternalLogin.tsx` so the one-time `isSuperadminClaimed()` check completes promptly after the backend actor becomes ready (i.e., once `actor` exists and `actorFetching` is false), ensuring the Claim Superadmin card does not take minutes to appear when it should be visible.",
-      "target": "frontend",
+      "id": "REQ-113",
+      "text": "Patch `backend/main.mo` in `public shared ({ caller }) func claimSuperadmin() : async ()` to remove the admin-gated call to `AccessControl.assignRole(...)` and instead bootstrap the first admin by directly writing to `accessControlState`.\n\nSpecifically, replace ONLY the single line:\n- `AccessControl.assignRole(accessControlState, caller, caller, #admin);`\n\nwith EXACTLY these two lines (and nothing else):\n- `accessControlState.userRoles.add(caller, #admin);`\n- `accessControlState.adminAssigned := true;`\n\nAll other logic and ordering inside `claimSuperadmin()` must remain unchanged.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "recent-messages"
+          "msg-1"
         ],
         "quotes": [
-          "Yang pertama pengecekan is actor ini lebih dari 5 menit sampai muncul card claim superadmin",
-          "1. Iya langsung diperbaiki alurnya."
+          "Pastikan hanya mengganti 1 baris AccessControl.assignRole(...) menjadi 2 baris bootstrap state di atas."
         ]
       },
       "acceptanceCriteria": [
-        "After a successful Internet Identity login, once `actor` is available and `actorFetching === false`, the app performs the `isSuperadminClaimed()` check and sets `claimCheckDone === true` without multi-minute delay.",
-        "If `isSuperadminClaimed()` returns `false`, the Claim Superadmin card becomes visible immediately after `claimCheckDone === true` (subject to existing visibility rules).",
-        "The claim-check logic must not spam the backend (at most one check per actor-ready session unless the user logs out and logs in again)."
+        "In `backend/main.mo`, inside `claimSuperadmin()`, the only functional change is replacing `AccessControl.assignRole(accessControlState, caller, caller, #admin);` with:\n  - `accessControlState.userRoles.add(caller, #admin);`\n  - `accessControlState.adminAssigned := true;`",
+        "No other lines in `claimSuperadmin()` are modified (no refactors, no reordered checks, no changed trap messages, no added gates).",
+        "No other files are modified."
       ]
     },
     {
-      "id": "REQ-111",
-      "text": "Update `frontend/src/pages/internal/InternalLogin.tsx` so a successful Superadmin claim permanently hides the Claim Superadmin card with no navigation/redirect. The claim action must still call ONLY `actor.claimSuperadmin()` and must not invoke any other backend mutation directly or indirectly.",
-      "target": "frontend",
+      "id": "REQ-114",
+      "text": "Ensure the backend compiles and the superadmin claim no longer fails with the error text \"Only admins can assign user roles\" when the first caller claims superadmin.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "recent-messages"
+          "msg-1"
         ],
         "quotes": [
-          "Tidak perlu ada redirected cukup saat superadmin telah terclaim hilangkan kartunya secara permanan"
+          "Setelah build, tombol Claim Superadmin harus tidak lagi menghasilkan error: “Only admins can assign user roles”."
         ]
       },
       "acceptanceCriteria": [
-        "On successful `actor.claimSuperadmin()` resolution, the UI sets `superadminClaimed = true` and the Claim Superadmin card is no longer rendered.",
-        "No navigation occurs on success (do not call `navigateToPath('/superadmin/dashboard')` or equivalent).",
-        "The claim click handler calls ONLY `actor.claimSuperadmin()` as the mutation; no other backend mutation (e.g., profile/role assignment) is triggered from this handler."
-      ]
-    },
-    {
-      "id": "REQ-112",
-      "text": "Update `frontend/src/pages/internal/InternalLogin.tsx` claim error handling so the red error message is shown only when the claim truly fails. On claim errors, the UI must perform a single follow-up `isSuperadminClaimed()` re-check: if now claimed, treat as success (hide card permanently, no redirect); otherwise show a friendly error message and do not expose raw backend authorization strings to the user.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "recent-messages"
-        ],
-        "quotes": [
-          "saat claim error msg itu muncul saya ingin flow claim ini berjalan dengan baik",
-          "Tampilkan bila benar benar gagal"
-        ]
-      },
-      "acceptanceCriteria": [
-        "If `claimSuperadmin()` throws, the UI performs exactly one follow-up call to `isSuperadminClaimed()` (when available).",
-        "If the follow-up check indicates claimed, the UI sets `superadminClaimed = true`, hides the Claim Superadmin card, and does not show an error banner (and no redirect).",
-        "If the follow-up check indicates not claimed (or the check cannot be performed), the UI shows a single friendly error message indicating the claim failed and the user can retry.",
-        "The UI must not display backend error text such as \"Unauthorized: Only admins can assign user roles\" (or close variants) verbatim to the user in the claim flow."
+        "Project builds successfully after the patch (no Motoko compile errors).",
+        "Calling `claimSuperadmin()` as the first eligible authenticated user succeeds without throwing an \"Only admins can assign user roles\"-type error."
       ]
     }
   ],
   "constraints": [
-    "Do not create, edit, or reference any backend code; `backend/main.mo` must remain untouched.",
-    "Respect frontend immutable paths; do not edit any files under `frontend/src/components/ui`, `frontend/src/hooks/useInternetIdentity.ts(x)`, `frontend/src/hooks/useActor.ts`, or `frontend/src/main.tsx`.",
-    "Limit code changes to allowed frontend scope (only `frontend/src/App.tsx` and files under `frontend/src/pages/**`).",
-    "Keep the existing overall InternalLogin layout/styling; only make the minimal UI/logic changes needed to fix claim timing and claim behavior."
+    "Use English for any user-facing text in this build request.",
+    "Modify only `backend/main.mo`.",
+    "Within `claimSuperadmin()`, change only the single `AccessControl.assignRole(...)` line into the two specified bootstrap lines; do not change any other logic in the function.",
+    "Do not modify any other backend functions, types, storage variables, imports, or authorization modules.",
+    "Do not modify any frontend files.",
+    "Do not add or modify `backend/migration.mo`."
   ],
   "nonGoals": [
-    "Do not add new backend methods or change backend authorization rules.",
-    "Do not introduce real submission flows for registration pages or add API calls to other pages.",
-    "Do not redesign routing or add new routes beyond the existing app structure."
+    "Do not redesign the overall role/registration model.",
+    "Do not change any other authorization behavior beyond the specified bootstrap change.",
+    "Do not implement new UI/UX changes or adjust InternalLogin behavior in this patch."
   ],
   "imageRequirements": {
     "required": [],

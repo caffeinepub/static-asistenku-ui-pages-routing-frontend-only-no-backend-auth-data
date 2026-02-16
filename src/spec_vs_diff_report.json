@@ -1,23 +1,38 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-16T08:52:16.581Z",
-  "summary": "REQ-110 appears implemented in InternalLogin via a gated one-time effect that runs once actor is ready (actor exists and actorFetching is false) and then sets claimCheckDone. Due to truncation of InternalLogin.tsx, REQ-111 and REQ-112 behaviors (no redirect on claim success; claim error follow-up re-check and friendly messaging) cannot be fully verified from the provided diff excerpt. Additionally, the diff includes modifications to non-allowed-scope files (frontend-file-summaries.txt, project_state.json), which were not requested by the BuildRequest constraints.",
-  "missing_requirements": [],
+  "generatedAt": "2026-02-16T09:22:02.815Z",
+  "summary": "REQ-113’s intended code change inside claimSuperadmin() appears present (replacing AccessControl.assignRole with two direct accessControlState writes). However, the diff also modifies project_state.json, which violates the constraint/AC that no other files be modified. REQ-114 (compilation / runtime behavior) cannot be confirmed from the diff summary alone.",
+  "missing_requirements": [
+    {
+      "id": "REQ-113",
+      "requirement": "No other files are modified (modify only backend/main.mo).",
+      "reason": "The diff shows an additional modified file besides backend/main.mo.",
+      "evidence": [
+        "project_state.json"
+      ]
+    },
+    {
+      "id": "REQ-114",
+      "requirement": "Ensure the backend compiles and the first caller can claim superadmin without the \"Only admins can assign user roles\" error.",
+      "reason": "The diff summary provides no build/test evidence; compilation and runtime behavior cannot be verified from the shown changes alone.",
+      "evidence": [
+        "backend/main.mo"
+      ]
+    }
+  ],
   "hallucinated_features": [
     {
-      "description": "Edits to files outside the allowed frontend scope (only frontend/src/App.tsx and frontend/src/pages/**).",
-      "reason": "BuildRequest explicitly limits code changes to frontend/src/App.tsx and files under frontend/src/pages/**, but the diff shows additional modified files not under those paths.",
+      "description": "Updated project_state.json (project metadata/summary change).",
+      "reason": "BuildRequest explicitly constrained changes to backend/main.mo only and disallowed modifying other files.",
       "evidence": [
-        "frontend-file-summaries.txt",
         "project_state.json"
       ]
     }
   ],
-  "confidence": 0.62,
+  "confidence": 0.72,
   "changed_files": [
-    "frontend-file-summaries.txt",
-    "frontend/src/pages/internal/InternalLogin.tsx",
+    "backend/main.mo",
     "project_state.json"
   ]
 }

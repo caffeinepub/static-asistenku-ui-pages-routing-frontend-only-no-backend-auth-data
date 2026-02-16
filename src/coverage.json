@@ -1,56 +1,40 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-16T08:52:16.586Z",
+  "generatedAt": "2026-02-16T09:22:02.819Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 3,
-    "implemented": 3,
+    "total": 2,
+    "implemented": 0,
     "items": [
       {
-        "id": "REQ-110",
-        "summary": "Update `frontend/src/pages/internal/InternalLogin.tsx` so the one-time `isSuperadminClaimed()` check completes promptly after the backend actor becomes ready (i.e., once `actor` exists and `actorFetching` is false), ensuring the Claim Superadmin card does not take minutes to appear when it should be visible.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/pages/internal/InternalLogin.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/pages/internal/InternalLogin.tsx"
-        ]
+        "id": "REQ-113",
+        "summary": "Patch `backend/main.mo` in `public shared ({ caller }) func claimSuperadmin() : async ()` to remove the admin-gated call to `AccessControl.assignRole(...)` and instead bootstrap the first admin by directly writing to `accessControlState`.\n\nSpecifically, replace ONLY the single line:\n- `AccessControl.assignRole(accessControlState, caller, caller, #admin);`\n\nwith EXACTLY these two lines (and nothing else):\n- `accessControlState.userRoles.add(caller, #admin);`\n- `accessControlState.adminAssigned := true;`\n\nAll other logic and ordering inside `claimSuperadmin()` must remain unchanged.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
       },
       {
-        "id": "REQ-111",
-        "summary": "Update `frontend/src/pages/internal/InternalLogin.tsx` so a successful Superadmin claim permanently hides the Claim Superadmin card with no navigation/redirect. The claim action must still call ONLY `actor.claimSuperadmin()` and must not invoke any other backend mutation directly or indirectly.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/pages/internal/InternalLogin.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/pages/internal/InternalLogin.tsx"
-        ]
-      },
-      {
-        "id": "REQ-112",
-        "summary": "Update `frontend/src/pages/internal/InternalLogin.tsx` claim error handling so the red error message is shown only when the claim truly fails. On claim errors, the UI must perform a single follow-up `isSuperadminClaimed()` re-check: if now claimed, treat as success (hide card permanently, no redirect); otherwise show a friendly error message and do not expose raw backend authorization strings to the user.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/pages/internal/InternalLogin.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/pages/internal/InternalLogin.tsx"
-        ]
+        "id": "REQ-114",
+        "summary": "Ensure the backend compiles and the superadmin claim no longer fails with the error text \"Only admins can assign user roles\" when the first caller claims superadmin.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
       }
     ]
   },
   "changedFiles": [
+    "backend/main.mo",
     "build-request.json",
     "feature_evidence.json",
-    "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/pages/internal/InternalLogin.tsx",
+    "frontend/src/backend.d.ts",
+    "frontend/src/backend.ts",
+    "frontend/src/declarations/backend.did.d.ts",
+    "frontend/src/declarations/backend.did.js",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",
