@@ -17,12 +17,12 @@ import PartnerDashboard from './pages/dashboards/PartnerDashboard';
 
 function NotFound() {
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-6">
-      <div className="w-full max-w-md text-center space-y-6">
-        <h1 className="text-6xl font-bold text-foreground">404</h1>
-        <p className="text-muted-foreground">Halaman tidak ditemukan</p>
+    <div className="min-h-screen bg-gradient-to-br from-[#0f2942] via-[#1a3a52] to-[#e8dcc4] flex items-center justify-center p-6">
+      <div className="w-full max-w-md text-center space-y-6 rounded-3xl shadow-xl border border-[#d4c5a9]/30 p-10 bg-[#f5f1e8]">
+        <h1 className="text-6xl font-bold text-[#0f2942]">404</h1>
+        <p className="text-[#5a6c7d]">Halaman tidak ditemukan</p>
         <a href="/">
-          <button className="inline-flex items-center justify-center rounded-2xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8">
+          <button className="inline-flex items-center justify-center rounded-2xl text-sm font-medium transition-colors bg-[#2d9cdb] text-white hover:bg-[#2589c4] h-11 px-8 shadow-md">
             Kembali ke Landing
           </button>
         </a>

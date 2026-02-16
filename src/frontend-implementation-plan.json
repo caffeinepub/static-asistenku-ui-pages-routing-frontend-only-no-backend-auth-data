@@ -1,39 +1,54 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "InternalLogin actor readiness gating + Internet Identity logout button",
+  "title": "InternalLogin: fix superadmin claim check timing, success hiding, and error re-check flow",
   "requirements": [
     {
-      "id": "REQ-97",
-      "summary": "Hide and disable Claim Superadmin UI until the backend actor is ready, while keeping the existing inline warning guard in the click handler.",
+      "id": "REQ-110",
+      "summary": "Ensure one-time isSuperadminClaimed() check runs promptly after actor is ready post-login, without backend spamming.",
       "acceptanceCriteria": [
-        "When `iiLoggedIn === true` but `actor` is null/undefined OR `actorFetching === true`, the Claim Superadmin card/section is hidden (not rendered).",
-        "When the actor becomes ready (`actor` is non-null and `actorFetching === false`), the Claim Superadmin card/section becomes eligible to render again (still respecting existing rules like `claimCheckDone === true` and `superadminClaimed === false`).",
-        "The Claim Superadmin click handler still early-returns without calling the backend when `actor` is null/undefined or `actorFetching === true`, and shows a non-crashing inline warning using the existing warning mechanism.",
-        "No other pages or files are modified."
+        "After a successful Internet Identity login, once `actor` is available and `actorFetching === false`, the app performs the `isSuperadminClaimed()` check and sets `claimCheckDone === true` without multi-minute delay.",
+        "If `isSuperadminClaimed()` returns `false`, the Claim Superadmin card becomes visible immediately after `claimCheckDone === true` (subject to existing visibility rules).",
+        "The claim-check logic must not spam the backend (at most one check per actor-ready session unless the user logs out and logs in again)."
       ],
       "file_operations": [
         {
           "path": "frontend/src/pages/internal/InternalLogin.tsx",
           "operation": "modify",
-          "description": "Gate Claim Superadmin section rendering behind an explicit actor-ready check (e.g., require `!!actor && !actorFetching` in addition to the existing `iiLoggedIn && claimCheckDone && !superadminClaimed` rules) so the card is not visible/actionable until the actor is fully ready; keep the existing early-return + inline warning behavior in `handleClaimSuperadmin` intact. Verify the component's usage instructions before implementing."
+          "description": "Adjust the claim-status checking effect so it only starts once the user is authenticated (II logged in) AND the backend actor is ready (`actor` exists and `actorFetching` is false), then performs a single `isSuperadminClaimed()` check per login session and reliably sets `claimCheckDone` without long delays. Ensure the one-time guard resets on logout (existing reset can remain) and does not re-run unnecessarily for the same actor-ready session."
         }
       ]
     },
     {
-      "id": "REQ-98",
-      "summary": "Change the Internet Identity button to become a real Logout action after successful login and reset InternalLogin UI state safely on logout.",
+      "id": "REQ-111",
+      "summary": "On successful superadmin claim, hide the Claim Superadmin card permanently with no redirect, and only call actor.claimSuperadmin() as the mutation.",
       "acceptanceCriteria": [
-        "When not logged in, the button label remains \"Login Internet Identity\" (or the existing loading label when `loginStatus === 'logging-in'`).",
-        "When logged in (`iiLoggedIn === true`), the button label is \"Logout\" and the button is enabled.",
-        "Clicking \"Logout\" calls the Internet Identity context clear/logout function (do not add any new auth system).",
-        "After logout, `iiLoggedIn` becomes false and role selection + warnings are reset to a safe default UI state (no crashes; the page remains usable)."
+        "On successful `actor.claimSuperadmin()` resolution, the UI sets `superadminClaimed = true` and the Claim Superadmin card is no longer rendered.",
+        "No navigation occurs on success (do not call `navigateToPath('/superadmin/dashboard')` or equivalent).",
+        "The claim click handler calls ONLY `actor.claimSuperadmin()` as the mutation; no other backend mutation (e.g., profile/role assignment) is triggered from this handler."
       ],
       "file_operations": [
         {
           "path": "frontend/src/pages/internal/InternalLogin.tsx",
           "operation": "modify",
-          "description": "Update the auth button to behave as Login/Logout using the existing Internet Identity context (use `clear()` from `useInternetIdentity`) so that when `iiLoggedIn` is true the label becomes \"Logout\" and clicking it clears identity; ensure the button is only disabled during `loginStatus === 'logging-in'`. On logout, reset InternalLogin local UI state to safe defaults (e.g., selected role, warnings, in-flight flags, claim-check flags/ref) so the page remains usable without crashes. Use the selected \"authorization\" component’s Internet Identity context capability for logout/clear behavior; verify the component's usage instructions before implementing."
+          "description": "Update the claim click handler to (1) call only `actor.claimSuperadmin()`, (2) on success set `superadminClaimed` to true and keep the user on the same page (remove any navigate/redirect calls), and (3) ensure the Claim Superadmin card is not rendered after success (via existing `showClaimCard` conditions)."
+        }
+      ]
+    },
+    {
+      "id": "REQ-112",
+      "summary": "Refine claim error handling to show errors only on true failure, with a single follow-up isSuperadminClaimed() re-check and friendly messaging.",
+      "acceptanceCriteria": [
+        "If `claimSuperadmin()` throws, the UI performs exactly one follow-up call to `isSuperadminClaimed()` (when available).",
+        "If the follow-up check indicates claimed, the UI sets `superadminClaimed = true`, hides the Claim Superadmin card, and does not show an error banner (and no redirect).",
+        "If the follow-up check indicates not claimed (or the check cannot be performed), the UI shows a single friendly error message indicating the claim failed and the user can retry.",
+        "The UI must not display backend error text such as \"Unauthorized: Only admins can assign user roles\" (or close variants) verbatim to the user in the claim flow."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/internal/InternalLogin.tsx",
+          "operation": "modify",
+          "description": "Rework the claim `catch` block so that any `claimSuperadmin()` error triggers exactly one follow-up `isSuperadminClaimed()` check (when the function is available). If the follow-up indicates claimed, treat as success: set `superadminClaimed = true`, keep the card hidden, and do not set `warningText` (and do not navigate). If not claimed or the follow-up cannot be performed, set a single friendly retryable error message and ensure no raw backend authorization strings are surfaced to the user."
         }
       ]
     }

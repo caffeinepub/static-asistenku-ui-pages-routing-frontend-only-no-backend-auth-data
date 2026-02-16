@@ -1,60 +1,89 @@
 {
   "kind": "build_request",
-  "title": "InternalLogin: hide Claim Superadmin until actor ready and switch II button to Logout after login",
+  "title": "Fix InternalLogin superadmin-claim timing and error handling (no redirect; hide card on success)",
   "priority": "normal",
   "requirements": [
     {
-      "id": "REQ-97",
-      "text": "Patch `frontend/src/pages/internal/InternalLogin.tsx` so the \"Claim Superadmin\" section is not visible and not actionable until the backend actor is fully ready, preventing the repeated \"Backend belum siap\" warning when a user clicks too early.",
+      "id": "REQ-110",
+      "text": "Update `frontend/src/pages/internal/InternalLogin.tsx` so the one-time `isSuperadminClaimed()` check completes promptly after the backend actor becomes ready (i.e., once `actor` exists and `actorFetching` is false), ensuring the Claim Superadmin card does not take minutes to appear when it should be visible.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-1"
+          "recent-messages"
         ],
         "quotes": [
-          "Oke lakukan patchnya",
-          "Bisakah kamu mengecek kenapa selalu backend belum siap?"
+          "Yang pertama pengecekan is actor ini lebih dari 5 menit sampai muncul card claim superadmin",
+          "1. Iya langsung diperbaiki alurnya."
         ]
       },
       "acceptanceCriteria": [
-        "When `iiLoggedIn === true` but `actor` is null/undefined OR `actorFetching === true`, the Claim Superadmin card/section is hidden (not rendered).",
-        "When the actor becomes ready (`actor` is non-null and `actorFetching === false`), the Claim Superadmin card/section becomes eligible to render again (still respecting existing rules like `claimCheckDone === true` and `superadminClaimed === false`).",
-        "The Claim Superadmin click handler still early-returns without calling the backend when `actor` is null/undefined or `actorFetching === true`, and shows a non-crashing inline warning using the existing warning mechanism.",
-        "No other pages or files are modified."
+        "After a successful Internet Identity login, once `actor` is available and `actorFetching === false`, the app performs the `isSuperadminClaimed()` check and sets `claimCheckDone === true` without multi-minute delay.",
+        "If `isSuperadminClaimed()` returns `false`, the Claim Superadmin card becomes visible immediately after `claimCheckDone === true` (subject to existing visibility rules).",
+        "The claim-check logic must not spam the backend (at most one check per actor-ready session unless the user logs out and logs in again)."
       ]
     },
     {
-      "id": "REQ-98",
-      "text": "Patch `frontend/src/pages/internal/InternalLogin.tsx` so the Internet Identity button changes from a post-login state to a true logout action: once II login succeeds, the button label becomes \"Logout\" and clicking it logs the user out (clears identity).",
+      "id": "REQ-111",
+      "text": "Update `frontend/src/pages/internal/InternalLogin.tsx` so a successful Superadmin claim permanently hides the Claim Superadmin card with no navigation/redirect. The claim action must still call ONLY `actor.claimSuperadmin()` and must not invoke any other backend mutation directly or indirectly.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-1"
+          "recent-messages"
         ],
         "quotes": [
-          "pastikan kalau II sudah berhasil login berubah menjadi logout"
+          "Tidak perlu ada redirected cukup saat superadmin telah terclaim hilangkan kartunya secara permanan"
         ]
       },
       "acceptanceCriteria": [
-        "When not logged in, the button label remains \"Login Internet Identity\" (or the existing loading label when `loginStatus === 'logging-in'`).",
-        "When logged in (`iiLoggedIn === true`), the button label is \"Logout\" and the button is enabled.",
-        "Clicking \"Logout\" calls the Internet Identity context clear/logout function (do not add any new auth system).",
-        "After logout, `iiLoggedIn` becomes false and role selection + warnings are reset to a safe default UI state (no crashes; the page remains usable)."
+        "On successful `actor.claimSuperadmin()` resolution, the UI sets `superadminClaimed = true` and the Claim Superadmin card is no longer rendered.",
+        "No navigation occurs on success (do not call `navigateToPath('/superadmin/dashboard')` or equivalent).",
+        "The claim click handler calls ONLY `actor.claimSuperadmin()` as the mutation; no other backend mutation (e.g., profile/role assignment) is triggered from this handler."
+      ]
+    },
+    {
+      "id": "REQ-112",
+      "text": "Update `frontend/src/pages/internal/InternalLogin.tsx` claim error handling so the red error message is shown only when the claim truly fails. On claim errors, the UI must perform a single follow-up `isSuperadminClaimed()` re-check: if now claimed, treat as success (hide card permanently, no redirect); otherwise show a friendly error message and do not expose raw backend authorization strings to the user.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "recent-messages"
+        ],
+        "quotes": [
+          "saat claim error msg itu muncul saya ingin flow claim ini berjalan dengan baik",
+          "Tampilkan bila benar benar gagal"
+        ]
+      },
+      "acceptanceCriteria": [
+        "If `claimSuperadmin()` throws, the UI performs exactly one follow-up call to `isSuperadminClaimed()` (when available).",
+        "If the follow-up check indicates claimed, the UI sets `superadminClaimed = true`, hides the Claim Superadmin card, and does not show an error banner (and no redirect).",
+        "If the follow-up check indicates not claimed (or the check cannot be performed), the UI shows a single friendly error message indicating the claim failed and the user can retry.",
+        "The UI must not display backend error text such as \"Unauthorized: Only admins can assign user roles\" (or close variants) verbatim to the user in the claim flow."
       ]
     }
   ],
   "constraints": [
-    "Do not create, edit, or reference any backend code.",
-    "Modify only `frontend/src/pages/internal/InternalLogin.tsx` for this patch; do not change other frontend files.",
-    "Keep the existing InternalLogin flow logic and superadmin-claim mutation behavior intact (claim still calls ONLY `actor.claimSuperadmin()` and no other backend mutations)."
+    "Do not create, edit, or reference any backend code; `backend/main.mo` must remain untouched.",
+    "Respect frontend immutable paths; do not edit any files under `frontend/src/components/ui`, `frontend/src/hooks/useInternetIdentity.ts(x)`, `frontend/src/hooks/useActor.ts`, or `frontend/src/main.tsx`.",
+    "Limit code changes to allowed frontend scope (only `frontend/src/App.tsx` and files under `frontend/src/pages/**`).",
+    "Keep the existing overall InternalLogin layout/styling; only make the minimal UI/logic changes needed to fix claim timing and claim behavior."
   ],
   "nonGoals": [
-    "Implementing registration flows or enabling other pages’ login buttons.",
-    "Changing routes, dashboards, or adding new backend readiness APIs.",
-    "Adding any new UI component library dependencies."
+    "Do not add new backend methods or change backend authorization rules.",
+    "Do not introduce real submission flows for registration pages or add API calls to other pages.",
+    "Do not redesign routing or add new routes beyond the existing app structure."
   ],
   "imageRequirements": {
     "required": [],
     "edits": []
+  },
+  "userProfileUpdate": {
+    "goalsToAdd": [],
+    "goalsToRemove": [],
+    "preferencesToAdd": [],
+    "preferencesToRemove": [],
+    "miscToAdd": [],
+    "miscToRemove": [],
+    "fieldsToSet": {},
+    "fieldsToDelete": []
   }
 }

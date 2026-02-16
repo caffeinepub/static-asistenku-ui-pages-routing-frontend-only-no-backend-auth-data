@@ -1,31 +1,20 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-16T01:05:14.514Z",
-  "summary": "REQ-98 (II button becomes Logout and calls clear() with local state reset) appears implemented in InternalLogin.tsx. REQ-97’s UI gating for the Claim Superadmin section is indicated by the summary text (gated behind !!actor && !actorFetching), but the patch violates the constraint/AC that only InternalLogin.tsx be modified because two additional non-requested files were also modified.",
-  "missing_requirements": [
-    {
-      "id": "REQ-97",
-      "requirement": "No other pages or files are modified (modify only `frontend/src/pages/internal/InternalLogin.tsx` for this patch).",
-      "reason": "Diff shows additional modified files besides `InternalLogin.tsx`, violating the constraint/AC.",
-      "evidence": [
-        "frontend/src/pages/internal/InternalLogin.tsx",
-        "frontend-file-summaries.txt",
-        "project_state.json"
-      ]
-    }
-  ],
+  "generatedAt": "2026-02-16T08:52:16.581Z",
+  "summary": "REQ-110 appears implemented in InternalLogin via a gated one-time effect that runs once actor is ready (actor exists and actorFetching is false) and then sets claimCheckDone. Due to truncation of InternalLogin.tsx, REQ-111 and REQ-112 behaviors (no redirect on claim success; claim error follow-up re-check and friendly messaging) cannot be fully verified from the provided diff excerpt. Additionally, the diff includes modifications to non-allowed-scope files (frontend-file-summaries.txt, project_state.json), which were not requested by the BuildRequest constraints.",
+  "missing_requirements": [],
   "hallucinated_features": [
     {
-      "description": "Modified repository meta/summary files (`frontend-file-summaries.txt` and `project_state.json`).",
-      "reason": "BuildRequest explicitly constrained the patch to modify only `frontend/src/pages/internal/InternalLogin.tsx` and not change other frontend files; these edits are not requested by REQ-97/REQ-98.",
+      "description": "Edits to files outside the allowed frontend scope (only frontend/src/App.tsx and frontend/src/pages/**).",
+      "reason": "BuildRequest explicitly limits code changes to frontend/src/App.tsx and files under frontend/src/pages/**, but the diff shows additional modified files not under those paths.",
       "evidence": [
         "frontend-file-summaries.txt",
         "project_state.json"
       ]
     }
   ],
-  "confidence": 0.78,
+  "confidence": 0.62,
   "changed_files": [
     "frontend-file-summaries.txt",
     "frontend/src/pages/internal/InternalLogin.tsx",

@@ -1,12 +1,11 @@
 # Specification
 
 ## Summary
-**Goal:** Improve the Internal Login page UX by preventing early Superadmin-claim interactions before the backend actor is ready, and by turning the post-login Internet Identity button into a true logout action.
+**Goal:** Fix InternalLogin’s Superadmin claim flow so the claim-status check runs promptly when the backend actor is ready, successful claims hide the claim card without redirect, and claim errors only show when the claim truly fails.
 
 **Planned changes:**
-- Update `frontend/src/pages/internal/InternalLogin.tsx` to hide (not render) the "Claim Superadmin" section while `iiLoggedIn === true` but the actor is not ready (`actor` is null/undefined or `actorFetching === true`), then allow it to render again once ready (still respecting existing conditions like `claimCheckDone === true` and `superadminClaimed === false`).
-- Keep the existing Claim Superadmin click handler guard so it early-returns when the actor is not ready and shows an inline warning via the existing warning mechanism (without calling the backend).
-- Update `frontend/src/pages/internal/InternalLogin.tsx` so after a successful Internet Identity login (`iiLoggedIn === true`), the button label becomes "Logout" and clicking it calls the existing Internet Identity context logout/clear function.
-- After logout, reset the UI to a safe default state (logged-out state with role selection/warnings reset) without modifying any other pages/files.
+- Update `frontend/src/pages/internal/InternalLogin.tsx` to trigger a one-time `isSuperadminClaimed()` check immediately after `actor` exists and `actorFetching === false`, avoiding multi-minute delays and preventing repeated/spam checks.
+- Change the claim success behavior to permanently hide the “Claim Superadmin” card after `actor.claimSuperadmin()` succeeds, with no navigation/redirect and no other backend mutations triggered from the claim handler.
+- Improve claim error handling: if `claimSuperadmin()` throws, perform exactly one follow-up `isSuperadminClaimed()` re-check; if claimed, treat as success (hide card, no error, no redirect), otherwise show a single friendly error message without exposing raw backend authorization text.
 
-**User-visible outcome:** Users won’t see or be able to click "Claim Superadmin" until the backend is ready (avoiding repeated “Backend belum siap” warnings), and once logged in via Internet Identity they can click "Logout" to properly sign out and return to a stable logged-out UI.
+**User-visible outcome:** After logging in, the “Claim Superadmin” card appears promptly when applicable; claiming Superadmin hides the card permanently with no redirect; and error messages appear only when the claim genuinely fails (with a user-friendly message).

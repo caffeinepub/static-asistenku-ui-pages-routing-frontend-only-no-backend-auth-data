@@ -1,18 +1,18 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 43,
-  "summary": "Scope now includes a frontend change: InternalLogin.tsx is the only page allowed to call backend and run a full Internal Login flow (II login, getCallerUser, isSuperadminClaimed, claimSuperadmin, role validation, warnings, and dashboard redirects). All other pages remain static UI-only with no backend calls. Backend persistence work remains focused on upgrade-safe state (stable vars/snapshots) in backend/main.mo.",
+  "projectStateVersion": 49,
+  "summary": "Scope expanded: update ALL frontend pages to match the uploaded dashboard reference styling (background layout + card shapes/colors), and update InternalLogin behavior/UI: role cards limited to admin/finance/concierge/asistenmu/superadmin, each role card has its own \"Workspace\" button that checks only that role, keep Model A superadmin-claim behavior BUT fix Claim card timing (no multi-minute delay) and claim error handling; after successful claim, permanently hide the Claim card with NO redirect; show error only when claim truly fails; and update footer text to \"Asistenku © 2026 PT. Asistenku Digital Indonesia\".",
   "architectural_notes": [
     "All pages are static UI only: no Internet Identity, no backend calls, no mock data, no role/user logic, no auto-redirects; navigation only via clicks.",
     "Use react-router-dom Routes with explicit mappings and a '*' fallback 404 page with a button back to '/'",
-    "Global UI style: white background, centered container maxWidth 760 with generous padding, centered logo asistenku-horizontal.png, main card rounded 24px with subtle shadow and ample whitespace; no sidebar/navbar template.",
     "Ensure App.tsx uses BrowserRouter + Routes from react-router-dom and does not crash on load.",
     "All specified page files must default-export a React component; all import paths must be valid (no missing files).",
     "Do not use any external UI libraries; use plain divs + simple className only.",
     "Do not use any images besides asistenku-horizontal.png; write img src exactly \"asistenku-horizontal.png\" (no folder prefix).",
     "Add sufficient top padding so the logo is not covered; ensure no TS/React compile errors and no blank page—route \"/\" must render normally.",
     "Backend is now in-scope: backend/main.mo may be fully implemented per the backend spec (no longer required to be empty/untouched).",
-    "For the current backend build request, ONLY modify backend/main.mo; do not change any frontend files."
+    "For the current backend build request, ONLY modify backend/main.mo; do not change any frontend files.",
+    "Global frontend styling updated: apply dashboard-reference colors/layout (e.g., dark/blue + beige split/background) and matching card shape/shadows across ALL pages, using the user-uploaded image as the styling baseline."
   ],
   "known_issues": [
     "Unintended frontend changes were made previously; must be reverted so frontend has zero diff for this request.",
@@ -20,7 +20,10 @@
     "saveCallerUserProfile currently overwrites userRoles (can overwrite role) causing repeated/incorrect role state; must be disabled via trap.",
     "Build/apply attempts for large backend persistence patch and subsequent InternalLogin patch repeatedly failed due to tooling limitations ('AI struggled/couldn't process request').",
     "Superadmin claim is currently failing because InternalLogin.tsx appears to be calling the wrong backend method (e.g., saveCallerUserProfile/role assignment) leading to \"Unauthorized: Only admins can assign user roles\" instead of calling claimSuperadmin().",
-    "InternalLogin.tsx shows \"Backend belum siap\" when claim UI is visible/clickable before actor initialization completes; needs UI gating on actorFetching/actor readiness."
+    "InternalLogin.tsx shows \"Backend belum siap\" when claim UI is visible/clickable before actor initialization completes; needs UI gating on actorFetching/actor readiness.",
+    "InternalLogin still surfaces/admin-only role-assignment messaging during Superadmin claim; superadmin should be exempt and claim should activate successfully without triggering admin-only validation paths.",
+    "InternalLogin: Claim Superadmin card can take >5 minutes to appear due to actor/claim-check timing leaving claimCheckDone false.",
+    "InternalLogin: Clicking Claim Superadmin can show a generic red error message even when claim may have succeeded; needs improved recheck/error handling per updated flow."
   ],
   "isFixRequest": true,
   "existing_features": [
@@ -301,6 +304,118 @@
       "title": "Patch `frontend/src/pages/internal/InternalLogin.tsx` so the Internet Identity button changes from a post-login state to a true logout action: once II login succeeds, the button label becomes \"Logout\" and clicking it logs the user out (clears identity).",
       "reqIds": [
         "REQ-98"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-frontend-src-pages-internal-internallogin-tsx-so-the-role-cards-shown-are-only-admin-finance-concierge-asistenmu-superadmin-remove-strategicpartner-manajer-management",
+      "title": "Update `frontend/src/pages/internal/InternalLogin.tsx` so the role cards shown are ONLY: admin, finance, concierge, asistenmu, superadmin (remove strategicpartner, manajer, management).",
+      "reqIds": [
+        "REQ-99"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-frontend-src-pages-internal-internallogin-tsx-so-each-role-card-contains-its-own-workspace-button-clicking-a-card-s-workspace-button-must-validate-only-against-that-card-s-role-not-a-separate-global-selection-step-and-then-navigate-to-the-correct-dashboard-route-on-success",
+      "title": "Update `frontend/src/pages/internal/InternalLogin.tsx` so EACH role card contains its own \"Workspace\" button. Clicking a card’s Workspace button must validate ONLY against that card’s role (not a separate global selection step) and then navigate to the correct dashboard route on success.",
+      "reqIds": [
+        "REQ-100"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-keep-the-existing-model-a-superadmin-claim-behavior-in-frontend-src-pages-internal-internallogin-tsx-show-a-dedicated-claim-superadmin-section-only-when-a-the-user-is-logged-in-with-internet-identity-b-the-one-time-issuperadminclaimed-check-has-completed-c-superadmin-is-not-yet-claimed-and-d-the-backend-actor-is-fully-ready-no-early-clickable-ui-the-claim-click-must-call-only-actor-claimsuperadmin-and-handle-success-already-claimed-outcomes-as-previously-specified",
+      "title": "Keep the existing Model A Superadmin-claim behavior in `frontend/src/pages/internal/InternalLogin.tsx`: show a dedicated \"Claim Superadmin\" section only when (a) the user is logged in with Internet Identity, (b) the one-time `isSuperadminClaimed()` check has completed, (c) superadmin is not yet claimed, and (d) the backend actor is fully ready (no early clickable UI). The claim click must call ONLY `actor.claimSuperadmin()` and handle success/already-claimed outcomes as previously specified.",
+      "reqIds": [
+        "REQ-101"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-footer-across-all-frontend-pages-under-frontend-src-pages-to-display-exactly-asistenku-2026-pt-asistenku-digital-indonesia-replace-the-current-caffeine-ai-footer-block",
+      "title": "Update the footer across ALL frontend pages under `frontend/src/pages/**` to display exactly: \"Asistenku © 2026 PT. Asistenku Digital Indonesia\" (replace the current caffeine.ai footer block).",
+      "reqIds": [
+        "REQ-102"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-apply-the-uploaded-dashboard-reference-styling-from-1771202158797-png-across-all-pages-in-frontend-src-pages-implement-a-two-tone-background-layout-deep-navy-warm-beige-and-update-card-shapes-colors-shadows-to-match-the-reference-style-as-closely-as-possible-using-tailwind-classes-without-editing-global-css-files",
+      "title": "Apply the uploaded dashboard reference styling (from `1771202158797.png`) across ALL pages in `frontend/src/pages/**`: implement a two-tone background layout (deep navy + warm beige), and update card shapes/colors/shadows to match the reference style as closely as possible using Tailwind classes (without editing global CSS files).",
+      "reqIds": [
+        "REQ-103"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-logo-rendering-inconsistencies-while-doing-the-styling-pass-ensure-all-pages-use-img-src-asistenku-horizontal-png-no-leading-slash-and-no-assets-prefix-so-the-logo-loads-reliably-everywhere",
+      "title": "Fix logo rendering inconsistencies while doing the styling pass: ensure all pages use `img src=\"asistenku-horizontal.png\"` (no leading slash and no `/assets/` prefix) so the logo loads reliably everywhere.",
+      "reqIds": [
+        "REQ-104"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-perform-a-final-compile-render-sanity-pass-after-the-patch-to-ensure-there-are-no-typescript-errors-no-runtime-crashes-and-navigation-still-works-for-the-existing-routes-defined-in-frontend-src-app-tsx",
+      "title": "Perform a final compile/render sanity pass after the patch to ensure there are no TypeScript errors, no runtime crashes, and navigation still works for the existing routes defined in `frontend/src/App.tsx`.",
+      "reqIds": [
+        "REQ-105"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-frontend-src-pages-internal-internallogin-tsx-so-the-role-grid-includes-a-visible-superadmin-role-card-in-addition-to-admin-finance-concierge-asistenmu-and-the-superadmin-card-contains-its-own-workspace-button-that-runs-the-same-role-validation-flow-as-the-other-cards-and-navigates-to-superadmin-dashboard-on-success",
+      "title": "Update `frontend/src/pages/internal/InternalLogin.tsx` so the role grid includes a visible `Superadmin` role card (in addition to admin/finance/concierge/asistenmu), and the Superadmin card contains its own `Workspace` button that runs the same role-validation flow as the other cards and navigates to `/superadmin/dashboard` on success.",
+      "reqIds": [
+        "REQ-106"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-harden-the-claim-superadmin-action-in-frontend-src-pages-internal-internallogin-tsx-so-it-never-displays-the-backend-error-text-unauthorized-only-admins-can-assign-user-roles-to-the-user-if-that-error-or-close-variants-is-thrown-the-ui-must-instead-1-immediately-re-check-issuperadminclaimed-once-2-if-claimed-is-now-true-treat-the-claim-as-successful-set-superadminclaimed-true-hide-the-claim-card-and-navigate-to-superadmin-dashboard-otherwise-3-show-a-superadmin-claim-specific-friendly-error-message-that-does-not-mention-admin-only-role-assignment",
+      "title": "Harden the `Claim Superadmin` action in `frontend/src/pages/internal/InternalLogin.tsx` so it never displays the backend error text `Unauthorized: Only admins can assign user roles` to the user. If that error (or close variants) is thrown, the UI must instead: (1) immediately re-check `isSuperadminClaimed()` once, (2) if claimed is now true, treat the claim as successful (set `superadminClaimed=true`, hide the claim card, and navigate to `/superadmin/dashboard`), otherwise (3) show a superadmin-claim-specific friendly error message that does not mention admin-only role assignment.",
+      "reqIds": [
+        "REQ-107"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-ensure-the-claim-superadmin-card-section-in-frontend-src-pages-internal-internallogin-tsx-is-only-visible-and-actionable-when-a-the-user-is-logged-in-with-internet-identity-b-the-one-time-issuperadminclaimed-check-has-completed-c-superadmin-is-not-yet-claimed-and-d-the-backend-actor-is-fully-ready-actor-exists-and-actorfetching-is-false",
+      "title": "Ensure the `Claim Superadmin` card/section in `frontend/src/pages/internal/InternalLogin.tsx` is only visible and actionable when: (a) the user is logged in with Internet Identity, (b) the one-time `isSuperadminClaimed()` check has completed, (c) superadmin is not yet claimed, and (d) the backend actor is fully ready (`actor` exists and `actorFetching` is false).",
+      "reqIds": [
+        "REQ-108"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-keep-the-superadmin-claim-mutation-behavior-in-frontend-src-pages-internal-internallogin-tsx-strictly-limited-to-calling-actor-claimsuperadmin-no-other-backend-mutation-calls-directly-or-indirectly-from-the-claim-click-handler",
+      "title": "Keep the Superadmin claim mutation behavior in `frontend/src/pages/internal/InternalLogin.tsx` strictly limited to calling `actor.claimSuperadmin()` (no other backend mutation calls directly or indirectly from the claim click handler).",
+      "reqIds": [
+        "REQ-109"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-frontend-src-pages-internal-internallogin-tsx-so-the-one-time-issuperadminclaimed-check-completes-promptly-after-the-backend-actor-becomes-ready-i-e-once-actor-exists-and-actorfetching-is-false-ensuring-the-claim-superadmin-card-does-not-take-minutes-to-appear-when-it-should-be-visible",
+      "title": "Update `frontend/src/pages/internal/InternalLogin.tsx` so the one-time `isSuperadminClaimed()` check completes promptly after the backend actor becomes ready (i.e., once `actor` exists and `actorFetching` is false), ensuring the Claim Superadmin card does not take minutes to appear when it should be visible.",
+      "reqIds": [
+        "REQ-110"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-frontend-src-pages-internal-internallogin-tsx-so-a-successful-superadmin-claim-permanently-hides-the-claim-superadmin-card-with-no-navigation-redirect-the-claim-action-must-still-call-only-actor-claimsuperadmin-and-must-not-invoke-any-other-backend-mutation-directly-or-indirectly",
+      "title": "Update `frontend/src/pages/internal/InternalLogin.tsx` so a successful Superadmin claim permanently hides the Claim Superadmin card with no navigation/redirect. The claim action must still call ONLY `actor.claimSuperadmin()` and must not invoke any other backend mutation directly or indirectly.",
+      "reqIds": [
+        "REQ-111"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-frontend-src-pages-internal-internallogin-tsx-claim-error-handling-so-the-red-error-message-is-shown-only-when-the-claim-truly-fails-on-claim-errors-the-ui-must-perform-a-single-follow-up-issuperadminclaimed-re-check-if-now-claimed-treat-as-success-hide-card-permanently-no-redirect-otherwise-show-a-friendly-error-message-and-do-not-expose-raw-backend-authorization-strings-to-the-user",
+      "title": "Update `frontend/src/pages/internal/InternalLogin.tsx` claim error handling so the red error message is shown only when the claim truly fails. On claim errors, the UI must perform a single follow-up `isSuperadminClaimed()` re-check: if now claimed, treat as success (hide card permanently, no redirect); otherwise show a friendly error message and do not expose raw backend authorization strings to the user.",
+      "reqIds": [
+        "REQ-112"
       ],
       "version": 1
     }
@@ -951,6 +1066,30 @@
     {
       "id": "AR-87",
       "summary": "Patch InternalLogin.tsx so the Claim Superadmin card/action is hidden/disabled until the backend actor is fully ready (e.g., require actorFetching===false), preventing repeated \"Backend belum siap\" warnings; also update the II button so after successful login it changes to \"Logout\".",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-88",
+      "summary": "Update InternalLogin page: show ONLY role cards admin/finance/concierge/asistenmu/superadmin; each card includes its own \"Workspace\" button that checks only that card's role; show Claim Superadmin per Model A when superadmin not yet claimed; update footer text to \"Asistenku © 2026 PT. Asistenku Digital Indonesia\".",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-89",
+      "summary": "Apply the uploaded dashboard reference styling (colors, background layout, and card shape/shadow) across ALL frontend pages (not just InternalLogin), using the image as the visual baseline.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-90",
+      "summary": "Patch InternalLogin superadmin claim flow so it is not blocked by the \"only admins can assign user roles\" rule (superadmin exempt / does not trigger role-assignment paths) and becomes active immediately on successful claim (no admin-only validation message shown for superadmin).",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-91",
+      "summary": "Fix InternalLogin Claim Superadmin flow in frontend only: make the Claim card appear promptly once actor is ready (no multi-minute delay), ensure claim retry/recheck logic so errors are shown only when claim truly fails, and after successful claim permanently hide the Claim card with no redirect to dashboard.",
       "reqIds": [],
       "status": "pending"
     }

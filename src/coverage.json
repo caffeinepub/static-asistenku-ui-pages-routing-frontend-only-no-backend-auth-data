@@ -1,18 +1,18 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-16T01:05:14.518Z",
+  "generatedAt": "2026-02-16T08:52:16.586Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 2,
-    "implemented": 2,
+    "total": 3,
+    "implemented": 3,
     "items": [
       {
-        "id": "REQ-97",
-        "summary": "Patch `frontend/src/pages/internal/InternalLogin.tsx` so the \"Claim Superadmin\" section is not visible and not actionable until the backend actor is fully ready, preventing the repeated \"Backend belum siap\" warning when a user clicks too early.",
+        "id": "REQ-110",
+        "summary": "Update `frontend/src/pages/internal/InternalLogin.tsx` so the one-time `isSuperadminClaimed()` check completes promptly after the backend actor becomes ready (i.e., once `actor` exists and `actorFetching` is false), ensuring the Claim Superadmin card does not take minutes to appear when it should be visible.",
         "status": "implemented",
         "plannedFiles": [
           "frontend/src/pages/internal/InternalLogin.tsx"
@@ -22,8 +22,19 @@
         ]
       },
       {
-        "id": "REQ-98",
-        "summary": "Patch `frontend/src/pages/internal/InternalLogin.tsx` so the Internet Identity button changes from a post-login state to a true logout action: once II login succeeds, the button label becomes \"Logout\" and clicking it logs the user out (clears identity).",
+        "id": "REQ-111",
+        "summary": "Update `frontend/src/pages/internal/InternalLogin.tsx` so a successful Superadmin claim permanently hides the Claim Superadmin card with no navigation/redirect. The claim action must still call ONLY `actor.claimSuperadmin()` and must not invoke any other backend mutation directly or indirectly.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/internal/InternalLogin.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/internal/InternalLogin.tsx"
+        ]
+      },
+      {
+        "id": "REQ-112",
+        "summary": "Update `frontend/src/pages/internal/InternalLogin.tsx` claim error handling so the red error message is shown only when the claim truly fails. On claim errors, the UI must perform a single follow-up `isSuperadminClaimed()` re-check: if now claimed, treat as success (hide card permanently, no redirect); otherwise show a friendly error message and do not expose raw backend authorization strings to the user.",
         "status": "implemented",
         "plannedFiles": [
           "frontend/src/pages/internal/InternalLogin.tsx"
