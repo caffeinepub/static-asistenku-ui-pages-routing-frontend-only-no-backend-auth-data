@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 37,
+  "projectStateVersion": 39,
   "summary": "Scope now includes a frontend change: InternalLogin.tsx is the only page allowed to call backend and run a full Internal Login flow (II login, getCallerUser, isSuperadminClaimed, claimSuperadmin, role validation, warnings, and dashboard redirects). All other pages remain static UI-only with no backend calls. Backend persistence work remains focused on upgrade-safe state (stable vars/snapshots) in backend/main.mo.",
   "architectural_notes": [
     "All pages are static UI only: no Internet Identity, no backend calls, no mock data, no role/user logic, no auto-redirects; navigation only via clicks.",
@@ -18,9 +18,10 @@
     "Unintended frontend changes were made previously; must be reverted so frontend has zero diff for this request.",
     "Previous automated patch/build attempt failed to apply the requested backend/main.mo change (tool error).",
     "saveCallerUserProfile currently overwrites userRoles (can overwrite role) causing repeated/incorrect role state; must be disabled via trap.",
-    "Build/apply attempts for large backend persistence patch and subsequent InternalLogin patch repeatedly failed due to tooling limitations ('AI struggled/couldn't process request')."
+    "Build/apply attempts for large backend persistence patch and subsequent InternalLogin patch repeatedly failed due to tooling limitations ('AI struggled/couldn't process request').",
+    "Superadmin claim is currently failing because InternalLogin.tsx appears to be calling the wrong backend method (e.g., saveCallerUserProfile/role assignment) leading to \"Unauthorized: Only admins can assign user roles\" instead of calling claimSuperadmin()."
   ],
-  "isFixRequest": false,
+  "isFixRequest": true,
   "existing_features": [
     {
       "id": "feature-do-not-create-edit-or-reference-any-backend-code-keep-backend-main-mo-completely-untouched-and-keep-the-backend-100-empty-no-methods-data-structures",
@@ -235,6 +236,30 @@
       "title": "Ensure the change compiles and runs without runtime errors, including when the user is not logged in (anonymous actor), when backend calls fail, and when backend return types differ by variant (handle results defensively in `InternalLogin.tsx` without changing shared hooks).",
       "reqIds": [
         "REQ-90"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-frontend-src-pages-internal-internallogin-tsx-so-the-claim-superadmin-action-calls-only-the-backend-method-actor-claimsuperadmin-and-does-not-call-directly-or-indirectly-from-this-click-handler-any-profile-role-assignment-methods-such-as-savecalleruserprofile-that-can-trigger-the-backend-error-unauthorized-only-admins-can-assign-user-roles",
+      "title": "Update `frontend/src/pages/internal/InternalLogin.tsx` so the \"Claim Superadmin\" action calls ONLY the backend method `actor.claimSuperadmin()` and does not call (directly or indirectly from this click handler) any profile/role-assignment methods such as `saveCallerUserProfile()` that can trigger the backend error \"Unauthorized: Only admins can assign user roles\".",
+      "reqIds": [
+        "REQ-91"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-frontend-src-pages-internal-internallogin-tsx-add-a-one-time-on-mount-check-that-calls-actor-issuperadminclaimed-exactly-once-when-an-actor-is-available-and-uses-its-result-to-set-superadminclaimed-so-the-claim-ui-is-only-offered-when-superadmin-has-not-yet-been-claimed",
+      "title": "In `frontend/src/pages/internal/InternalLogin.tsx`, add a one-time on-mount check that calls `actor.isSuperadminClaimed()` exactly once (when an actor is available) and uses its result to set `superadminClaimed`, so the claim UI is only offered when superadmin has not yet been claimed.",
+      "reqIds": [
+        "REQ-92"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-harden-frontend-src-pages-internal-internallogin-tsx-against-actor-readiness-issues-prevent-backend-calls-for-claim-check-actions-when-the-actor-is-still-initializing-and-show-a-non-crashing-inline-warning-instead-of-attempting-the-call",
+      "title": "Harden `frontend/src/pages/internal/InternalLogin.tsx` against actor readiness issues: prevent backend calls for claim/check actions when the actor is still initializing, and show a non-crashing inline warning instead of attempting the call.",
+      "reqIds": [
+        "REQ-93"
       ],
       "version": 1
     }
@@ -867,6 +892,12 @@
     {
       "id": "AR-84",
       "summary": "Implement \"Model A\" Internal Login flow in frontend/src/pages/InternalLogin.tsx ONLY: allow backend calls (getCallerUser, isSuperadminClaimed, claimSuperadmin), II login gating, role card selection, single getCallerUser check on 'Ruang kerja', mismatch/registration/status warnings without auto-redirect, superadmin claim button/redirect logic, and redirect to fixed dashboard routes; do not modify any other frontend file or backend/main.mo.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-85",
+      "summary": "Patch `frontend/src/pages/internal/InternalLogin.tsx` so the “Claim Superadmin” action calls the correct backend method `claimSuperadmin()` (not `saveCallerUserProfile()`/role assignment), resolving the unauthorized error and enabling superadmin claim.",
       "reqIds": [],
       "status": "pending"
     }

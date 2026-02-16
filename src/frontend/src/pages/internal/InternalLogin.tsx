@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useInternetIdentity } from '../../hooks/useInternetIdentity';
 import { useActor } from '../../hooks/useActor';
 import type { UserRole } from '../../backend';
@@ -86,6 +86,9 @@ export default function InternalLogin() {
   const [warningText, setWarningText] = useState<string | null>(null);
   const [superadminClaimed, setSuperadminClaimed] = useState<boolean>(false);
   const [claimLoading, setClaimLoading] = useState(false);
+  const [claimCheckDone, setClaimCheckDone] = useState(false);
+
+  const claimCheckRef = useRef(false);
 
   // Update iiLoggedIn when identity changes
   useEffect(() => {
@@ -95,6 +98,29 @@ export default function InternalLogin() {
       setIiLoggedIn(false);
     }
   }, [identity]);
+
+  // Check if superadmin is already claimed (once on mount when actor is ready)
+  useEffect(() => {
+    if (!actor || actorFetching || claimCheckRef.current) return;
+
+    claimCheckRef.current = true;
+
+    (async () => {
+      try {
+        // Type-safe call: backend has isSuperadminClaimed() but it's not in the interface
+        // We'll call it via a safe cast
+        const actorAny = actor as any;
+        if (typeof actorAny.isSuperadminClaimed === 'function') {
+          const claimed = await actorAny.isSuperadminClaimed();
+          setSuperadminClaimed(!!claimed);
+        }
+      } catch (err) {
+        console.error('Error checking superadmin claim status:', err);
+      } finally {
+        setClaimCheckDone(true);
+      }
+    })();
+  }, [actor, actorFetching]);
 
   const handleLoginClick = async () => {
     try {
@@ -111,8 +137,8 @@ export default function InternalLogin() {
   };
 
   const handleRuangKerjaClick = async () => {
-    if (!actor) {
-      setWarningText('Backend belum siap, coba lagi');
+    if (!actor || actorFetching) {
+      setWarningText('Backend belum siap, tunggu sebentar lalu coba lagi');
       return;
     }
 
@@ -180,8 +206,8 @@ export default function InternalLogin() {
   };
 
   const handleClaimSuperadmin = async () => {
-    if (!actor) {
-      setWarningText('Backend belum siap');
+    if (!actor || actorFetching) {
+      setWarningText('Backend belum siap, tunggu sebentar lalu coba lagi');
       return;
     }
 
@@ -189,6 +215,7 @@ export default function InternalLogin() {
     setWarningText(null);
 
     try {
+      // ONLY call claimSuperadmin, no other backend mutations
       await actor.claimSuperadmin();
       
       // Success
@@ -210,7 +237,7 @@ export default function InternalLogin() {
   };
 
   const isRuangKerjaEnabled = iiLoggedIn && selectedRole !== null;
-  const showClaimButton = iiLoggedIn && selectedRole === 'superadmin' && !superadminClaimed;
+  const showClaimButton = iiLoggedIn && selectedRole === 'superadmin' && !superadminClaimed && claimCheckDone;
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-6 pt-12">

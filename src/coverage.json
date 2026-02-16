@@ -1,18 +1,18 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-15T23:21:29.383Z",
+  "generatedAt": "2026-02-16T00:25:02.272Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 8,
-    "implemented": 8,
+    "total": 3,
+    "implemented": 3,
     "items": [
       {
-        "id": "REQ-83",
-        "summary": "Modify ONLY `frontend/src/pages/internal/InternalLogin.tsx` to implement the requested “Model A” Internal Login flow using Internet Identity login and existing backend methods (`getCallerUser()`, `isSuperadminClaimed()`, `claimSuperadmin()`) while keeping all other pages UI-only and unchanged.",
+        "id": "REQ-91",
+        "summary": "Update `frontend/src/pages/internal/InternalLogin.tsx` so the \"Claim Superadmin\" action calls ONLY the backend method `actor.claimSuperadmin()` and does not call (directly or indirectly from this click handler) any profile/role-assignment methods such as `saveCallerUserProfile()` that can trigger the backend error \"Unauthorized: Only admins can assign user roles\".",
         "status": "implemented",
         "plannedFiles": [
           "frontend/src/pages/internal/InternalLogin.tsx"
@@ -22,8 +22,8 @@
         ]
       },
       {
-        "id": "REQ-84",
-        "summary": "Implement the exact InternalLogin UI state machine and backend call sequencing as specified: `iiLoggedIn`, `selectedRole`, `checking`, `warningText`, `superadminClaimed`, `claimLoading`; call `isSuperadminClaimed()` exactly once on mount to set `superadminClaimed` and do not call `getCallerUser()` automatically after II login.",
+        "id": "REQ-92",
+        "summary": "In `frontend/src/pages/internal/InternalLogin.tsx`, add a one-time on-mount check that calls `actor.isSuperadminClaimed()` exactly once (when an actor is available) and uses its result to set `superadminClaimed`, so the claim UI is only offered when superadmin has not yet been claimed.",
         "status": "implemented",
         "plannedFiles": [
           "frontend/src/pages/internal/InternalLogin.tsx"
@@ -33,63 +33,8 @@
         ]
       },
       {
-        "id": "REQ-85",
-        "summary": "Update the role card grid in `InternalLogin.tsx` so it always shows these clickable role cards and uses their exact role keys for selection/validation: `admin`, `asistenmu`, `concierge`, `strategicpartner`, `manajer`, `finance`, `management`, `superadmin`. Clicking a card must set `selectedRole` to that card’s role key and clear `warningText`. The Superadmin card must always exist and be selectable.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/pages/internal/InternalLogin.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/pages/internal/InternalLogin.tsx"
-        ]
-      },
-      {
-        "id": "REQ-86",
-        "summary": "Enable the “Ruang kerja” action with the required gating and behavior: it must be enabled only when `iiLoggedIn === true` AND `selectedRole !== null`; on click it must set `checking=true`, clear `warningText`, call `getCallerUser()` exactly once, then enforce the specified decision tree (registration handling, role mismatch warning, status check for non-client/partner/superadmin roles) and redirect only on successful match.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/pages/internal/InternalLogin.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/pages/internal/InternalLogin.tsx"
-        ]
-      },
-      {
-        "id": "REQ-87",
-        "summary": "Implement Superadmin claim behavior in `InternalLogin.tsx`: show a “Claim Superadmin” button only when `iiLoggedIn === true`, `selectedRole === \"superadmin\"`, and `superadminClaimed === false`. On click, set `claimLoading=true` and clear `warningText`, call `claimSuperadmin()` (no parameters; if it requires parameters in the generated types, pass empty/placeholder values without adding any form fields), then handle success/already-claimed outcomes exactly as specified and redirect only on successful claim.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/pages/internal/InternalLogin.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/pages/internal/InternalLogin.tsx"
-        ]
-      },
-      {
-        "id": "REQ-88",
-        "summary": "Implement the fixed dashboard route mapping in `InternalLogin.tsx` redirects (no route changes elsewhere): admin -> `/admin/dashboard`; asistenmu -> `/asistenmu/dashboard`; concierge -> `/concierge/dashboard`; strategicpartner -> `/strategicpartner/dashboard`; manajer -> `/manajer/dashboard`; finance -> `/finance/dashboard`; management -> `/management/dashboard`; superadmin -> `/superadmin/dashboard`.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/pages/internal/InternalLogin.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/pages/internal/InternalLogin.tsx"
-        ]
-      },
-      {
-        "id": "REQ-89",
-        "summary": "Preserve the existing InternalLogin page’s base layout and styling (logo, centered container, card styling, footer). Only add the minimum UI elements needed to support the new logic: enable/disable states, per-role “Ruang kerja” placement (either per-card or a single shared button), Superadmin claim button in the Superadmin card area, and a simple warning text area displayed below the “Ruang kerja” action area.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/pages/internal/InternalLogin.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/pages/internal/InternalLogin.tsx"
-        ]
-      },
-      {
-        "id": "REQ-90",
-        "summary": "Ensure the change compiles and runs without runtime errors, including when the user is not logged in (anonymous actor), when backend calls fail, and when backend return types differ by variant (handle results defensively in `InternalLogin.tsx` without changing shared hooks).",
+        "id": "REQ-93",
+        "summary": "Harden `frontend/src/pages/internal/InternalLogin.tsx` against actor readiness issues: prevent backend calls for claim/check actions when the actor is still initializing, and show a non-crashing inline warning instead of attempting the call.",
         "status": "implemented",
         "plannedFiles": [
           "frontend/src/pages/internal/InternalLogin.tsx"

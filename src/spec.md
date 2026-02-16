@@ -1,14 +1,13 @@
 # Specification
 
 ## Summary
-**Goal:** Enable the full Internal Login flow on `/internal/login` using Internet Identity login and backend role validation/claim checks, while keeping the rest of the app unchanged.
+**Goal:** Fix the Internal Login “Claim Superadmin” flow so it only calls the intended backend claim method, hides the claim UI once superadmin is already claimed, and handles actor-not-ready states without crashing.
 
 **Planned changes:**
-- Modify only `frontend/src/pages/internal/InternalLogin.tsx` to implement the “Model A” login flow using existing Internet Identity and actor hooks (no new auth implementation, no direct fetch).
-- Add the required UI state machine and sequencing: call `isSuperadminClaimed()` exactly once on mount; allow II login via button; do not auto-call `getCallerUser()` after II login; no auto-redirect on mount.
-- Update the role grid to always show 8 selectable role cards with exact keys: `admin`, `asistenmu`, `concierge`, `strategicpartner`, `manajer`, `finance`, `management`, `superadmin`; selecting clears warning text.
-- Implement “Ruang kerja” gating (enabled only when II logged in + role selected) and on-click decision tree: call `getCallerUser()` once, handle unregistered/mismatch/status warnings, and redirect only to the fixed mapped dashboard route on success.
-- Implement Superadmin claim UI/logic in the Superadmin card area (visibility conditions, `claimSuperadmin()` call, loading state, claimed/already-claimed outcomes, redirect on successful claim).
-- Preserve existing layout/styling and add only minimal UI elements needed (enabled/disabled states, Superadmin claim button placement, and warning text area), with defensive error handling to avoid crashes.
+- Update `frontend/src/pages/internal/InternalLogin.tsx` so the “Claim Superadmin” click handler triggers only `actor.claimSuperadmin()` and does not invoke any profile/role-assignment mutations (directly or indirectly).
+- Add a one-time on-mount check in `InternalLogin.tsx` that calls `actor.isSuperadminClaimed()` exactly once when an actor is available, storing the result in `superadminClaimed`.
+- Gate the “Claim Superadmin” button so it is shown only when `iiLoggedIn === true`, `selectedRole === "superadmin"`, and `superadminClaimed === false`.
+- Harden `InternalLogin.tsx` against actor readiness issues by preventing claim/check/workspace backend calls when the actor is missing/initializing and showing a small inline warning instead of attempting the call.
+- Ensure the page renders without runtime errors for anonymous users and when backend calls fail, keeping the existing layout (centered container, main card, footer) with only minimal UI additions.
 
-**User-visible outcome:** Users can log in with Internet Identity on the Internal Login page, select an internal role, and enter the correct dashboard only after backend validation; Superadmin can be claimed from the Superadmin card when available, and clear warnings are shown for unregistered, mismatched role, pending approval, or backend errors.
+**User-visible outcome:** Users can claim superadmin without triggering the “Unauthorized: Only admins can assign user roles” error path; the claim option disappears once superadmin has been claimed; and if the backend actor isn’t ready, the page shows a non-crashing inline warning instead of failing.

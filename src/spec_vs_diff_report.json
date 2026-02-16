@@ -1,85 +1,45 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-15T23:21:29.378Z",
-  "summary": "The diff shows substantive work started in `frontend/src/pages/internal/InternalLogin.tsx` (II login hook usage, role constants, dashboard mapping, navigation helper, and part of `Ruang kerja` click handling). However, the change set violates the constraint to modify only `InternalLogin.tsx` (two additional files were modified), and several required behaviors are not evidenced in the truncated diff (notably the required single on-mount `isSuperadminClaimed()` call, exact decision tree completion, exact warning/link behavior, and Superadmin claim flow).",
+  "generatedAt": "2026-02-16T00:25:02.268Z",
+  "summary": "InternalLogin.tsx shows a new one-time on-mount superadmin-claimed check guarded by actor readiness. However, the diff evidence is truncated before the click handlers and UI conditions, so REQ-91 and key REQ-93/REQ-92 UI acceptance criteria cannot be verified from the provided diff. Additionally, two non-requested files were modified despite the constraint to modify only InternalLogin.tsx.",
   "missing_requirements": [
     {
-      "id": "REQ-83",
-      "requirement": "Modify ONLY `frontend/src/pages/internal/InternalLogin.tsx`; no other frontend/backend files change; no new files are created.",
-      "reason": "Diff shows two additional modified files beyond `InternalLogin.tsx`.",
+      "id": "REQ-91",
+      "requirement": "Update InternalLogin.tsx so the \"Claim Superadmin\" action calls ONLY actor.claimSuperadmin() and does not call any profile/role-assignment methods (e.g., saveCallerUserProfile()) from that click handler.",
+      "reason": "The diff excerpt for InternalLogin.tsx is truncated before the \"Claim Superadmin\" click handler implementation, so there is no evidence that the handler calls only claimSuperadmin() and avoids other backend mutation calls.",
       "evidence": [
-        "frontend-file-summaries.txt",
-        "project_state.json"
+        "frontend/src/pages/internal/InternalLogin.tsx (truncated before click handler: ends at `const handleRoleCardCli...`)"
       ]
     },
     {
-      "id": "REQ-84",
-      "requirement": "Call `isSuperadminClaimed()` exactly once on mount to set `superadminClaimed` (true/false on success) and do not call `getCallerUser()` automatically after II login.",
-      "reason": "In the shown portion of `InternalLogin.tsx`, there is no `useEffect` that calls `actor.isSuperadminClaimed()` on mount (only an identity->iiLoggedIn effect is visible). Also `superadminClaimed` is initialized to `false` without evidence it is set from `isSuperadminClaimed()`.",
+      "id": "REQ-92",
+      "requirement": "Hide/show the \"Claim Superadmin\" button based on isSuperadminClaimed(): if claimed=true, do not show even when superadmin selected; if claimed=false, show only when iiLoggedIn===true and selectedRole===\"superadmin\".",
+      "reason": "While the on-mount check effect is visible, the UI rendering/conditional logic for when the \"Claim Superadmin\" button is shown is not present in the truncated excerpt, so the acceptance criteria about button visibility cannot be verified.",
       "evidence": [
-        "frontend/src/pages/internal/InternalLogin.tsx"
+        "frontend/src/pages/internal/InternalLogin.tsx (truncated before render/JSX section)"
       ]
     },
     {
-      "id": "REQ-85",
-      "requirement": "Role grid contains exactly 8 clickable cards for the required role keys and remains visible regardless of login state; selecting clears `warningText` and sets `selectedRole` to the exact role key; Superadmin card always exists and selectable.",
-      "reason": "Constants for 8 roles and a click handler are present, but the diff is truncated before any JSX rendering of the grid/cards, so the exact card count, always-visible behavior, and styling/selection behavior cannot be verified from the provided evidence.",
+      "id": "REQ-93",
+      "requirement": "Prevent backend calls for claim/check/workspace actions when actor is null/undefined or still fetching, and show a non-crashing inline warning instead.",
+      "reason": "The actor-readiness guard for the on-mount check is present, but the click-handlers for \"Claim Superadmin\" and \"Ruang kerja\" are not visible in the truncated diff, so it cannot be confirmed that those actions avoid backend calls and show inline warnings when actor is not ready.",
       "evidence": [
-        "frontend/src/pages/internal/InternalLogin.tsx"
-      ]
-    },
-    {
-      "id": "REQ-86",
-      "requirement": "“Ruang kerja” enabled only when `iiLoggedIn===true` and `selectedRole!==null`; on click set `checking=true`, clear warning, call `getCallerUser()` once, enforce full decision tree including showing “Ke pendaftaran” navigation to `/internal/register` when unregistered (non-superadmin), role mismatch warning text, status check warning text, and redirect only on success.",
-      "reason": "The handler `handleRuangKerjaClick` is partially shown and truncated before completing the decision tree. Also, the UI enable/disable state for the “Ruang kerja” action and the required “Ke pendaftaran” link/button rendering are not evidenced in the shown diff.",
-      "evidence": [
-        "frontend/src/pages/internal/InternalLogin.tsx"
-      ]
-    },
-    {
-      "id": "REQ-87",
-      "requirement": "Implement “Claim Superadmin” button visibility and behavior; call `claimSuperadmin()` once; handle success vs already-claimed outcomes with exact warning text and redirect rules; no added form fields.",
-      "reason": "The shown diff includes `claimLoading` state and comments about showing a claim button, but no actual `claimSuperadmin()` call or claim button rendering/visibility logic is present in the visible portion (file is truncated). Therefore the required claim flow cannot be verified.",
-      "evidence": [
-        "frontend/src/pages/internal/InternalLogin.tsx"
-      ]
-    },
-    {
-      "id": "REQ-89",
-      "requirement": "Preserve existing base layout/styling; role cards in a grid; primary actions remain; warning text area below action area.",
-      "reason": "The diff is truncated before JSX/layout, so preservation of the existing layout/styling and placement of warning text cannot be confirmed from the provided evidence.",
-      "evidence": [
-        "frontend/src/pages/internal/InternalLogin.tsx"
-      ]
-    },
-    {
-      "id": "REQ-90",
-      "requirement": "Defensive handling for backend call failures/variant return types; no crashes when not logged in; `isSuperadminClaimed()` failures handled without redirect; errors reset loading flags appropriately.",
-      "reason": "Some defensive handling is shown for II login errors and missing actor in `handleRuangKerjaClick`, but handling for `isSuperadminClaimed()` failures is not evidenced (no such call shown). Additionally, the remainder of error handling/resetting flags may be in truncated code and cannot be verified.",
-      "evidence": [
-        "frontend/src/pages/internal/InternalLogin.tsx"
+        "frontend/src/pages/internal/InternalLogin.tsx (truncated before click handlers/\"Ruang kerja\" logic)"
       ]
     }
   ],
   "hallucinated_features": [
     {
-      "description": "Modified `frontend-file-summaries.txt` and `project_state.json` despite the constraint to only modify `frontend/src/pages/internal/InternalLogin.tsx`.",
-      "reason": "BuildRequest explicitly restricts changes to InternalLogin.tsx only; these extra file modifications are out of scope.",
+      "description": "Modified files other than `frontend/src/pages/internal/InternalLogin.tsx` (violates constraint: modify only InternalLogin.tsx).",
+      "reason": "BuildRequest constraints explicitly restrict changes to only InternalLogin.tsx, but the diff shows two additional modified files.",
       "evidence": [
         "frontend-file-summaries.txt",
         "project_state.json"
       ]
-    },
-    {
-      "description": "Custom navigation helper using History API (`navigateToPath`) inside `InternalLogin.tsx`.",
-      "reason": "BuildRequest did not request introducing a new navigation utility; it only specified redirect behavior/routes. This may still be acceptable, but it is an additional implementation detail not explicitly requested.",
-      "evidence": [
-        "frontend/src/pages/internal/InternalLogin.tsx"
-      ]
     }
   ],
-  "confidence": 0.74,
+  "confidence": 0.62,
   "changed_files": [
     "frontend-file-summaries.txt",
     "frontend/src/pages/internal/InternalLogin.tsx",
