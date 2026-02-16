@@ -1,75 +1,74 @@
 {
   "kind": "build_request",
-  "title": "Fix InternalLogin Superadmin claim to call claimSuperadmin and avoid unauthorized role-assignment path",
+  "title": "InternalLogin: separate Superadmin claim card (no role selection needed) and hide after claim",
   "priority": "normal",
   "requirements": [
     {
-      "id": "REQ-91",
-      "text": "Update `frontend/src/pages/internal/InternalLogin.tsx` so the \"Claim Superadmin\" action calls ONLY the backend method `actor.claimSuperadmin()` and does not call (directly or indirectly from this click handler) any profile/role-assignment methods such as `saveCallerUserProfile()` that can trigger the backend error \"Unauthorized: Only admins can assign user roles\".",
+      "id": "REQ-94",
+      "text": "Update ONLY `frontend/src/pages/internal/InternalLogin.tsx` to show a dedicated, separate \"Claim Superadmin\" card/section that does not require selecting the \"superadmin\" role first. The claim section must be visible only when the user is logged in with Internet Identity (`iiLoggedIn === true`), the one-time claim-check has completed (`claimCheckDone === true`), and `superadminClaimed === false`.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-1"
+          "recent-messages"
         ],
         "quotes": [
-          "Oke patch InternalLogin.tsx",
-          "tapi saya tidak bisa claim superadmin"
+          "Boleh lakukan itu dan pisahkan card claim superadminnya sehingga tidak perlu pilih role superadmin dulu tetap hilangkan cardnya apabila sudah berhasih terclaim"
         ]
       },
       "acceptanceCriteria": [
-        "Clicking \"Claim Superadmin\" results in a single backend call to `claimSuperadmin()` (no other backend mutation calls from that click).",
-        "The UI no longer shows the backend error \"Unauthorized: Only admins can assign user roles\" as a result of clicking \"Claim Superadmin\" when the caller is eligible to claim superadmin."
+        "When II is logged in, the Superadmin claim UI is shown even if `selectedRole` is not `\"superadmin\"`.",
+        "The claim UI is hidden when `superadminClaimed === true` (including immediately after a successful claim, and when the initial `isSuperadminClaimed()` check indicates it is already claimed).",
+        "The role selection grid remains functional and still requires a role selection for the \"Ruang kerja\" action (no change to existing gating for \"Ruang kerja\")."
       ]
     },
     {
-      "id": "REQ-92",
-      "text": "In `frontend/src/pages/internal/InternalLogin.tsx`, add a one-time on-mount check that calls `actor.isSuperadminClaimed()` exactly once (when an actor is available) and uses its result to set `superadminClaimed`, so the claim UI is only offered when superadmin has not yet been claimed.",
+      "id": "REQ-95",
+      "text": "In `frontend/src/pages/internal/InternalLogin.tsx`, harden the \"Claim Superadmin\" click handler so it never calls the backend when the actor is not ready. If `actor` is null/undefined OR `actorFetching` is true, the handler must exit early and show a non-crashing inline warning (reuse the existing warning mechanism) instead of attempting the call.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-1"
+          "recent-messages"
         ],
         "quotes": [
-          "Oke patch InternalLogin.tsx"
+          "masalahnya bukan warning agent, tetapi actor belum siap sehingga tombol \"Claim Superadmin\" memicu pesan: Backend belum siap, tunggu sebentar lalu coba lagi"
         ]
       },
       "acceptanceCriteria": [
-        "`isSuperadminClaimed()` is invoked exactly once per page mount when an actor is available, and its result updates `superadminClaimed`.",
-        "When `isSuperadminClaimed()` returns true, the \"Claim Superadmin\" button is not shown even if the user selects the Superadmin role.",
-        "When `isSuperadminClaimed()` returns false, the \"Claim Superadmin\" button is shown only when `iiLoggedIn === true` and `selectedRole === \"superadmin\"`."
+        "Clicking \"Claim Superadmin\" while the actor is not ready does not throw, does not crash, and does not attempt any backend call.",
+        "An inline warning is displayed via the existing `warningText` UI area when actor is not ready."
       ]
     },
     {
-      "id": "REQ-93",
-      "text": "Harden `frontend/src/pages/internal/InternalLogin.tsx` against actor readiness issues: prevent backend calls for claim/check actions when the actor is still initializing, and show a non-crashing inline warning instead of attempting the call.",
+      "id": "REQ-96",
+      "text": "Keep the Superadmin claim mutation behavior unchanged except for the UI placement: the claim action must call ONLY `actor.claimSuperadmin()` and must not call any other backend mutation (directly or indirectly). On success, set `superadminClaimed = true`, hide the claim card, and navigate to `/superadmin/dashboard`. If the backend indicates the superadmin is already claimed, set `superadminClaimed = true`, hide the claim card, and show an inline warning message (no redirect in that case).",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-1"
+          "recent-messages"
         ],
         "quotes": [
-          "ada warning backend belum siap",
-          "tapi saya tidak bisa claim superadmin dan hanya muncul itu saja"
+          "pisahkan card claim superadminnya ... tetap hilangkan cardnya apabila sudah berhasih terclaim"
         ]
       },
       "acceptanceCriteria": [
-        "If the actor is null/undefined or still fetching, clicking \"Claim Superadmin\" does not throw and does not attempt a backend call; an inline warning is shown instead.",
-        "If the actor is null/undefined or still fetching, clicking \"Ruang kerja\" does not throw and does not attempt a backend call; an inline warning is shown instead.",
-        "The page renders without runtime errors when the user is anonymous (not logged in) and when backend calls fail."
+        "The only backend call made by the claim action is `actor.claimSuperadmin()`.",
+        "On successful claim, the app navigates to `/superadmin/dashboard` and the claim card is no longer rendered on the Internal Login page.",
+        "If claim fails because it was already claimed, the claim card is hidden and a warning is shown; no redirect occurs.",
+        "No other pages or files are modified."
       ]
     }
   ],
   "constraints": [
-    "Modify only `frontend/src/pages/internal/InternalLogin.tsx`.",
-    "Do not modify any backend files (including `backend/main.mo`).",
-    "Do not modify shared hooks in immutable paths (e.g., `frontend/src/hooks/useInternetIdentity.ts`, `frontend/src/hooks/useActor.ts`).",
-    "Do not add API calls or role/user checks to any other pages; only `InternalLogin.tsx` may call the backend.",
-    "Keep the existing page layout structure (centered container, main card, footer); add only minimal UI needed for the fix."
+    "Do not create, edit, or reference any backend code.",
+    "Only modify `frontend/src/pages/internal/InternalLogin.tsx` (no other frontend files).",
+    "Do not change shared hooks (`useActor`, `useInternetIdentity`) or any immutable paths listed in SYSTEM_CONTEXT.",
+    "All other pages must remain UI-only and unchanged."
   ],
   "nonGoals": [
-    "Changing or removing the console warning about both `agent` and `agentOptions` passed to `createActor`.",
-    "Implementing or modifying any backend authorization rules, access control initialization, or admin token handling.",
-    "Adding new routes or changing route mappings elsewhere in the app."
+    "Changing routes or dashboards.",
+    "Adding new backend methods or modifying backend authorization/claim logic.",
+    "Adding new form fields for claiming superadmin.",
+    "Implementing any additional role/registration flows beyond the existing InternalLogin decision tree."
   ],
   "imageRequirements": {
     "required": [],

@@ -1,52 +1,53 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Patch InternalLogin superadmin claim flow and actor-readiness guards",
+  "title": "InternalLogin: separate Superadmin claim card and harden claim handler",
   "requirements": [
     {
-      "id": "REQ-91",
-      "summary": "Ensure \"Claim Superadmin\" click only triggers actor.claimSuperadmin() and avoids any role/profile assignment side effects",
+      "id": "REQ-94",
+      "summary": "Separate the \"Claim Superadmin\" UI into its own dedicated card/section that appears independent of role selection and hides once claimed.",
       "acceptanceCriteria": [
-        "Clicking \"Claim Superadmin\" results in a single backend call to `claimSuperadmin()` (no other backend mutation calls from that click).",
-        "The UI no longer shows the backend error \"Unauthorized: Only admins can assign user roles\" as a result of clicking \"Claim Superadmin\" when the caller is eligible to claim superadmin."
+        "When II is logged in, the Superadmin claim UI is shown even if `selectedRole` is not `\"superadmin\"`.",
+        "The claim UI is hidden when `superadminClaimed === true` (including immediately after a successful claim, and when the initial `isSuperadminClaimed()` check indicates it is already claimed).",
+        "The role selection grid remains functional and still requires a role selection for the \"Ruang kerja\" action (no change to existing gating for \"Ruang kerja\")."
       ],
       "file_operations": [
         {
           "path": "frontend/src/pages/internal/InternalLogin.tsx",
           "operation": "modify",
-          "description": "Adjust the Claim Superadmin click handler to call ONLY `actor.claimSuperadmin()` and keep it isolated from any other backend-mutation logic (e.g., no profile save/role assignment calls triggered directly or indirectly from this handler). Ensure success/error handling remains purely UI-state updates + navigation."
+          "description": "Move the \"Claim Superadmin\" button out of the role grid and into a separate dedicated card/section. Render this claim section only when `iiLoggedIn === true`, `claimCheckDone === true`, and `superadminClaimed === false`, without requiring `selectedRole === \"superadmin\"`. Keep the existing role selection + \"Ruang kerja\" gating behavior unchanged."
         }
       ]
     },
     {
-      "id": "REQ-92",
-      "summary": "Add a one-time on-mount superadmin-claimed check via actor.isSuperadminClaimed() to control claim UI visibility",
+      "id": "REQ-95",
+      "summary": "Prevent \"Claim Superadmin\" from calling the backend when the actor is not ready, and show an inline warning instead.",
       "acceptanceCriteria": [
-        "`isSuperadminClaimed()` is invoked exactly once per page mount when an actor is available, and its result updates `superadminClaimed`.",
-        "When `isSuperadminClaimed()` returns true, the \"Claim Superadmin\" button is not shown even if the user selects the Superadmin role.",
-        "When `isSuperadminClaimed()` returns false, the \"Claim Superadmin\" button is shown only when `iiLoggedIn === true` and `selectedRole === \"superadmin\"`."
+        "Clicking \"Claim Superadmin\" while the actor is not ready does not throw, does not crash, and does not attempt any backend call.",
+        "An inline warning is displayed via the existing `warningText` UI area when actor is not ready."
       ],
       "file_operations": [
         {
           "path": "frontend/src/pages/internal/InternalLogin.tsx",
           "operation": "modify",
-          "description": "Add a guarded on-mount effect that calls `actor.isSuperadminClaimed()` exactly once when the actor is available and not fetching (use a ref/flag to prevent re-invocation on re-renders). Store the result in `superadminClaimed` and update the claim button visibility logic accordingly. If typing is missing for `isSuperadminClaimed`, call it in a type-safe way (e.g., narrow/cast locally) without changing shared hooks or other files."
+          "description": "Harden `handleClaimSuperadmin` to exit early when `actor` is null/undefined OR `actorFetching` is true, and set a non-crashing inline warning using the existing `warningText` mechanism (do not attempt any backend call in this state)."
         }
       ]
     },
     {
-      "id": "REQ-93",
-      "summary": "Prevent claim/check actions from calling backend while actor is initializing; show inline warning instead of crashing",
+      "id": "REQ-96",
+      "summary": "Keep claim mutation behavior the same (only `actor.claimSuperadmin()`), but update UI behavior to hide the claim card after success/already-claimed and navigate only on success.",
       "acceptanceCriteria": [
-        "If the actor is null/undefined or still fetching, clicking \"Claim Superadmin\" does not throw and does not attempt a backend call; an inline warning is shown instead.",
-        "If the actor is null/undefined or still fetching, clicking \"Ruang kerja\" does not throw and does not attempt a backend call; an inline warning is shown instead.",
-        "The page renders without runtime errors when the user is anonymous (not logged in) and when backend calls fail."
+        "The only backend call made by the claim action is `actor.claimSuperadmin()`.",
+        "On successful claim, the app navigates to `/superadmin/dashboard` and the claim card is no longer rendered on the Internal Login page.",
+        "If claim fails because it was already claimed, the claim card is hidden and a warning is shown; no redirect occurs.",
+        "No other pages or files are modified."
       ],
       "file_operations": [
         {
           "path": "frontend/src/pages/internal/InternalLogin.tsx",
           "operation": "modify",
-          "description": "Harden actor readiness checks for both \"Ruang kerja\" and \"Claim Superadmin\" actions by gating backend calls on `actor` presence and `actorFetching === false`. When not ready, set a non-crashing inline `warningText` (reuse existing warning UI) and return early without invoking backend. Also ensure all async handlers keep try/catch/finally so backend failures never crash rendering, including anonymous-user scenarios."
+          "description": "Ensure the claim action calls ONLY `actor.claimSuperadmin()` and no other backend mutations. On success: set `superadminClaimed = true` and navigate to `/superadmin/dashboard` (claim card hides due to render condition). If the backend indicates it is already claimed: set `superadminClaimed = true`, hide the claim card, and show an inline warning; do not navigate in that case."
         }
       ]
     }

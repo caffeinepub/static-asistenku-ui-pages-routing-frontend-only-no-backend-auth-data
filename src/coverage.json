@@ -1,7 +1,7 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-16T00:25:02.272Z",
+  "generatedAt": "2026-02-16T00:48:06.846Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
@@ -11,8 +11,8 @@
     "implemented": 3,
     "items": [
       {
-        "id": "REQ-91",
-        "summary": "Update `frontend/src/pages/internal/InternalLogin.tsx` so the \"Claim Superadmin\" action calls ONLY the backend method `actor.claimSuperadmin()` and does not call (directly or indirectly from this click handler) any profile/role-assignment methods such as `saveCallerUserProfile()` that can trigger the backend error \"Unauthorized: Only admins can assign user roles\".",
+        "id": "REQ-94",
+        "summary": "Update ONLY `frontend/src/pages/internal/InternalLogin.tsx` to show a dedicated, separate \"Claim Superadmin\" card/section that does not require selecting the \"superadmin\" role first. The claim section must be visible only when the user is logged in with Internet Identity (`iiLoggedIn === true`), the one-time claim-check has completed (`claimCheckDone === true`), and `superadminClaimed === false`.",
         "status": "implemented",
         "plannedFiles": [
           "frontend/src/pages/internal/InternalLogin.tsx"
@@ -22,8 +22,8 @@
         ]
       },
       {
-        "id": "REQ-92",
-        "summary": "In `frontend/src/pages/internal/InternalLogin.tsx`, add a one-time on-mount check that calls `actor.isSuperadminClaimed()` exactly once (when an actor is available) and uses its result to set `superadminClaimed`, so the claim UI is only offered when superadmin has not yet been claimed.",
+        "id": "REQ-95",
+        "summary": "In `frontend/src/pages/internal/InternalLogin.tsx`, harden the \"Claim Superadmin\" click handler so it never calls the backend when the actor is not ready. If `actor` is null/undefined OR `actorFetching` is true, the handler must exit early and show a non-crashing inline warning (reuse the existing warning mechanism) instead of attempting the call.",
         "status": "implemented",
         "plannedFiles": [
           "frontend/src/pages/internal/InternalLogin.tsx"
@@ -33,8 +33,8 @@
         ]
       },
       {
-        "id": "REQ-93",
-        "summary": "Harden `frontend/src/pages/internal/InternalLogin.tsx` against actor readiness issues: prevent backend calls for claim/check actions when the actor is still initializing, and show a non-crashing inline warning instead of attempting the call.",
+        "id": "REQ-96",
+        "summary": "Keep the Superadmin claim mutation behavior unchanged except for the UI placement: the claim action must call ONLY `actor.claimSuperadmin()` and must not call any other backend mutation (directly or indirectly). On success, set `superadminClaimed = true`, hide the claim card, and navigate to `/superadmin/dashboard`. If the backend indicates the superadmin is already claimed, set `superadminClaimed = true`, hide the claim card, and show an inline warning message (no redirect in that case).",
         "status": "implemented",
         "plannedFiles": [
           "frontend/src/pages/internal/InternalLogin.tsx"

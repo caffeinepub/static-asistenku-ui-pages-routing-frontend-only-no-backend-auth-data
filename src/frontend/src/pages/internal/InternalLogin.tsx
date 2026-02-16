@@ -10,8 +10,7 @@ const REQUIRED_ROLES = [
   'strategicpartner',
   'manajer',
   'finance',
-  'management',
-  'superadmin'
+  'management'
 ] as const;
 
 const ROLE_LABELS: Record<string, string> = {
@@ -21,8 +20,7 @@ const ROLE_LABELS: Record<string, string> = {
   strategicpartner: 'Strategic Partner',
   manajer: 'Manajer',
   finance: 'Finance',
-  management: 'Management',
-  superadmin: 'Superadmin'
+  management: 'Management'
 };
 
 const ROLE_DASHBOARD_MAP: Record<string, string> = {
@@ -150,16 +148,7 @@ export default function InternalLogin() {
       
       // User is null
       if (!user) {
-        if (selectedRole === 'superadmin') {
-          if (!superadminClaimed) {
-            // Show claim button in superadmin card area (handled separately)
-            setWarningText(null);
-          } else {
-            setWarningText('Akun belum terdaftar');
-          }
-        } else {
-          setWarningText('Akun belum terdaftar');
-        }
+        setWarningText('Akun belum terdaftar');
         setChecking(false);
         return;
       }
@@ -237,7 +226,7 @@ export default function InternalLogin() {
   };
 
   const isRuangKerjaEnabled = iiLoggedIn && selectedRole !== null;
-  const showClaimButton = iiLoggedIn && selectedRole === 'superadmin' && !superadminClaimed && claimCheckDone;
+  const showClaimCard = iiLoggedIn && claimCheckDone && !superadminClaimed;
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-6 pt-12">
@@ -254,33 +243,38 @@ export default function InternalLogin() {
 
           <div className="grid grid-cols-2 gap-4">
             {REQUIRED_ROLES.map((role) => (
-              <div key={role} className="relative">
-                <button
-                  onClick={() => handleRoleCardClick(role)}
-                  disabled={!iiLoggedIn && role !== 'superadmin'}
-                  className={`w-full p-6 rounded-2xl border-2 transition-all ${
-                    selectedRole === role
-                      ? 'border-primary bg-primary/5 shadow-md'
-                      : 'border-border hover:border-primary/50 hover:bg-muted/30'
-                  } ${!iiLoggedIn && role !== 'superadmin' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <span className="text-base font-medium">{ROLE_LABELS[role]}</span>
-                </button>
-                
-                {role === 'superadmin' && showClaimButton && (
-                  <div className="mt-2">
-                    <button
-                      onClick={handleClaimSuperadmin}
-                      disabled={claimLoading}
-                      className="w-full inline-flex items-center justify-center rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {claimLoading ? 'Claiming...' : 'Claim Superadmin'}
-                    </button>
-                  </div>
-                )}
-              </div>
+              <button
+                key={role}
+                onClick={() => handleRoleCardClick(role)}
+                disabled={!iiLoggedIn}
+                className={`w-full p-6 rounded-2xl border-2 transition-all ${
+                  selectedRole === role
+                    ? 'border-primary bg-primary/5 shadow-md'
+                    : 'border-border hover:border-primary/50 hover:bg-muted/30'
+                } ${!iiLoggedIn ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <span className="text-base font-medium">{ROLE_LABELS[role]}</span>
+              </button>
             ))}
           </div>
+
+          {showClaimCard && (
+            <div className="rounded-2xl border-2 border-primary bg-primary/5 p-6 space-y-4">
+              <div className="text-center space-y-2">
+                <h3 className="text-lg font-semibold text-foreground">Claim Superadmin</h3>
+                <p className="text-sm text-muted-foreground">
+                  Hanya satu superadmin yang dapat diklaim secara global.
+                </p>
+              </div>
+              <button
+                onClick={handleClaimSuperadmin}
+                disabled={claimLoading}
+                className="w-full inline-flex items-center justify-center rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {claimLoading ? 'Claiming...' : 'Claim Superadmin'}
+              </button>
+            </div>
+          )}
 
           <div className="space-y-4 pt-4">
             <button 

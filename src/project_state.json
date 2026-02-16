@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 39,
+  "projectStateVersion": 41,
   "summary": "Scope now includes a frontend change: InternalLogin.tsx is the only page allowed to call backend and run a full Internal Login flow (II login, getCallerUser, isSuperadminClaimed, claimSuperadmin, role validation, warnings, and dashboard redirects). All other pages remain static UI-only with no backend calls. Backend persistence work remains focused on upgrade-safe state (stable vars/snapshots) in backend/main.mo.",
   "architectural_notes": [
     "All pages are static UI only: no Internet Identity, no backend calls, no mock data, no role/user logic, no auto-redirects; navigation only via clicks.",
@@ -260,6 +260,30 @@
       "title": "Harden `frontend/src/pages/internal/InternalLogin.tsx` against actor readiness issues: prevent backend calls for claim/check actions when the actor is still initializing, and show a non-crashing inline warning instead of attempting the call.",
       "reqIds": [
         "REQ-93"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-only-frontend-src-pages-internal-internallogin-tsx-to-show-a-dedicated-separate-claim-superadmin-card-section-that-does-not-require-selecting-the-superadmin-role-first-the-claim-section-must-be-visible-only-when-the-user-is-logged-in-with-internet-identity-iiloggedin-true-the-one-time-claim-check-has-completed-claimcheckdone-true-and-superadminclaimed-false",
+      "title": "Update ONLY `frontend/src/pages/internal/InternalLogin.tsx` to show a dedicated, separate \"Claim Superadmin\" card/section that does not require selecting the \"superadmin\" role first. The claim section must be visible only when the user is logged in with Internet Identity (`iiLoggedIn === true`), the one-time claim-check has completed (`claimCheckDone === true`), and `superadminClaimed === false`.",
+      "reqIds": [
+        "REQ-94"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-frontend-src-pages-internal-internallogin-tsx-harden-the-claim-superadmin-click-handler-so-it-never-calls-the-backend-when-the-actor-is-not-ready-if-actor-is-null-undefined-or-actorfetching-is-true-the-handler-must-exit-early-and-show-a-non-crashing-inline-warning-reuse-the-existing-warning-mechanism-instead-of-attempting-the-call",
+      "title": "In `frontend/src/pages/internal/InternalLogin.tsx`, harden the \"Claim Superadmin\" click handler so it never calls the backend when the actor is not ready. If `actor` is null/undefined OR `actorFetching` is true, the handler must exit early and show a non-crashing inline warning (reuse the existing warning mechanism) instead of attempting the call.",
+      "reqIds": [
+        "REQ-95"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-keep-the-superadmin-claim-mutation-behavior-unchanged-except-for-the-ui-placement-the-claim-action-must-call-only-actor-claimsuperadmin-and-must-not-call-any-other-backend-mutation-directly-or-indirectly-on-success-set-superadminclaimed-true-hide-the-claim-card-and-navigate-to-superadmin-dashboard-if-the-backend-indicates-the-superadmin-is-already-claimed-set-superadminclaimed-true-hide-the-claim-card-and-show-an-inline-warning-message-no-redirect-in-that-case",
+      "title": "Keep the Superadmin claim mutation behavior unchanged except for the UI placement: the claim action must call ONLY `actor.claimSuperadmin()` and must not call any other backend mutation (directly or indirectly). On success, set `superadminClaimed = true`, hide the claim card, and navigate to `/superadmin/dashboard`. If the backend indicates the superadmin is already claimed, set `superadminClaimed = true`, hide the claim card, and show an inline warning message (no redirect in that case).",
+      "reqIds": [
+        "REQ-96"
       ],
       "version": 1
     }
@@ -898,6 +922,12 @@
     {
       "id": "AR-85",
       "summary": "Patch `frontend/src/pages/internal/InternalLogin.tsx` so the “Claim Superadmin” action calls the correct backend method `claimSuperadmin()` (not `saveCallerUserProfile()`/role assignment), resolving the unauthorized error and enabling superadmin claim.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-86",
+      "summary": "Update InternalLogin.tsx to (1) guard Claim Superadmin click when actor is not ready (show inline warning instead of calling backend), (2) display a separate \"Claim Superadmin\" card that does not require selecting the superadmin role first, and (3) automatically hide/remove that claim card once superadmin has been successfully claimed (or when isSuperadminClaimed indicates already claimed).",
       "reqIds": [],
       "status": "pending"
     }
