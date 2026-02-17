@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 81,
-  "summary": "Scope update: Append-only patch (no refactor/rewrite; do not modify/move/delete existing lines; no new files/routes; do not touch preupgrade/postupgrade) limited to ONLY `backend/main.mo` and `frontend/src/pages/dashboards/SuperadminDashboard.tsx`. Goal: add real-time \"Ringkasan V1\" in Superadmin Dashboard using ONLY existing storages/maps (users via `userRoles` + `userStatusByPrincipal` + `partnerLevelByPrincipal` + `partnerSkillsByPrincipal`; layanan via `layananV4ById`; tasks via `taskById`) and existing auth helper. Backend: append `SuperadminSummaryV1` type + `getSuperadminSummaryV1()` method gated to superadmin/admin/finance computing Users/Layanan/Tasks/Financial in real time (GMV from layananV4; task cost from selesai tasks). Frontend: append-only additions inside Ringkasan tab—new state (summaryV1/loading/error), call `actor.getSuperadminSummaryV1()` when Ringkasan active, and add new summary card(s) without changing existing cards or other tabs.",
+  "projectStateVersion": 83,
+  "summary": "Scope update: In addition to the existing Superadmin Ringkasan V1 work, ClientDashboard is now in-scope for a single-file dynamic workspace implementation. ONLY `frontend/src/pages/dashboards/ClientDashboard.tsx` may be modified for this Client workspace change (no backend changes, no routing changes, no new pages/tabs/files). ClientDashboard is explicitly allowed to use hooks/state/backend calls to fetch `listMyTasks()` and the existing active layanan/services query (e.g., `getMyActiveServicesV4()` or equivalent) and render a phase-bucketed, narrative-driven workspace with the specified 2-mode (no active service vs active), phase mapping, and cancel visibility rules, while keeping existing styling largely intact (only small adjustments: centered max-width ~720, vertical-line narrative, muted/premium feel).",
   "architectural_notes": [
     "Use react-router-dom Routes with explicit mappings and a '*' fallback 404 page with a button back to '/'",
     "Ensure App.tsx uses BrowserRouter + Routes from react-router-dom and does not crash on load.",
@@ -26,7 +26,7 @@
     "InternalLogin: Clicking Claim Superadmin can show a generic red error message even when claim may have succeeded; needs improved recheck/error handling per updated flow.",
     "Superadmin claim fails because claimSuperadmin() calls AccessControl.assignRole(...), which is admin-gated; must bootstrap first admin directly in access control state during claimSuperadmin."
   ],
-  "isFixRequest": true,
+  "isFixRequest": false,
   "existing_features": [
     {
       "id": "feature-do-not-create-edit-or-reference-any-backend-code-keep-backend-main-mo-completely-untouched-and-keep-the-backend-100-empty-no-methods-data-structures",
@@ -1203,6 +1203,22 @@
         "REQ-222"
       ],
       "version": 1
+    },
+    {
+      "id": "feature-modify-only-frontend-src-pages-dashboards-clientdashboard-tsx-to-convert-the-client-dashboard-into-a-single-page-phase-based-workspace-no-tabs-no-new-routes-no-new-files-using-real-backend-reads-on-mount-to-fetch-the-client-s-active-service-and-tasks-then-rendering-either-a-an-inactive-service-waiting-screen-or-b-an-active-workspace-with-a-vertical-narrative-bucket-list-and-filtered-task-cards-exactly-following-the-provided-phase-mapping-and-cancel-visibility-rules-while-keeping-the-existing-dashboard-styling-largely-intact-only-small-adjustments-for-max-width-720px-premium-muted-feel-and-the-vertical-line-narrative-styling",
+      "title": "Modify ONLY `frontend/src/pages/dashboards/ClientDashboard.tsx` to convert the Client dashboard into a single-page, phase-based workspace (no tabs, no new routes, no new files), using real backend reads on mount to fetch the client’s active service and tasks, then rendering either (A) an inactive-service waiting screen or (B) an active workspace with a vertical narrative bucket list and filtered task cards, exactly following the provided phase mapping and cancel-visibility rules while keeping the existing dashboard styling largely intact (only small adjustments for max width ~720px, premium muted feel, and the vertical-line narrative styling).",
+      "reqIds": [
+        "REQ-223"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-run-a-compile-runtime-sanity-pass-focused-on-the-updated-frontend-src-pages-dashboards-clientdashboard-tsx-to-confirm-there-are-no-typescript-errors-the-page-does-not-crash-when-the-backend-actor-is-initializing-and-both-modes-no-active-service-vs-active-workspace-render-correctly-with-empty-task-lists-and-mixed-task-phases",
+      "title": "Run a compile/runtime sanity pass focused on the updated `frontend/src/pages/dashboards/ClientDashboard.tsx` to confirm there are no TypeScript errors, the page does not crash when the backend actor is initializing, and both modes (no active service vs active workspace) render correctly with empty task lists and mixed task phases.",
+      "reqIds": [
+        "REQ-224"
+      ],
+      "version": 1
     }
   ],
   "new_feature_requests": [
@@ -2074,6 +2090,12 @@
       "reqIds": [
         "REQ-220"
       ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-122",
+      "summary": "ClientDashboard dynamic phase-based workspace (no tabs): modify ONLY `frontend/src/pages/dashboards/ClientDashboard.tsx` to fetch active layanan/services + `listMyTasks()` on mount, implement 2-mode rendering (no active service shows centered narrative message and stops; otherwise show luxury greeting + 4-row vertical-line status narrative with clickable buckets), apply final TaskPhase bucket mapping, render filtered task cards per bucket, include Riwayat collapsible (includes `#dibatalkan_client`), and enforce Cancel button rule (only for `#permintaan_baru` when `unitTerpakai==null` and `assignedPartner==null`), with minimal styling adjustments and no routing/backend/other-dashboard changes.",
+      "reqIds": [],
       "status": "pending"
     }
   ],

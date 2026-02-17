@@ -1,64 +1,45 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-17T17:56:46.732Z",
+  "generatedAt": "2026-02-17T20:08:22.325Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 4,
+    "total": 2,
     "implemented": 2,
     "items": [
       {
-        "id": "REQ-219",
-        "summary": "Update `backend/main.mo` using an append-only patch (additions only, placed at the end of the actor) to introduce a new summary type `SuperadminSummaryV1` and a new query method `getSuperadminSummaryV1()` that computes Ringkasan metrics in real time using ONLY existing storages/maps already present in `backend/main.mo`, specifically the legacy read-only Ringkasan data sources: `taskById`, `layananV4ById`, `userRoles`, `userStatusByPrincipal`, and `partnerLevelByPrincipal` (if present). Do not modify, delete, rename, reorder, or rewrite any existing storage declarations or existing logic; all new logic must be additive/append-only.",
-        "status": "unknown",
-        "plannedFiles": [],
-        "matchedFiles": []
-      },
-      {
-        "id": "REQ-220",
-        "summary": "Ensure the summary computations in `getSuperadminSummaryV1()` treat the existing storages as immutable inputs and follow the existing semantics described by the user: tasks active = phases not `#selesai` and not `#dibatalkan_client`; tasks selesai = phase `#selesai`; layanan active = `isActive==true && isArchived==false`; GMV total = sum of `unitTotal * hargaPerUnit` across layanan V4 records. All new computations must remain read-only and append-only.",
-        "status": "unknown",
-        "plannedFiles": [],
-        "matchedFiles": []
-      },
-      {
-        "id": "REQ-221",
-        "summary": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to consume `actor.getSuperadminSummaryV1()` within the existing Ringkasan tab, adding minimal new local state (`summaryV1`, `summaryV1Loading`, `summaryV1Error`) and a Refresh control for this summary block only. This change must be additive and must not refactor or change the behavior/state/backend calls of the existing tabs beyond adding the new Ringkasan V1 block.",
+        "id": "REQ-223",
+        "summary": "Modify ONLY `frontend/src/pages/dashboards/ClientDashboard.tsx` to convert the Client dashboard into a single-page, phase-based workspace (no tabs, no new routes, no new files), using real backend reads on mount to fetch the client’s active service and tasks, then rendering either (A) an inactive-service waiting screen or (B) an active workspace with a vertical narrative bucket list and filtered task cards, exactly following the provided phase mapping and cancel-visibility rules while keeping the existing dashboard styling largely intact (only small adjustments for max width ~720px, premium muted feel, and the vertical-line narrative styling).",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+          "frontend/src/pages/dashboards/ClientDashboard.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+          "frontend/src/pages/dashboards/ClientDashboard.tsx"
         ]
       },
       {
-        "id": "REQ-222",
-        "summary": "Perform a compile/runtime sanity pass for the patched backend and `SuperadminDashboard.tsx` ensuring: (1) the backend compiles, (2) the dashboard does not crash in anonymous identity state (no backend calls), (3) the dashboard does not crash while the actor is initializing, and (4) unexpected/missing backend method shape errors are handled gracefully with an English error message (no raw traps shown to the user).",
+        "id": "REQ-224",
+        "summary": "Run a compile/runtime sanity pass focused on the updated `frontend/src/pages/dashboards/ClientDashboard.tsx` to confirm there are no TypeScript errors, the page does not crash when the backend actor is initializing, and both modes (no active service vs active workspace) render correctly with empty task lists and mixed task phases.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+          "frontend/src/pages/dashboards/ClientDashboard.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+          "frontend/src/pages/dashboards/ClientDashboard.tsx"
         ]
       }
     ]
   },
   "changedFiles": [
-    "backend/main.mo",
     "build-request.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/backend.d.ts",
-    "frontend/src/backend.ts",
-    "frontend/src/declarations/backend.did.d.ts",
-    "frontend/src/declarations/backend.did.js",
-    "frontend/src/pages/dashboards/SuperadminDashboard.tsx",
+    "frontend/src/pages/dashboards/ClientDashboard.tsx",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

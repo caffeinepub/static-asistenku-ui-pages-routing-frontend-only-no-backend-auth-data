@@ -1,12 +1,13 @@
 # Specification
 
 ## Summary
-**Goal:** Add an append-only Superadmin “Ringkasan V1” real-time summary sourced from existing Task/LayananV4/User storages, and display it in the Superadmin dashboard Ringkasan tab with minimal new UI state and safe loading/error handling.
+**Goal:** Convert the Client dashboard into a single-page, phase-based workspace (no tabs) that dynamically reads the client’s active service and tasks on mount, then renders either an inactive-service waiting screen or an active, phase-driven workspace UI.
 
 **Planned changes:**
-- Append-only update to `backend/main.mo` to add a new `SuperadminSummaryV1` type and a gated `getSuperadminSummaryV1()` query that computes metrics read-only from existing maps (`taskById`, `layananV4ById`, `userRoles`, `userStatusByPrincipal`, and `partnerLevelByPrincipal` if present).
-- Implement Ringkasan computations using the specified semantics: task active vs selesai based on `TaskPhase`, layanan active based on `isActive`/`isArchived`, and GMV total as `unitTotal * hargaPerUnit` summed across Layanan V4.
-- Modify only `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to add a Ringkasan V1 block that fetches `actor.getSuperadminSummaryV1()` only when the Ringkasan tab is active and the actor is ready, with minimal local state (`summaryV1`, `summaryV1Loading`, `summaryV1Error`) and a per-section Refresh control.
-- Add frontend sanity handling so anonymous/initializing/missing-method cases do not crash the dashboard and show calm English error text.
+- Update only `frontend/src/pages/dashboards/ClientDashboard.tsx` to trigger exactly two reads on mount: active service query (e.g., `getMyActiveServicesV4()`) and `listMyTasks()`, storing local state including `hasActiveService`, `tasks`, and `activeBucket` (default `null`).
+- If no active service, render the provided centered waiting message and do not render the workspace UI.
+- If active service exists, render a single-page workspace with a premium greeting area, a 4-row vertical narrative status list (clickable rows) that sets `activeBucket`, a filtered task-card list, and a collapsible History (Riwayat) section.
+- Implement the locked TaskPhase-to-bucket mapping and rules, including: `#dibatalkan_client` excluded from main buckets and shown only in History; Delegation narrative copy switching based on `unitTerpakai`/`assignedPartner`; and strict Cancel visibility only for fresh `#permintaan_baru` with both fields null.
+- Keep styling largely intact while applying minimal adjustments: centered container (~720px max width), muted/premium feel, serif headings + warm sans body, subtle gold vertical narrative line, and non-aggressive status labeling; include defensive non-crashing error/actor-not-ready handling.
 
-**User-visible outcome:** Superadmins can view a new Ringkasan V1 summary section in the Ringkasan tab (with loading/error states and a Refresh action) showing real-time totals computed from existing stored tasks and layanan, without impacting other dashboard tabs.
+**User-visible outcome:** Clients see a single-page dashboard that either shows a calm waiting screen (if no active service) or an active workspace where they can select a phase narrative row to filter tasks, view task details (including Review/Revisi behavior), and review canceled items in History—without tabs or route changes.

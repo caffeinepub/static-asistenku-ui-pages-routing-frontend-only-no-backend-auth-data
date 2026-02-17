@@ -1,39 +1,45 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Asistenku Control Room — Superadmin Ringkasan V1 UI",
+  "title": "Client dashboard: phase-based workspace (single page, no tabs)",
   "requirements": [
     {
-      "id": "REQ-221",
-      "summary": "Add an additive Ringkasan V1 block in the existing Ringkasan tab that fetches and displays getSuperadminSummaryV1() with per-block refresh and minimal local state.",
+      "id": "REQ-223",
+      "summary": "Convert ClientDashboard into a single-page, phase-based workspace using two backend reads on mount and locked phase/bucket rules, while keeping styling consistent and defensive.",
       "acceptanceCriteria": [
-        "`SuperadminDashboard.tsx` includes a new Ringkasan section that calls `actor.getSuperadminSummaryV1()` only when the Ringkasan tab is active and the backend actor is ready.",
-        "The new Ringkasan V1 UI shows calm loading and error states without crashing the dashboard.",
-        "A per-section Refresh action re-fetches only the Ringkasan V1 summary data.",
-        "All newly introduced user-facing strings in this new UI block are in English."
+        "Only `frontend/src/pages/dashboards/ClientDashboard.tsx` is changed; no other frontend/backend files, routes, or pages are modified/created.",
+        "On initial mount, the page triggers exactly two reads: (1) `getMyActiveServicesV4()` (or the existing equivalent active-service query available on the generated actor typings) and (2) `listMyTasks()`. Results are stored in local state at minimum: `hasActiveService`, `tasks`, and `activeBucket` (default `null`).",
+        "If `hasActiveService === false`, the dashboard renders a centered, whitespace-rich waiting message exactly as provided and then stops (does not render the workspace UI, buckets, or task list).",
+        "If `hasActiveService === true`, the dashboard renders a single-page workspace (no tabs, no dropdown bucket picker) with: (1) a premium/luxury greeting area, (2) a 4-row vertical-line narrative list (clickable rows), (3) a task list showing cards filtered by the currently selected bucket, and (4) a collapsible History (Riwayat) section.",
+        "The TaskPhase-to-bucket mapping is implemented exactly as locked: Delegation bucket = `#permintaan_baru` + `#ditolak_partner`; On Progress bucket = `#on_progress` + `#qa_asistenku`; Review bucket = `#review_client`; Revisi bucket = `#revisi`; Done bucket = `#selesai`. The phase `#dibatalkan_client` is excluded from the main workspace buckets and appears only under History.",
+        "Delegation narrative detail is implemented: for tasks in `#permintaan_baru` (and for `#ditolak_partner` using the same copy, without using the word “ditolak”), show the first message only when `unitTerpakai == null` AND `assignedPartner == null`; otherwise show the second message.",
+        "Cancel button visibility rule is enforced strictly on each task card: Cancel is shown only when `phase == #permintaan_baru` AND `unitTerpakai == null` AND `assignedPartner == null`. When delegation has started (unitTerpakai or assignedPartner exists), Cancel is not shown.",
+        "The Status Narrative list contains exactly 4 rows in this order: Review (with subtle gold accent), On Progress, Delegation, and Selesai (collapsible). Each row shows a count in the sentence; when count is 0 it uses muted styling; when count > 0 it is more prominent. Clicking a row sets `activeBucket` and filters the task list accordingly.",
+        "Task cards render at minimum: Title, short detail, a narrative phase label (not an aggressive badge), and UpdatedAt. For `#review_client`, a “Review” button is shown (no automatic navigation required). For `#revisi`, show the exact text “Sedang disempurnakan”. For fresh `#permintaan_baru`, show Cancel per the rule.",
+        "The layout is constrained to a centered container with max width approximately 720px, headings use a serif style (left-aligned), body text uses a warm sans style, the vertical narrative line uses a subtle gold tone, and the design avoids harsh badges and red warning styling.",
+        "All backend interactions are defensive and non-crashing: if the actor is not ready or calls fail/throw or return unexpected shapes, the page shows a calm inline error state and continues to render without runtime errors."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/pages/dashboards/SuperadminDashboard.tsx",
+          "path": "frontend/src/pages/dashboards/ClientDashboard.tsx",
           "operation": "modify",
-          "description": "Append-only update: add new local state (`summaryV1`, `summaryV1Loading`, `summaryV1Error`) and an additive fetch function that calls `actor.getSuperadminSummaryV1()` only when `activeTab === 'ringkasan'`, `actorReady` is true, and the method exists. Render a new Ringkasan V1 summary block inside the existing Ringkasan tab UI, including a per-block Refresh control that re-fetches only this summary. Use existing shadcn-ui components already in use (e.g., Card, Button, Alert) for consistent layout and calm loading/error states; verify the component's usage instructions before implementing. Ensure all new user-facing strings in this new block are English, and do not refactor or change behavior/state of existing tabs beyond adding this block."
+          "description": "Replace the current static/placeholder client dashboard content with the required single-page phase-based workspace UI and data flow: use the core-infrastructure actor access (via the existing `useActor` hook) to perform exactly two backend reads on mount (active service read + `listMyTasks()`), store `hasActiveService`, `tasks`, and `activeBucket` in component state, render either the provided inactive-service waiting screen (and stop rendering further UI) or the active workspace with the locked 4-row vertical narrative list (Review, On Progress, Delegation, Selesai-collapsible), filtered task cards per bucket mapping, and a collapsible History section containing `#dibatalkan_client` only; enforce the exact delegation narrative copy selection and strict Cancel visibility rules; keep existing dashboard styling largely intact while constraining width ~720px and adding subtle gold vertical-line narrative styling; implement defensive guards so actor-unavailable and call failures show calm inline errors without crashes. Verify the component's usage instructions before implementing."
         }
       ]
     },
     {
-      "id": "REQ-222",
-      "summary": "Harden the Superadmin dashboard Ringkasan V1 block against anonymous/actor-initializing states and missing backend method shape at runtime, with calm English error handling.",
+      "id": "REQ-224",
+      "summary": "Sanity-check the updated ClientDashboard for TypeScript correctness and non-crashing behavior across actor-init and empty/mixed task states.",
       "acceptanceCriteria": [
-        "Backend compiles successfully after the append-only additions.",
-        "When identity is anonymous, the Superadmin dashboard renders the existing login guidance view and does not call `getSuperadminSummaryV1()`.",
-        "When `actor` is null/undefined or `actorFetching` is true, Ringkasan V1 does not attempt backend calls and the UI remains stable.",
-        "If `actor.getSuperadminSummaryV1` is missing at runtime, the UI shows a calm English message instead of crashing."
+        "The project builds with zero TypeScript errors after the change.",
+        "ClientDashboard renders without a blank screen in these scenarios: (1) actor still initializing / unavailable, (2) active service list empty, (3) tasks list empty, (4) tasks contain phases across all mapped buckets including `#dibatalkan_client` (which appears only in History).",
+        "No automatic route changes are introduced; any navigation (if any) is only triggered by explicit user button clicks."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/pages/dashboards/SuperadminDashboard.tsx",
+          "path": "frontend/src/pages/dashboards/ClientDashboard.tsx",
           "operation": "modify",
-          "description": "Additive runtime/compile sanity: guard Ringkasan V1 fetching with `!isAnonymous`, `!!actor`, `!actorFetching`, and `typeof actor.getSuperadminSummaryV1 === 'function'` checks. Ensure the Ringkasan V1 block uses try/catch to convert unexpected errors into a calm English message (no raw trap text surfaced), and keep the UI stable while actor is initializing. Use existing shadcn-ui Alert/Card patterns already used in this file for consistent error messaging; verify the component's usage instructions before implementing."
+          "description": "Add/adjust defensive typing and rendering guards within ClientDashboard so it compiles cleanly and does not crash during actor initialization or when backend calls fail/return unexpected shapes; ensure the two-mode render (no active service vs active workspace) behaves correctly with empty task lists and mixed phases, and that any actions (Review/Cancel) do not trigger automatic navigation. Verify the component's usage instructions before implementing."
         }
       ]
     }

@@ -1,97 +1,70 @@
 {
   "kind": "build_request",
-  "title": "Append-only Ringkasan V1 summary sourced from existing LayananV4/Task/User storages",
-  "projectName": "Asistenku Control Room",
+  "title": "Client dashboard: phase-based workspace (no tabs)",
+  "projectName": "Asistenku",
   "priority": "normal",
   "requirements": [
     {
-      "id": "REQ-219",
-      "text": "Update `backend/main.mo` using an append-only patch (additions only, placed at the end of the actor) to introduce a new summary type `SuperadminSummaryV1` and a new query method `getSuperadminSummaryV1()` that computes Ringkasan metrics in real time using ONLY existing storages/maps already present in `backend/main.mo`, specifically the legacy read-only Ringkasan data sources: `taskById`, `layananV4ById`, `userRoles`, `userStatusByPrincipal`, and `partnerLevelByPrincipal` (if present). Do not modify, delete, rename, reorder, or rewrite any existing storage declarations or existing logic; all new logic must be additive/append-only.",
-      "target": "backend",
-      "source": {
-        "messageIds": [
-          "msg-1"
-        ],
-        "quotes": [
-          "Semua perhitungan Ringkasan bersifat READ ONLY.\nJangan ubah, hapus, atau rewrite storage lama.\nSemua logic baru HARUS APPEND ONLY."
-        ]
-      },
-      "acceptanceCriteria": [
-        "`backend/main.mo` contains a new `public type SuperadminSummaryV1 = ...` and a new `public query ({ caller }) func getSuperadminSummaryV1() : async SuperadminSummaryV1` appended near the end of the actor without editing existing lines.",
-        "`getSuperadminSummaryV1()` reads from existing maps only and does not mutate `taskById`, `layananV4ById`, `userRoles`, `userStatusByPrincipal`, `partnerLevelByPrincipal`, or any other existing storage.",
-        "All calculations are derived from the described read-only sources: tasks totals derived from `taskById` and `TaskPhase`; layanan totals/GMV derived from `layananV4ById` and `LayananV4` fields (e.g., active when `isActive==true && isArchived==false`; GMV as `unitTotal * hargaPerUnit`).",
-        "The new summary method is gated using existing auth helpers (reuse existing role checks/helpers already in `main.mo`); unauthorized callers cannot access the summary.",
-        "No migration code is added/modified; no new files are created."
-      ]
-    },
-    {
-      "id": "REQ-220",
-      "text": "Ensure the summary computations in `getSuperadminSummaryV1()` treat the existing storages as immutable inputs and follow the existing semantics described by the user: tasks active = phases not `#selesai` and not `#dibatalkan_client`; tasks selesai = phase `#selesai`; layanan active = `isActive==true && isArchived==false`; GMV total = sum of `unitTotal * hargaPerUnit` across layanan V4 records. All new computations must remain read-only and append-only.",
-      "target": "backend",
-      "source": {
-        "messageIds": [
-          "msg-1"
-        ],
-        "quotes": [
-          "// taskById digunakan untuk:\n// - Hitung total task aktif (phase != #selesai dan != #dibatalkan_client)\n// - Hitung total task selesai (phase == #selesai)\n// - Konversi nilai task selesai untuk perhitungan saldo partner & margin\n//\n// layananV4ById digunakan untuk:\n// - Hitung total layanan aktif (isActive == true && isArchived == false)\n// - Hitung GMV total (unitTotal * hargaPerUnit)\n//\n// partnerLevelByPrincipal digunakan untuk:\n// - Tentukan RATE_JUNIOR / RATE_SENIOR / RATE_EXPERT"
-        ]
-      },
-      "acceptanceCriteria": [
-        "The computed values for task counts and layanan counts follow the exact phase/flag rules described in the comments.",
-        "GMV is computed from V4 layanan only and matches the formula `unitTotal * hargaPerUnit` aggregated over the selected layanan set.",
-        "The method does not alter any task, layanan, or user storage as part of computing summary values."
-      ]
-    },
-    {
-      "id": "REQ-221",
-      "text": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to consume `actor.getSuperadminSummaryV1()` within the existing Ringkasan tab, adding minimal new local state (`summaryV1`, `summaryV1Loading`, `summaryV1Error`) and a Refresh control for this summary block only. This change must be additive and must not refactor or change the behavior/state/backend calls of the existing tabs beyond adding the new Ringkasan V1 block.",
+      "id": "REQ-223",
+      "text": "Modify ONLY `frontend/src/pages/dashboards/ClientDashboard.tsx` to convert the Client dashboard into a single-page, phase-based workspace (no tabs, no new routes, no new files), using real backend reads on mount to fetch the client’s active service and tasks, then rendering either (A) an inactive-service waiting screen or (B) an active workspace with a vertical narrative bucket list and filtered task cards, exactly following the provided phase mapping and cancel-visibility rules while keeping the existing dashboard styling largely intact (only small adjustments for max width ~720px, premium muted feel, and the vertical-line narrative styling).",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-1"
+          "msg-10",
+          "msg-12"
         ],
         "quotes": [
-          "Build APPEND ONLY.\n... Semua logic baru HARUS APPEND ONLY."
+          "SCOPE: Edit hanya file: frontend/src/pages/dashboards/ClientDashboard.tsx\n\nJangan ubah backend. Jangan ubah routing. Jangan buat page baru. Jangan buat tab baru.",
+          "Aturan lama “dashboard lain harus statis/UI-only” SUDAH DICABUT untuk ClientDashboard.\nClientDashboard diizinkan jadi dinamis penuh (fetch + state + API calls) ... semua perubahan dilakukan hanya di 1 file: ClientDashboard.tsx."
         ]
       },
       "acceptanceCriteria": [
-        "`SuperadminDashboard.tsx` includes a new Ringkasan section that calls `actor.getSuperadminSummaryV1()` only when the Ringkasan tab is active and the backend actor is ready.",
-        "The new Ringkasan V1 UI shows calm loading and error states without crashing the dashboard.",
-        "A per-section Refresh action re-fetches only the Ringkasan V1 summary data.",
-        "All newly introduced user-facing strings in this new UI block are in English."
+        "Only `frontend/src/pages/dashboards/ClientDashboard.tsx` is changed; no other frontend/backend files, routes, or pages are modified/created.",
+        "On initial mount, the page triggers exactly two reads: (1) `getMyActiveServicesV4()` (or the existing equivalent active-service query available on the generated actor typings) and (2) `listMyTasks()`. Results are stored in local state at minimum: `hasActiveService`, `tasks`, and `activeBucket` (default `null`).",
+        "If `hasActiveService === false`, the dashboard renders a centered, whitespace-rich waiting message exactly as provided and then stops (does not render the workspace UI, buckets, or task list).",
+        "If `hasActiveService === true`, the dashboard renders a single-page workspace (no tabs, no dropdown bucket picker) with: (1) a premium/luxury greeting area, (2) a 4-row vertical-line narrative list (clickable rows), (3) a task list showing cards filtered by the currently selected bucket, and (4) a collapsible History (Riwayat) section.",
+        "The TaskPhase-to-bucket mapping is implemented exactly as locked: Delegation bucket = `#permintaan_baru` + `#ditolak_partner`; On Progress bucket = `#on_progress` + `#qa_asistenku`; Review bucket = `#review_client`; Revisi bucket = `#revisi`; Done bucket = `#selesai`. The phase `#dibatalkan_client` is excluded from the main workspace buckets and appears only under History.",
+        "Delegation narrative detail is implemented: for tasks in `#permintaan_baru` (and for `#ditolak_partner` using the same copy, without using the word “ditolak”), show the first message only when `unitTerpakai == null` AND `assignedPartner == null`; otherwise show the second message.",
+        "Cancel button visibility rule is enforced strictly on each task card: Cancel is shown only when `phase == #permintaan_baru` AND `unitTerpakai == null` AND `assignedPartner == null`. When delegation has started (unitTerpakai or assignedPartner exists), Cancel is not shown.",
+        "The Status Narrative list contains exactly 4 rows in this order: Review (with subtle gold accent), On Progress, Delegation, and Selesai (collapsible). Each row shows a count in the sentence; when count is 0 it uses muted styling; when count > 0 it is more prominent. Clicking a row sets `activeBucket` and filters the task list accordingly.",
+        "Task cards render at minimum: Title, short detail, a narrative phase label (not an aggressive badge), and UpdatedAt. For `#review_client`, a “Review” button is shown (no automatic navigation required). For `#revisi`, show the exact text “Sedang disempurnakan”. For fresh `#permintaan_baru`, show Cancel per the rule.",
+        "The layout is constrained to a centered container with max width approximately 720px, headings use a serif style (left-aligned), body text uses a warm sans style, the vertical narrative line uses a subtle gold tone, and the design avoids harsh badges and red warning styling.",
+        "All backend interactions are defensive and non-crashing: if the actor is not ready or calls fail/throw or return unexpected shapes, the page shows a calm inline error state and continues to render without runtime errors."
       ]
     },
     {
-      "id": "REQ-222",
-      "text": "Perform a compile/runtime sanity pass for the patched backend and `SuperadminDashboard.tsx` ensuring: (1) the backend compiles, (2) the dashboard does not crash in anonymous identity state (no backend calls), (3) the dashboard does not crash while the actor is initializing, and (4) unexpected/missing backend method shape errors are handled gracefully with an English error message (no raw traps shown to the user).",
-      "target": "both",
+      "id": "REQ-224",
+      "text": "Run a compile/runtime sanity pass focused on the updated `frontend/src/pages/dashboards/ClientDashboard.tsx` to confirm there are no TypeScript errors, the page does not crash when the backend actor is initializing, and both modes (no active service vs active workspace) render correctly with empty task lists and mixed task phases.",
+      "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-1"
+          "msg-10",
+          "msg-12"
         ],
         "quotes": [
-          "Use English for any user-facing text in the build request."
+          "Implement only the logic and UI structure described above inside ClientDashboard.tsx.",
+          "ClientDashboard diizinkan jadi dinamis penuh (fetch + state + API calls) ... Tidak boleh bikin file baru, tidak boleh ubah routing, tidak boleh ubah dashboard lain."
         ]
       },
       "acceptanceCriteria": [
-        "Backend compiles successfully after the append-only additions.",
-        "When identity is anonymous, the Superadmin dashboard renders the existing login guidance view and does not call `getSuperadminSummaryV1()`.",
-        "When `actor` is null/undefined or `actorFetching` is true, Ringkasan V1 does not attempt backend calls and the UI remains stable.",
-        "If `actor.getSuperadminSummaryV1` is missing at runtime, the UI shows a calm English message instead of crashing."
+        "The project builds with zero TypeScript errors after the change.",
+        "ClientDashboard renders without a blank screen in these scenarios: (1) actor still initializing / unavailable, (2) active service list empty, (3) tasks list empty, (4) tasks contain phases across all mapped buckets including `#dibatalkan_client` (which appears only in History).",
+        "No automatic route changes are introduced; any navigation (if any) is only triggered by explicit user button clicks."
       ]
     }
   ],
   "constraints": [
-    "Backend changes must be APPEND ONLY in `backend/main.mo`: do not modify, delete, move, rename, reorder, or reformat any existing lines; add new code only at the end of the actor.",
-    "Do not change, delete, or rewrite any existing storages/maps used as Ringkasan data sources (`taskById`, `layananV4ById`, `userRoles`, `userStatusByPrincipal`, `partnerLevelByPrincipal`); treat them as read-only inputs for summary.",
-    "Do not add or modify `backend/migration.mo`, and do not introduce migration imports/upgrade hooks as part of this change.",
-    "Frontend scope is limited to modifying ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` for the Ringkasan V1 UI addition; no routing changes and no new pages/files.",
-    "All newly introduced user-facing strings must be in English."
+    "Edit ONLY `frontend/src/pages/dashboards/ClientDashboard.tsx`.",
+    "Do not modify any backend files.",
+    "Do not modify routing (`frontend/src/App.tsx`) or introduce new routes.",
+    "Do not create new files or new pages.",
+    "Do not add tabs to the Client dashboard.",
+    "Keep the existing dashboard styling largely intact; only apply small adjustments required by the spec (centered max-width ~720px, vertical narrative styling, muted/premium feel)."
   ],
   "nonGoals": [
-    "Do not refactor or redesign the existing Superadmin dashboard tabs (Users, Master Data, Rates, Tasks) beyond the minimal additive Ringkasan V1 block.",
-    "Do not change any existing Layanan V4 / Task / User storage schemas or indexing behavior.",
-    "Do not implement new backend CRUD endpoints for Layanan V4, Tasks, or Users beyond the single summary query required here."
+    "Implementing or changing any backend task/service logic or endpoints.",
+    "Adding real navigation flows for “Review” or “Cancel” beyond what the specification explicitly requires.",
+    "Global redesign/theme changes across other dashboards or pages."
   ],
   "imageRequirements": {
     "required": [],

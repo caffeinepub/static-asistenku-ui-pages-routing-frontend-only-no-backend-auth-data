@@ -2,10 +2,10 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-modify-only-frontend-src-pages-dashboards-superadmindashboard-tsx-to-consume-actor-getsuperadminsummaryv1-within-the-existing-ringkasan-tab-adding-minimal-new-local-state-summaryv1-summaryv1loading-summaryv1error-and-a-refresh-control-for-this-summary-block-only-this-change-must-be-additive-and-must-not-refactor-or-change-the-behavior-state-backend-calls-of-the-existing-tabs-beyond-adding-the-new-ringkasan-v1-block",
-      "featureTitle": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to consume `actor.getSuperadminSummaryV1()` within the existing Ringkasan tab, adding minimal new local state (`summaryV1`, `summaryV1Loading`, `summaryV1Error`) and a Refresh control for this summary block only. This change must be additive and must not refactor or change the behavior/state/backend calls of the existing tabs beyond adding the new Ringkasan V1 block.",
+      "featureId": "feature-modify-only-frontend-src-pages-dashboards-clientdashboard-tsx-to-convert-the-client-dashboard-into-a-single-page-phase-based-workspace-no-tabs-no-new-routes-no-new-files-using-real-backend-reads-on-mount-to-fetch-the-client-s-active-service-and-tasks-then-rendering-either-a-an-inactive-service-waiting-screen-or-b-an-active-workspace-with-a-vertical-narrative-bucket-list-and-filtered-task-cards-exactly-following-the-provided-phase-mapping-and-cancel-visibility-rules-while-keeping-the-existing-dashboard-styling-largely-intact-only-small-adjustments-for-max-width-720px-premium-muted-feel-and-the-vertical-line-narrative-styling",
+      "featureTitle": "Modify ONLY `frontend/src/pages/dashboards/ClientDashboard.tsx` to convert the Client dashboard into a single-page, phase-based workspace (no tabs, no new routes, no new files), using real backend reads on mount to fetch the client’s active service and tasks, then rendering either (A) an inactive-service waiting screen or (B) an active workspace with a vertical narrative bucket list and filtered task cards, exactly following the provided phase mapping and cancel-visibility rules while keeping the existing dashboard styling largely intact (only small adjustments for max width ~720px, premium muted feel, and the vertical-line narrative styling).",
       "files": [
-        "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+        "frontend/src/pages/dashboards/ClientDashboard.tsx"
       ],
       "components": [
         "core-infrastructure@1.0.2",
@@ -17,15 +17,15 @@
         "user-approval@3.0.0"
       ],
       "testIds": [
-        "REQ-221"
+        "REQ-223"
       ],
       "confidence": "high"
     },
     {
-      "featureId": "feature-perform-a-compile-runtime-sanity-pass-for-the-patched-backend-and-superadmindashboard-tsx-ensuring-1-the-backend-compiles-2-the-dashboard-does-not-crash-in-anonymous-identity-state-no-backend-calls-3-the-dashboard-does-not-crash-while-the-actor-is-initializing-and-4-unexpected-missing-backend-method-shape-errors-are-handled-gracefully-with-an-english-error-message-no-raw-traps-shown-to-the-user",
-      "featureTitle": "Perform a compile/runtime sanity pass for the patched backend and `SuperadminDashboard.tsx` ensuring: (1) the backend compiles, (2) the dashboard does not crash in anonymous identity state (no backend calls), (3) the dashboard does not crash while the actor is initializing, and (4) unexpected/missing backend method shape errors are handled gracefully with an English error message (no raw traps shown to the user).",
+      "featureId": "feature-run-a-compile-runtime-sanity-pass-focused-on-the-updated-frontend-src-pages-dashboards-clientdashboard-tsx-to-confirm-there-are-no-typescript-errors-the-page-does-not-crash-when-the-backend-actor-is-initializing-and-both-modes-no-active-service-vs-active-workspace-render-correctly-with-empty-task-lists-and-mixed-task-phases",
+      "featureTitle": "Run a compile/runtime sanity pass focused on the updated `frontend/src/pages/dashboards/ClientDashboard.tsx` to confirm there are no TypeScript errors, the page does not crash when the backend actor is initializing, and both modes (no active service vs active workspace) render correctly with empty task lists and mixed task phases.",
       "files": [
-        "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+        "frontend/src/pages/dashboards/ClientDashboard.tsx"
       ],
       "components": [
         "core-infrastructure@1.0.2",
@@ -37,7 +37,7 @@
         "user-approval@3.0.0"
       ],
       "testIds": [
-        "REQ-222"
+        "REQ-224"
       ],
       "confidence": "high"
     }

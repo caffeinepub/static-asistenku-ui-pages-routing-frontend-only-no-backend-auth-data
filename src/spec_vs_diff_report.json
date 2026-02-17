@@ -1,57 +1,117 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-17T17:56:46.723Z",
-  "summary": "The diff evidence clearly shows new Ringkasan V1 state added to SuperadminDashboard.tsx, but the truncated backend diff does not show the required appended SuperadminSummaryV1 type or getSuperadminSummaryV1() method. Additionally, files outside the allowed scope were modified (frontend-file-summaries.txt and project_state.json), which violates the BuildRequest constraint that frontend changes must be limited to SuperadminDashboard.tsx and backend changes to append-only additions in backend/main.mo.",
+  "generatedAt": "2026-02-17T20:08:22.315Z",
+  "summary": "The diff does not meet the BuildRequest constraints or several core functional requirements. More than the allowed file was modified, routing/other pages appear changed, and ClientDashboard does not perform the required two backend reads on mount (tasks fetch is stubbed to an empty array). Several UI/behavior acceptance criteria cannot be confirmed from the truncated ClientDashboard diff.",
   "missing_requirements": [
     {
-      "id": "REQ-219",
-      "requirement": "Append-only additions at the end of backend/main.mo: introduce public type SuperadminSummaryV1 and public query ({ caller }) func getSuperadminSummaryV1() : async SuperadminSummaryV1, computed from existing storages only and gated by existing auth helpers.",
-      "reason": "The provided backend/main.mo diff is truncated and does not include any evidence of the new public type or the new getSuperadminSummaryV1() query method, nor evidence that it is appended at the end of the actor and auth-gated.",
+      "id": "REQ-223",
+      "requirement": "Modify ONLY `frontend/src/pages/dashboards/ClientDashboard.tsx`; do not modify routing (`frontend/src/App.tsx`) or any other files.",
+      "reason": "The diff summary shows 3 modified files, including non-ClientDashboard files, and the file summaries explicitly describe changes to App routing and multiple pages.",
       "evidence": [
-        "backend/main.mo (truncated snippet shows only existing code; no SuperadminSummaryV1 type or getSuperadminSummaryV1 method visible)"
+        "file-diff summary: \"Modified: 3\"",
+        "frontend-file-summaries.txt (shows changes to `frontend/src/App.tsx`, `frontend/src/pages/Landing.tsx`, and multiple auth pages)"
       ]
     },
     {
-      "id": "REQ-220",
-      "requirement": "Summary computations must follow the specified semantics (task active/selesai phase rules; layanan active flags; GMV=sum(unitTotal*hargaPerUnit)) and remain read-only.",
-      "reason": "No backend implementation of getSuperadminSummaryV1() is visible in the diff summary, so there is no evidence the specified phase/flag/GMV semantics were implemented read-only.",
+      "id": "REQ-223",
+      "requirement": "On initial mount, trigger exactly two reads: (1) `getMyActiveServicesV4()` (or equivalent) and (2) `listMyTasks()`, storing at minimum `hasActiveService`, `tasks`, and `activeBucket` (default null).",
+      "reason": "ClientDashboard calls `actor.listLayananV4ByClient(...)` (not the specified/equivalent named active-service query) and does not call `listMyTasks()`; it explicitly sets tasks to an empty array with a TODO comment.",
       "evidence": [
-        "backend/main.mo (truncated; summary computation logic not shown)"
+        "frontend/src/pages/dashboards/ClientDashboard.tsx: `const layananList = await actor.listLayananV4ByClient(principal, false);`",
+        "frontend/src/pages/dashboards/ClientDashboard.tsx: `// TODO: Replace with actual actor.listMyTasks() when available` and `setTasks([]);`"
       ]
     },
     {
-      "id": "REQ-221",
-      "requirement": "In SuperadminDashboard.tsx, call actor.getSuperadminSummaryV1() only when Ringkasan tab is active and actor is ready; add loading/error states and a per-block Refresh.",
-      "reason": "While new state for summaryV1/loading/error is visible, the diff snippet is truncated before any effect/callsite/UI block is shown, so there is no evidence of the conditional fetch (tab-active + actor-ready), refresh control wiring, or loading/error rendering.",
+      "id": "REQ-223",
+      "requirement": "If `hasActiveService === false`, render the provided centered waiting message exactly and then stop (do not render workspace UI).",
+      "reason": "The provided diff excerpt shows state and fetch logic but does not include evidence of the exact waiting message content or the early-return behavior to stop rendering the workspace when inactive.",
       "evidence": [
-        "frontend/src/pages/dashboards/SuperadminDashboard.tsx (truncated; shows state additions but not the getSuperadminSummaryV1 call or UI block)"
+        "frontend/src/pages/dashboards/ClientDashboard.tsx (truncated; waiting-screen render not shown)"
       ]
     },
     {
-      "id": "REQ-222",
-      "requirement": "Frontend runtime guards: do not call getSuperadminSummaryV1 when anonymous or while actor is initializing; handle missing backend method shape gracefully with an English message.",
-      "reason": "The diff snippet is truncated before the Ringkasan V1 fetch logic and UI rendering, so there is no direct evidence that anonymous/actor-initializing guards and missing-method handling were implemented.",
+      "id": "REQ-223",
+      "requirement": "If `hasActiveService === true`, render the single-page workspace with (1) premium greeting area, (2) 4-row vertical-line narrative list (clickable rows), (3) filtered task cards by selected bucket, and (4) collapsible History (Riwayat).",
+      "reason": "The diff excerpt includes bucket types and helper functions plus `historyExpanded` state, but does not show the actual rendered workspace UI structure (greeting, 4-row narrative list, filtered task cards, History section).",
       "evidence": [
-        "frontend/src/pages/dashboards/SuperadminDashboard.tsx (truncated; guards and error handling not visible)"
+        "frontend/src/pages/dashboards/ClientDashboard.tsx (truncated; render JSX not shown)"
+      ]
+    },
+    {
+      "id": "REQ-223",
+      "requirement": "Cancelled phase `#dibatalkan_client` must be excluded from main buckets and appear only under History.",
+      "reason": "A helper `getCanceledTasks()` exists, but there is no visible evidence that canceled tasks are rendered only in History and excluded from the main filtered task list in the UI.",
+      "evidence": [
+        "frontend/src/pages/dashboards/ClientDashboard.tsx: `const getCanceledTasks = () => tasks.filter(t => t.phase === '#dibatalkan_client');`",
+        "frontend/src/pages/dashboards/ClientDashboard.tsx (truncated; History/main rendering not shown)"
+      ]
+    },
+    {
+      "id": "REQ-223",
+      "requirement": "Delegation narrative detail: for `#permintaan_baru` and `#ditolak_partner` use the same copy without using the word “ditolak”; show first message only when `unitTerpakai == null` AND `assignedPartner == null`, else show second message.",
+      "reason": "While the conditional logic is implemented, the requirement says this narrative detail must be rendered; the diff excerpt does not show it being used in the task cards/UI.",
+      "evidence": [
+        "frontend/src/pages/dashboards/ClientDashboard.tsx: `const getDelegationMessage = ...`",
+        "frontend/src/pages/dashboards/ClientDashboard.tsx (truncated; no evidence of usage in JSX)"
+      ]
+    },
+    {
+      "id": "REQ-223",
+      "requirement": "Task cards must render at minimum: Title, short detail, narrative phase label (not aggressive badge), and UpdatedAt; show a “Review” button for `#review_client`; show exact text “Sedang disempurnakan” for `#revisi`; show Cancel only under the specified rule.",
+      "reason": "Helper functions exist (`getPhaseLabel`, `shouldShowCancel`), but the diff excerpt is truncated before showing task card rendering, the Review button, the UpdatedAt display, and the exact “Sedang disempurnakan” rendering in the card body.",
+      "evidence": [
+        "frontend/src/pages/dashboards/ClientDashboard.tsx: `shouldShowCancel(...)`",
+        "frontend/src/pages/dashboards/ClientDashboard.tsx: `getPhaseLabel(...)` (truncated before full mapping/render usage)",
+        "frontend/src/pages/dashboards/ClientDashboard.tsx (truncated; task card JSX not shown)"
+      ]
+    },
+    {
+      "id": "REQ-223",
+      "requirement": "Layout/styling constraints: centered max-width ~720px, serif headings (left-aligned), warm sans body, subtle gold vertical narrative line, muted/premium feel; avoid harsh badges/red warning styling; keep existing styling largely intact with only small adjustments.",
+      "reason": "The diff excerpt shows no CSS/styling or layout JSX evidence to confirm the max-width, typography choices, gold vertical line styling, or avoidance of harsh badges.",
+      "evidence": [
+        "frontend/src/pages/dashboards/ClientDashboard.tsx (truncated; styling/layout not shown)"
+      ]
+    },
+    {
+      "id": "REQ-223",
+      "requirement": "All backend interactions must be defensive and non-crashing, showing a calm inline error state and continuing to render safely when actor is initializing/unavailable or calls fail.",
+      "reason": "The effect early-returns when actor/identity are unavailable (no loading/error UI shown in excerpt), and error handling sets `hasActiveService(false)` on exception; however, the diff excerpt does not show the inline error-state rendering or handling when actor is initializing (REQ-224 scenario).",
+      "evidence": [
+        "frontend/src/pages/dashboards/ClientDashboard.tsx: `if (!actor || actorFetching || !identity) { return; }`",
+        "frontend/src/pages/dashboards/ClientDashboard.tsx (truncated; error/loading render not shown)"
+      ]
+    },
+    {
+      "id": "REQ-224",
+      "requirement": "No automatic route changes introduced; any navigation (if any) only via explicit user clicks.",
+      "reason": "Routing appears to have been modified, which is explicitly disallowed by the BuildRequest, and violates the 'no routing changes' constraint underlying this requirement.",
+      "evidence": [
+        "frontend-file-summaries.txt: `frontend/src/App.tsx` description indicates route changes (\"removed legacy /client/* and /partner/* auth routes and added /external/* routes\")"
       ]
     }
   ],
   "hallucinated_features": [
     {
-      "description": "Modifications to files outside the allowed scope (frontend changes must be limited to SuperadminDashboard.tsx; backend changes must be append-only in backend/main.mo).",
-      "reason": "The diff summary lists additional modified files beyond the two permitted targets, indicating extra changes not requested/allowed by the BuildRequest constraints.",
+      "description": "Modified application routing and introduced/updated `/external/*` auth routes behavior in `frontend/src/App.tsx`.",
+      "reason": "The BuildRequest explicitly forbids modifying routing (`frontend/src/App.tsx`) and requires editing only ClientDashboard.",
       "evidence": [
-        "frontend-file-summaries.txt (modified)",
-        "project_state.json (modified)"
+        "frontend-file-summaries.txt: `frontend/src/App.tsx` summary describing route removals/additions"
+      ]
+    },
+    {
+      "description": "Updated Landing page and multiple login/register pages to point to `/external/*` routes and implemented/changed UI for several auth-related pages.",
+      "reason": "The BuildRequest explicitly forbids creating/modifying other pages and restricts changes to `ClientDashboard.tsx` only.",
+      "evidence": [
+        "frontend-file-summaries.txt: summaries for `frontend/src/pages/Landing.tsx`, `frontend/src/pages/client/ClientLogin.tsx`, `frontend/src/pages/client/ClientRegister.tsx`, `frontend/src/pages/partner/PartnerLogin.tsx`, `frontend/src/pages/partner/PartnerRegister.tsx`, `frontend/src/pages/internal/*`"
       ]
     }
   ],
-  "confidence": 0.58,
+  "confidence": 0.74,
   "changed_files": [
-    "backend/main.mo",
     "frontend-file-summaries.txt",
-    "frontend/src/pages/dashboards/SuperadminDashboard.tsx",
+    "frontend/src/pages/dashboards/ClientDashboard.tsx",
     "project_state.json"
   ]
 }
