@@ -4,7 +4,7 @@ export default function InternalLanding() {
   return (
     <PageShell>
       <div className="flex justify-center mb-12">
-        <img src="asistenku-horizontal.png" alt="Asistenku" height="32" className="h-8" />
+        <img src="/assets/asistenku-horizontal.png" alt="Asistenku" height="32" className="h-8" />
       </div>
 
       <div className="rounded-3xl shadow-xl border border-[#d4c5a9]/30 p-10 space-y-8 bg-[#f5f1e8]">

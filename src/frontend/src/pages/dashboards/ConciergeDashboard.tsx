@@ -3,7 +3,7 @@ export default function ConciergeDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-[#0f2942] via-[#1a3a52] to-[#e8dcc4]">
       <header className="border-b border-[#d4c5a9]/20 bg-[#0f2942]/80 backdrop-blur-sm pt-4">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <img src="asistenku-horizontal.png" alt="Asistenku" height="24" className="h-6" />
+          <img src="/assets/asistenku-horizontal.png" alt="Asistenku" height="24" className="h-6" />
           <button 
             className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-transparent hover:bg-[#2d9cdb]/20 text-[#e8dcc4] h-9 px-3 opacity-50 cursor-not-allowed" 
             disabled

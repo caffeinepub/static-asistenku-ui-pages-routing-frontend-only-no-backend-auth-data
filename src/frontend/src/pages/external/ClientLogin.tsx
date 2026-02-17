@@ -43,31 +43,33 @@ export default function ClientLogin() {
       const user: UserRole | null = await actor.getCallerUser();
 
       if (!user) {
-        window.location.href = '/client/register';
+        window.location.href = '/external/client/register';
         return;
       }
 
       if (user.__kind__ !== 'client') {
         setError('Silahkan klik sesuai dengan akun anda');
+        setIsLoadingWorkspace(false);
         return;
       }
 
+      // User status check not yet implemented in backend
+      // Proceed directly to dashboard for now
       window.location.href = '/client/dashboard';
     } catch (err: any) {
       setError(err.message || 'Terjadi kesalahan');
-    } finally {
       setIsLoadingWorkspace(false);
     }
   };
 
   const handleBackToLogin = () => {
-    window.location.href = '/client/login';
+    window.location.href = '/external/client/login';
   };
 
   return (
     <PageShell>
       <div className="flex justify-center mb-12">
-        <img src="/asistenku-horizontal.png" alt="Asistenku" height="32" className="h-8" />
+        <img src="/assets/asistenku-horizontal.png" alt="Asistenku" height="32" className="h-8" />
       </div>
 
       <div className="rounded-3xl shadow-xl border border-[#d4c5a9]/30 p-10 space-y-8 bg-[#f5f1e8]">
@@ -85,7 +87,7 @@ export default function ClientLogin() {
                 onClick={handleBackToLogin}
                 className="mt-2 text-red-600 hover:text-red-800 underline block"
               >
-                Kembali ke halaman login
+                Kembali
               </button>
             )}
           </div>
@@ -119,7 +121,7 @@ export default function ClientLogin() {
         </div>
 
         <div className="text-center space-y-4 pt-4">
-          <a href="/client/register" className="text-sm text-[#2d9cdb] hover:underline block font-medium">
+          <a href="/external/client/register" className="text-sm text-[#2d9cdb] hover:underline block font-medium">
             Belum punya akun? Daftar
           </a>
           <a href="/" className="text-sm text-[#5a6c7d] hover:text-[#0f2942] transition-colors block">

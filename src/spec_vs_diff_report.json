@@ -1,73 +1,119 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-17T03:48:18.726Z",
-  "summary": "The diff adds the 4 requested external pages, but it also modifies many other frontend files (including routing/App and dashboards), violating the strict file-scope constraint. Within the 4 external pages, several behavioral requirements appear incomplete or mismatched: missing status handling in workspace routing, and the post-registration “Masuk ke ruang kerja” flow lacks the required anti-double-submit/loading/finally protections. Client/Partner registration backend call signatures also appear to differ from the requested preference (object vs positional args).",
+  "generatedAt": "2026-02-17T14:59:08.196Z",
+  "summary": "Diff does not implement the requested backend-only, append-only Layanan V4 change. Multiple non-backend files were modified (frontend + project_state.json), and backend/main.mo shows edits near the top of the file (not an end-of-actor append). The provided truncated backend diff does not show any Layanan V4 types/storage/methods, while it does show unrelated new approval/authorization behavior and frontend UI changes that were explicitly non-goals.",
   "missing_requirements": [
     {
-      "id": "REQ-177",
-      "requirement": "Modify/create ONLY the four external page files and do not edit any other files; do not add new routes.",
-      "reason": "The diff summary shows modifications to many other files (App routing, landing, internal pages, dashboards), which violates the 'ONLY these four files' constraint and implies route changes.",
+      "id": "REQ-200",
+      "requirement": "Modify ONLY backend/main.mo as an append-only change at the very end of the actor; no other files changed; no edits above appended block; no new files.",
+      "reason": "The diff summary shows 9 modified files including multiple frontend files and project_state.json, and backend/main.mo includes visible edits at the top of the file (imports and new approval-related functions), not an appended-only block at the end.",
       "evidence": [
-        "frontend-file-summaries.txt (lists modifications to frontend/src/App.tsx, many pages, dashboards, etc.)",
-        "project_state.json (shows updated project scope/summary beyond the 4 files)"
+        "backend/main.mo (truncated)",
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/pages/dashboards/SuperadminDashboard.tsx",
+        "frontend/src/pages/external/ClientLogin.tsx",
+        "frontend/src/pages/external/ClientRegister.tsx",
+        "frontend/src/pages/external/PartnerLogin.tsx",
+        "frontend/src/pages/external/PartnerRegister.tsx",
+        "frontend-file-summaries.txt",
+        "project_state.json"
       ]
     },
     {
-      "id": "REQ-179",
-      "requirement": "Workspace button flow must check role mismatch, unregistered, and role match + acceptable status before navigating to dashboard; handle backend responses defensively.",
-      "reason": "Login pages check only `user.__kind__` and navigate to dashboard without any status/acceptable-status check. No evidence of status handling is present in the shown logic.",
+      "id": "REQ-201",
+      "requirement": "Define public types LayananTypeV4 and LayananV4 exactly as specified in the appended block.",
+      "reason": "The truncated backend/main.mo excerpt contains no Layanan V4 type definitions, so there is no evidence these types were added exactly as specified.",
       "evidence": [
-        "frontend/src/pages/external/ClientLogin.tsx (checks `user.__kind__ !== 'client'` then navigates to `/client/dashboard`)",
-        "frontend/src/pages/external/PartnerLogin.tsx (checks `user.__kind__ !== 'partner'` then navigates to `/partner/dashboard`)"
+        "backend/main.mo (truncated)"
       ]
     },
     {
-      "id": "REQ-184",
-      "requirement": "After successful registration, success view must include “Masuk ke ruang kerja” button that on click calls `actor.getCallerUser()` exactly once and navigates to the existing dashboard route; no automatic redirect.",
-      "reason": "The success button handlers call `actor.getCallerUser()` but do not include any loading/guard/finally pattern; also they do not clearly ensure exactly-once-per-click if spam-clicked (no guard).",
+      "id": "REQ-202",
+      "requirement": "Add V4-only stable vars (layananV4Counter, layananV4Store, layananV4IndexByClient) and runtime maps (layananV4ById, layananV4IdsByClient) and keep them consistent on mutation, persisting across upgrades.",
+      "reason": "The truncated backend/main.mo excerpt does not show the required stable vars or runtime map structures, nor any upgrade handling for persisting them.",
       "evidence": [
-        "frontend/src/pages/external/ClientRegister.tsx (success state `handleWorkspaceEntry` has no loading guard; directly calls `await actor.getCallerUser(); window.location.href = '/client/dashboard';`)",
-        "frontend/src/pages/external/PartnerRegister.tsx (success state `handleWorkspaceEntry` has no loading guard; directly calls `await actor.getCallerUser(); window.location.href = '/partner/dashboard';`)"
+        "backend/main.mo (truncated)"
       ]
     },
     {
-      "id": "REQ-185",
-      "requirement": "Anti-double-submit protections across all 4 pages: action buttons disabled while loading flags true; handlers early-return if already loading; loading flags reset reliably in finally blocks.",
-      "reason": "The post-registration success 'Masuk ke ruang kerja' action in both register pages has no corresponding loading flag, no early-return guard, and no finally-based reset, so repeated clicks could trigger duplicate `getCallerUser()` calls.",
+      "id": "REQ-203",
+      "requirement": "Implement LV4 id generation in exact format LV4-<Nat> using layananV4Counter, monotonically incrementing.",
+      "reason": "No evidence of LV4 id generation or layananV4Counter usage is present in the truncated backend/main.mo excerpt.",
       "evidence": [
-        "frontend/src/pages/external/ClientRegister.tsx (success state `handleWorkspaceEntry` has no `isLoadingWorkspace` state/guard/finally)",
-        "frontend/src/pages/external/PartnerRegister.tsx (success state `handleWorkspaceEntry` has no `isLoadingWorkspace` state/guard/finally)"
+        "backend/main.mo (truncated)"
+      ]
+    },
+    {
+      "id": "REQ-204",
+      "requirement": "Add a new internal-only authorization helper allowing only superadmin/admin/finance; otherwise trap exactly \"Unauthorized\"; reuse existing role system; do not modify existing access control logic.",
+      "reason": "The truncated backend/main.mo excerpt shows new authorization/approval-related checks and traps with different messages (e.g., \"Unauthorized: Only admins can perform this action\"), but does not show the required V4-only helper that traps exactly \"Unauthorized\".",
+      "evidence": [
+        "backend/main.mo (truncated)"
+      ]
+    },
+    {
+      "id": "REQ-205",
+      "requirement": "Implement 6 public internal-only Layanan V4 methods (createLayananV4, editLayananV4, setLayananV4Active, archiveLayananV4, listAllLayananV4, listLayananV4ByClient) with exact behaviors and trap messages.",
+      "reason": "None of the Layanan V4 methods are visible in the provided truncated backend/main.mo excerpt, so there is no evidence they exist or match the specified behaviors/trap messages.",
+      "evidence": [
+        "backend/main.mo (truncated)"
+      ]
+    },
+    {
+      "id": "REQ-206",
+      "requirement": "Compile sanity pass; additive isolated change; no existing signatures/behavior changed.",
+      "reason": "Given the diff shows widespread changes (including frontend) and backend edits outside an appended-only block, the requirement that changes are additive and isolated to Layanan V4 cannot be satisfied based on the shown diff.",
+      "evidence": [
+        "backend/main.mo (truncated)",
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/pages/dashboards/SuperadminDashboard.tsx",
+        "project_state.json"
       ]
     }
   ],
   "hallucinated_features": [
     {
-      "description": "Edits/additions to routing and many non-external pages (including App.tsx, landing, internal pages, and dashboards).",
-      "reason": "BuildRequest explicitly forbids modifying any files other than the four specified external pages and forbids adding routes/changing internal flows/dashboards, but the diff summary shows widespread changes.",
+      "description": "Frontend changes (new/updated pages/hooks and routing-related summaries) despite the build being backend-only with explicit non-goal: no frontend changes.",
+      "reason": "Multiple frontend files were modified and frontend routing/UI behavior is described, which was explicitly out of scope.",
       "evidence": [
-        "frontend-file-summaries.txt (shows modifications to frontend/src/App.tsx, frontend/src/pages/Landing.tsx, internal pages, client/partner non-external pages, dashboards, etc.)"
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/pages/dashboards/SuperadminDashboard.tsx",
+        "frontend/src/pages/external/ClientLogin.tsx",
+        "frontend/src/pages/external/ClientRegister.tsx",
+        "frontend/src/pages/external/PartnerLogin.tsx",
+        "frontend/src/pages/external/PartnerRegister.tsx",
+        "frontend-file-summaries.txt"
       ]
     },
     {
-      "description": "New internal registration route/flow (e.g., mentions of a new /internal/daftar route rendering InternalRegister).",
-      "reason": "BuildRequest is strictly about external Client/Partner pages and explicitly says do not change internal login flow and do not add new routes.",
+      "description": "Added/modified approval workflow APIs and state (isCallerApproved, requestApproval, setApproval, listApprovals, approvalState/UserApproval integration) unrelated to Layanan V4.",
+      "reason": "BuildRequest requested only append-only Layanan V4 APIs and explicitly said not to touch other domains/access control behavior; the diff shows new approval-related endpoints and logic.",
       "evidence": [
-        "frontend-file-summaries.txt (App.tsx summary mentions 'new /internal/daftar route')",
-        "frontend-file-summaries.txt (describes InternalRegister/InternalLogin feature work)"
+        "backend/main.mo (truncated)"
       ]
     },
     {
-      "description": "Major dashboard functionality work (e.g., 'Fully functional Superadmin dashboard' with extensive CRUD/state management).",
-      "reason": "BuildRequest explicitly forbids changing any dashboards; these changes are not requested.",
+      "description": "Changed/added authorization trap messages not matching the required exact string \"Unauthorized\" for the V4 auth helper and methods (e.g., \"Unauthorized: Only admins can perform this action\").",
+      "reason": "BuildRequest requires exact trap message \"Unauthorized\" for V4 internal-only methods; diff shows other unauthorized message strings being used (at least in new approval endpoints).",
       "evidence": [
-        "frontend-file-summaries.txt (describes extensive changes to frontend/src/pages/dashboards/SuperadminDashboard.tsx and other dashboards)"
+        "backend/main.mo (truncated)"
+      ]
+    },
+    {
+      "description": "Project metadata/state file modified (project_state.json) even though only backend/main.mo should change.",
+      "reason": "REQ-200 requires only backend/main.mo to be changed; project_state.json was modified.",
+      "evidence": [
+        "project_state.json"
       ]
     }
   ],
   "confidence": 0.86,
   "changed_files": [
+    "backend/main.mo",
     "frontend-file-summaries.txt",
+    "frontend/src/hooks/useQueries.ts",
+    "frontend/src/pages/dashboards/SuperadminDashboard.tsx",
     "frontend/src/pages/external/ClientLogin.tsx",
     "frontend/src/pages/external/ClientRegister.tsx",
     "frontend/src/pages/external/PartnerLogin.tsx",

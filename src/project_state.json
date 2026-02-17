@@ -1,18 +1,18 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 67,
-  "summary": "Scope update: modify ONLY these 4 files (no other files, no new routes, no internal login changes, no dashboard changes, no auto-redirects in useEffect/onLoad): `frontend/src/pages/external/ClientLogin.tsx`, `PartnerLogin.tsx`, `ClientRegister.tsx`, `PartnerRegister.tsx`. Implement Internet Identity (II) login + manual workspace navigation and role registration flows. Login pages: enable “Login Internet Identity” by default; on click call `login()` (useInternetIdentity) and set `isLoggedInII=true`; “Masuk ke ruang kerja” enabled only after II login; on click call `actor.getCallerUser()` exactly once (never on mount) and (a) if unregistered navigate to role register path (Client -> `/daftar/client` or existing equivalent; Partner -> `/daftar/partner`), (b) if role mismatch show public error “Silahkan klik sesuai dengan akun anda” + back button to `/login`, (c) if role+status OK navigate to existing role dashboard path; always clear loading in finally. Register pages: add/enable II login button above Register; Register button enabled only when II logged in + form valid + not submitting; on submit call existing backend registration method for role (`actor.registerClient(nama,email,whatsapp,perusahaan)` / `actor.registerPartner(nama,email,whatsapp,keahlian,domisili)` or existing equivalent—do not add backend methods). On success show success state “Pendaftaran berhasil” with manual “Masuk ke ruang kerja” button that repeats the login workspace flow (single `getCallerUser()` then navigate to dashboard). Add anti-double-submit guards: disable action buttons while their loading state is true and early-return in handlers if already loading. UI: keep current layout/styling mostly unchanged; show error banner when error exists.",
+  "projectStateVersion": 75,
+  "summary": "Scope update: Backend-only append-only change to implement new internal-managed “Layanan V4” system in backend/main.mo. Rules: append code at end of file only; no refactor/rewrite; do not modify/move/delete existing code; do not affect users/tasks/master data/finance or existing layanan V1/V2/V3. If preupgrade/postupgrade exist, only append V4 handling blocks inside them without altering existing logic. Implement V4 types, stable storage + runtime HashMaps with stable<->runtime conversion, internal-only auth (superadmin/admin/finance -> otherwise trap \"Unauthorized\"), LV4-<Nat> id generation, and methods: createLayananV4, editLayananV4 (id/unitUsed/isArchived/created* immutable; validate unitTotal>=unitUsed; archived/not found -> trap), setLayananV4Active (reject if archived), archiveLayananV4 (soft delete), listAllLayananV4(includeArchived), listLayananV4ByClient(clientPrincipal, includeArchived).",
   "architectural_notes": [
     "Use react-router-dom Routes with explicit mappings and a '*' fallback 404 page with a button back to '/'",
     "Ensure App.tsx uses BrowserRouter + Routes from react-router-dom and does not crash on load.",
     "All specified page files must default-export a React component; all import paths must be valid (no missing files).",
     "Do not use any external UI libraries; use plain divs + simple className only.",
-    "Do not use any images besides asistenku-horizontal.png; write img src exactly \"asistenku-horizontal.png\" (no folder prefix).",
     "Add sufficient top padding so the logo is not covered; ensure no TS/React compile errors and no blank page—route \"/\" must render normally.",
     "Backend is now in-scope: backend/main.mo may be fully implemented per the backend spec (no longer required to be empty/untouched).",
     "For the current backend build request, ONLY modify backend/main.mo; do not change any frontend files.",
     "Global frontend styling updated: apply dashboard-reference colors/layout (e.g., dark/blue + beige split/background) and matching card shape/shadows across ALL pages, using the user-uploaded image as the styling baseline.",
-    "Override prior UI-only rule for dashboards: dashboard pages are now allowed to call backend queries (read-only) via existing hooks; InternalLogin is no longer the only frontend page permitted to call the backend."
+    "Override prior UI-only rule for dashboards: dashboard pages are now allowed to call backend queries (read-only) via existing hooks; InternalLogin is no longer the only frontend page permitted to call the backend.",
+    "Global logo path is now `/assets/asistenku-horizontal.png` (use this consistently across the app; supersedes prior rootless `asistenku-horizontal.png` rule)."
   ],
   "known_issues": [
     "Unintended frontend changes were made previously; must be reverted so frontend has zero diff for this request.",
@@ -1011,6 +1011,86 @@
         "REQ-188"
       ],
       "version": 1
+    },
+    {
+      "id": "feature-update-the-logo-image-path-globally-across-the-frontend-so-every-page-and-dashboard-uses-the-exact-path-assets-asistenku-horizontal-png-for-the-asistenku-horizontal-logo-replacing-any-existing-variants-such-as-asistenku-horizontal-png-client-asistenku-horizontal-png-partner-asistenku-horizontal-png-asset-asistenku-horizontal-png-or-other-inconsistent-paths",
+      "title": "Update the logo image path globally across the frontend so every page and dashboard uses the exact path `\"/assets/asistenku-horizontal.png\"` for the Asistenku horizontal logo, replacing any existing variants such as `\"asistenku-horizontal.png\"`, `\"/client/asistenku-horizontal.png\"`, `\"/partner/asistenku-horizontal.png\"`, `\"/asset/asistenku-horizontal.png\"`, or other inconsistent paths.",
+      "reqIds": [
+        "REQ-189"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-frontend-src-app-tsx-to-disable-the-legacy-public-routes-client-login-client-register-partner-login-partner-register-by-removing-or-commenting-out-their-switch-currentpath-cases-and-any-now-unused-imports-and-keep-public-access-only-via-the-existing-external-pages-by-adding-switch-cases-for-external-client-login-external-client-register-external-partner-login-external-partner-register-that-render-the-corresponding-existing-pages-under-frontend-src-pages-external-do-not-add-any-other-new-routes-do-not-change-internal-routes-and-do-not-change-the-overall-routing-structure-must-remain-the-current-switch-currentpath-pattern",
+      "title": "Update `frontend/src/App.tsx` to disable the legacy public routes `/client/login`, `/client/register`, `/partner/login`, `/partner/register` by removing or commenting out their `switch (currentPath)` cases (and any now-unused imports), and keep public access only via the existing `/external/*` pages by adding `switch` cases for: `/external/client/login`, `/external/client/register`, `/external/partner/login`, `/external/partner/register` that render the corresponding existing pages under `frontend/src/pages/external/*`. Do not add any other new routes, do not change internal routes, and do not change the overall routing structure (must remain the current `switch (currentPath)` pattern).",
+      "reqIds": [
+        "REQ-191"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-landing-page-link-targets-to-point-to-the-external-routes-by-changing-only-the-route-strings-no-layout-text-styling-changes-specifically-in-the-file-s-currently-rendering-the-public-landing-ui-replace-client-login-external-client-login-client-register-external-client-register-partner-login-external-partner-login-partner-register-external-partner-register-do-not-create-any-new-files-if-frontend-src-components-asistenku-landingpage-tsx-and-or-frontend-src-components-asistenku-header-tsx-do-not-exist-in-the-repository-do-not-create-them-instead-apply-the-string-only-replacements-in-the-existing-landing-implementation-file-s-that-are-actually-used-e-g-frontend-src-pages-landing-tsx",
+      "title": "Update the Landing page link targets to point to the `/external/*` routes by changing only the route strings (no layout/text/styling changes). Specifically, in the file(s) currently rendering the public Landing UI, replace: `/client/login` -> `/external/client/login`, `/client/register` -> `/external/client/register`, `/partner/login` -> `/external/partner/login`, `/partner/register` -> `/external/partner/register`. Do not create any new files. If `frontend/src/components/asistenku/LandingPage.tsx` and/or `frontend/src/components/asistenku/Header.tsx` do not exist in the repository, do not create them; instead apply the string-only replacements in the existing Landing implementation file(s) that are actually used (e.g., `frontend/src/pages/Landing.tsx`).",
+      "reqIds": [
+        "REQ-192"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-perform-a-compile-runtime-sanity-pass-focused-on-the-routing-cleanup-confirm-the-app-loads-without-a-blank-screen-renders-and-navigating-via-clicking-to-external-client-login-external-client-register-external-partner-login-external-partner-register-renders-the-correct-existing-pages-confirm-that-visiting-client-login-client-register-partner-login-partner-register-no-longer-renders-the-legacy-pages-should-fall-through-to-the-existing-notfound-view",
+      "title": "Perform a compile/runtime sanity pass focused on the routing cleanup: confirm the app loads without a blank screen, `/` renders, and navigating (via clicking) to `/external/client/login`, `/external/client/register`, `/external/partner/login`, `/external/partner/register` renders the correct existing pages; confirm that visiting `/client/login`, `/client/register`, `/partner/login`, `/partner/register` no longer renders the legacy pages (should fall through to the existing NotFound view).",
+      "reqIds": [
+        "REQ-193"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-scope-lock-step-1-modify-only-these-four-frontend-files-and-nothing-else-frontend-src-pages-external-clientlogin-tsx-frontend-src-pages-external-partnerlogin-tsx-frontend-src-pages-external-clientregister-tsx-frontend-src-pages-external-partnerregister-tsx-do-not-modify-backend-code-do-not-modify-frontend-src-app-tsx-do-not-create-new-files-do-not-add-new-routes-do-not-introduce-auto-redirect-on-initial-page-load-navigation-redirects-must-happen-only-from-explicit-button-clicks",
+      "title": "Scope lock (STEP 1): Modify ONLY these four frontend files and nothing else: `frontend/src/pages/external/ClientLogin.tsx`, `frontend/src/pages/external/PartnerLogin.tsx`, `frontend/src/pages/external/ClientRegister.tsx`, `frontend/src/pages/external/PartnerRegister.tsx`. Do not modify backend code, do not modify `frontend/src/App.tsx`, do not create new files, do not add new routes, do not introduce auto-redirect on initial page load (navigation/redirects must happen only from explicit button clicks).",
+      "reqIds": [
+        "REQ-194"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-global-legacy-route-string-cleanup-in-the-four-external-pages-remove-all-occurrences-of-these-legacy-paths-and-replace-them-with-the-required-external-paths-client-pages-replace-every-client-register-with-external-client-register-and-every-client-login-with-external-client-login-partner-pages-replace-every-partner-register-with-external-partner-register-and-every-partner-login-with-external-partner-login-this-includes-href-strings-and-any-window-location-href-targets-dashboard-routes-must-remain-unchanged-client-client-dashboard-partner-partner-dashboard",
+      "title": "Global legacy-route string cleanup in the four external pages: remove all occurrences of these legacy paths and replace them with the required `/external/*` paths. Client pages: replace every `\"/client/register\"` with `\"/external/client/register\"` and every `\"/client/login\"` with `\"/external/client/login\"`. Partner pages: replace every `\"/partner/register\"` with `\"/external/partner/register\"` and every `\"/partner/login\"` with `\"/external/partner/login\"`. This includes `href` strings and any `window.location.href` targets. Dashboard routes must remain unchanged: Client -> `/client/dashboard`, Partner -> `/partner/dashboard`.",
+      "reqIds": [
+        "REQ-195"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-the-required-click-only-workspace-gating-flow-for-clientlogin-tsx-and-partnerlogin-tsx-on-the-masuk-ke-ruang-kerja-button-using-backend-calls-in-this-exact-order-and-using-real-time-status-from-actor-getmystatus-do-not-use-any-ui-cached-status-flow-1-on-click-call-actor-getcalleruser-exactly-once-if-it-returns-null-undefined-navigate-onclick-to-the-corresponding-external-register-route-external-client-register-or-external-partner-register-2-if-user-role-mismatches-the-page-role-show-the-exact-error-text-silahkan-klik-sesuai-dengan-akun-anda-and-show-a-back-button-that-navigates-onclick-to-the-corresponding-external-login-route-external-client-login-or-external-partner-login-3-if-role-matches-call-actor-getmystatus-exactly-once-if-status-is-not-active-show-a-status-appropriate-message-for-pending-suspended-blacklisted-and-show-a-back-button-to-the-corresponding-external-login-route-no-auto-redirect-4-only-when-status-is-active-navigate-onclick-to-the-correct-dashboard-route-client-dashboard-or-partner-dashboard",
+      "title": "Implement the required click-only workspace gating flow for `ClientLogin.tsx` and `PartnerLogin.tsx` on the “Masuk ke ruang kerja” button, using backend calls in this exact order and using real-time status from `actor.getMyStatus()` (do not use any UI/cached status). Flow: (1) On click, call `actor.getCallerUser()` exactly once. If it returns null/undefined, navigate (onclick) to the corresponding external register route (`/external/client/register` or `/external/partner/register`). (2) If user role mismatches the page role, show the exact error text `Silahkan klik sesuai dengan akun anda` and show a “Back” button that navigates (onclick) to the corresponding external login route (`/external/client/login` or `/external/partner/login`). (3) If role matches, call `actor.getMyStatus()` exactly once. If status is not `\"active\"`, show a status-appropriate message for `pending` / `suspended` / `blacklisted` and show a “Back” button to the corresponding external login route (no auto redirect). (4) Only when status is `\"active\"`, navigate (onclick) to the correct dashboard route (`/client/dashboard` or `/partner/dashboard`).",
+      "reqIds": [
+        "REQ-196"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-clientregister-tsx-and-partnerregister-tsx-success-state-masuk-ke-ruang-kerja-button-to-run-the-exact-same-gating-logic-as-their-respective-login-pages-on-click-only-call-actor-getcalleruser-null-navigate-to-the-external-register-page-enforce-role-mismatch-error-silahkan-klik-sesuai-dengan-akun-anda-back-to-external-login-then-call-actor-getmystatus-to-gate-by-status-and-only-allow-navigation-to-the-dashboard-when-status-is-active-do-not-auto-navigate-immediately-after-successful-registration-navigation-remains-manual-via-the-button",
+      "title": "Update `ClientRegister.tsx` and `PartnerRegister.tsx` success-state “Masuk ke ruang kerja” button to run the exact same gating logic as their respective login pages (on click only): call `actor.getCallerUser()` (null -> navigate to the external register page), enforce role mismatch error `Silahkan klik sesuai dengan akun anda` + Back to external login, then call `actor.getMyStatus()` to gate by status and only allow navigation to the dashboard when status is `\"active\"`. Do not auto-navigate immediately after successful registration; navigation remains manual via the button.",
+      "reqIds": [
+        "REQ-197"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-harden-all-four-external-pages-against-actor-readiness-and-double-submit-without-changing-overall-layout-1-keep-existing-pageshell-based-structure-and-visual-layout-largely-unchanged-only-add-minimal-ui-needed-for-gating-error-area-back-button-where-required-2-do-not-call-backend-on-mount-3-on-any-button-that-triggers-backend-calls-ii-login-register-submit-workspace-entry-implement-early-return-double-submit-guards-and-disable-the-button-while-its-corresponding-loading-flag-is-true-4-if-actor-is-null-undefined-or-still-initializing-do-not-attempt-backend-calls-show-a-non-crashing-inline-error-you-may-keep-the-existing-indonesian-readiness-error-string-already-used-in-these-files",
+      "title": "Harden all four external pages against actor readiness and double-submit, without changing overall layout: (1) Keep existing PageShell-based structure and visual layout largely unchanged; only add minimal UI needed for gating (error area + Back button where required). (2) Do not call backend on mount. (3) On any button that triggers backend calls (II login, register submit, workspace entry), implement early-return double-submit guards and disable the button while its corresponding loading flag is true. (4) If `actor` is null/undefined (or still initializing), do not attempt backend calls; show a non-crashing inline error (you may keep the existing Indonesian readiness error string already used in these files).",
+      "reqIds": [
+        "REQ-198"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-compile-runtime-sanity-pass-step-1-ensure-the-app-compiles-without-typescript-errors-after-the-changes-and-that-the-4-external-pages-render-and-function-without-crashing-in-these-scenarios-logged-out-anonymous-identity-logged-in-with-ii-but-actor-still-initializing-backend-call-failures-throws-and-unexpected-return-shapes-from-getcalleruser-getmystatus-handle-defensively",
+      "title": "Compile/runtime sanity pass (STEP 1): Ensure the app compiles without TypeScript errors after the changes and that the 4 `/external/*` pages render and function without crashing in these scenarios: logged out (anonymous identity), logged in with II but actor still initializing, backend call failures/throws, and unexpected return shapes from `getCallerUser()` / `getMyStatus()` (handle defensively).",
+      "reqIds": [
+        "REQ-199"
+      ],
+      "version": 1
     }
   ],
   "new_feature_requests": [
@@ -1754,6 +1834,100 @@
       "id": "AR-102",
       "summary": "External Client/Partner Login + Register: enable Internet Identity login and manual Workspace flow, plus backend registration calls, with strict scope limited to 4 external pages; no new routes; no auto redirects; no getCallerUser on mount; add loading/error states and anti-double-submit guards; show success state with manual workspace button after registration.",
       "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-103",
+      "summary": "Patch ONLY /client/register and /partner/register pages to add II login and enable submit; also update logo path globally to /assets/asistenku-horizontal.png and perform a build.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-105",
+      "summary": "Perform a compile/runtime sanity check after the global logo path update to ensure the app loads without a blank screen, and navigation across the existing routes continues to work.",
+      "reqIds": [
+        "REQ-190"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-106",
+      "summary": "STRICT routing cleanup: modify ONLY `frontend/src/App.tsx` to remove/comment out `/client/*` and `/partner/*` cases and keep only `/external/*` public routes; update link targets in `frontend/src/components/asistenku/LandingPage.tsx` and `frontend/src/components/asistenku/Header.tsx` to point to `/external/*` paths; no backend changes, no external pages changes, no new routes/components/files, no layout/text/styling changes.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-107",
+      "summary": "STEP 1 (frontend-only): Update ONLY external Client/Partner Login/Register pages to remove legacy /client/* and /partner/* route strings, enforce /external/* navigation, and implement click-only workspace gating via actor.getCallerUser() then actor.getMyStatus() with status-based blocking and explicit Back buttons (no App.tsx/backend changes, no auto-redirect on load).",
+      "reqIds": [],
+      "status": "in_progress"
+    },
+    {
+      "id": "AR-108",
+      "summary": "STEP 2 (backend minimal): Patch backend/main.mo to add public getMyStatus():UserStatus for caller (auth-gated), ensure registerClient/registerPartner set default status pending, ensure claimSuperadmin sets caller status active; keep changes minimal and compatible with frontend status gate.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-109",
+      "summary": "Append-only backend/main.mo: implement internal-only Layanan V4 (types + stable storage + runtime maps + preupgrade/postupgrade conversions) with LV4-<Nat> IDs and CRUD-ish methods (create/edit/toggle active/archive/list all/list by client) gated to superadmin/admin/finance; do not modify existing code or V1/V2/V3.",
+      "reqIds": [],
+      "status": "in_progress"
+    },
+    {
+      "id": "AR-110",
+      "summary": "Modify ONLY `backend/main.mo` to implement the new “Layanan V4” system strictly as an append-only change: add all new code at the very end of the actor (immediately before the final closing brace `}`) without modifying, deleting, moving, reformatting, or reorganizing any existing lines. Do not create any new files.",
+      "reqIds": [
+        "REQ-200"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-111",
+      "summary": "In the appended block, define the Layanan V4 types exactly as specified: `public type LayananTypeV4 = { #TENANG; #RAPI; #FOKUS; #JAGA; #EFEKTIF };` and `public type LayananV4 = { id: Text; clientPrincipal: Principal; tipe: LayananTypeV4; unitTotal: Nat; unitUsed: Nat; hargaPerUnit: Nat; asistenmuPrincipal: Principal; sharedWith: [Principal]; isActive: Bool; isArchived: Bool; createdAt: Int; createdBy: Principal; updatedAt: Int; updatedBy: Principal; };`.",
+      "reqIds": [
+        "REQ-201"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-112",
+      "summary": "In the appended block, add new stable storage dedicated to V4 only (unique names; do not collide with existing vars): `stable var layananV4Counter : Nat = 0;`, `stable var layananV4Store : [(Text, LayananV4)] = [];`, and `stable var layananV4IndexByClient : [(Principal, [Text])] = [];`. Also add runtime `HashMap`/`Map` structures for fast access: (1) `layananV4ById` keyed by `Text` and (2) `layananV4IdsByClient` keyed by `Principal` to `[Text]`. Keep the stable and runtime stores consistent on every mutation.",
+      "reqIds": [
+        "REQ-202"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-113",
+      "summary": "In the appended block, implement LV4 id generation using the exact format `LV4-<Nat>` (e.g., `LV4-1`, `LV4-2`, …) based on `layananV4Counter` and ensure it increments monotonically.",
+      "reqIds": [
+        "REQ-203"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-114",
+      "summary": "In the appended block, add a new internal-only authorization helper that allows only callers whose existing role is one of: `superadmin`, `admin`, or `finance`. If not allowed, it must trap with the exact message `\"Unauthorized\"`. This helper must reuse the existing role system already present in `backend/main.mo` and must not modify any existing access control logic.",
+      "reqIds": [
+        "REQ-204"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-115",
+      "summary": "In the appended block, implement the following public internal-only Layanan V4 methods with the exact names/parameters/behaviors specified, without changing any existing V1/V2/V3 layanan methods or other domains:\n1) `createLayananV4(input)` creates a new record: required input fields: `clientPrincipal`, `tipe`, `unitTotal`, `hargaPerUnit`, `asistenmuPrincipal`, `sharedWith` (may be empty), `isActive` (default `true` if not provided). It must set `unitUsed=0`, `isArchived=false`, set created/updated timestamps and principals to the caller, persist to store + index-by-client, and return the created `LayananV4`.\n2) `editLayananV4(layananId, patch)` allows editing ONLY: `clientPrincipal` (update index if changed), `tipe`, `unitTotal` (validate `unitTotal >= unitUsed`), `hargaPerUnit`, `asistenmuPrincipal`, `sharedWith`, `isActive`. It must NOT allow editing: `id`, `unitUsed`, `isArchived`, `createdAt`, `createdBy`. If layanan not found OR already archived, trap exactly `\"Not found\"`. If `unitTotal < unitUsed`, trap exactly `\"unitTotal cannot be less than unitUsed\"`. Must set `updatedAt/updatedBy` and return the updated `LayananV4`.\n3) `setLayananV4Active(layananId, isActive)` rejects if archived, updates `updatedAt/updatedBy`, returns updated `LayananV4`.\n4) `archiveLayananV4(layananId)` sets `isArchived=true`, `isActive=false`, updates `updatedAt/updatedBy`, returns updated `LayananV4`.\n5) `listAllLayananV4(includeArchived : Bool)` returns all V4 records, filtered by `isArchived` according to the flag.\n6) `listLayananV4ByClient(clientPrincipal, includeArchived : Bool)` returns V4 records for a specific client principal, filtered by `isArchived` according to the flag.",
+      "reqIds": [
+        "REQ-205"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-116",
+      "summary": "Perform a backend compile sanity pass after implementing Layanan V4 to ensure `backend/main.mo` compiles successfully and that no existing public methods (registration, claimSuperadmin, master data, status/partner-level utilities, etc.) have changed behavior due to the append-only patch.",
+      "reqIds": [
+        "REQ-206"
+      ],
       "status": "pending"
     }
   ],

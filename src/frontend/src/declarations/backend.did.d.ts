@@ -10,6 +10,9 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export type ApprovalStatus = { 'pending' : null } |
+  { 'approved' : null } |
+  { 'rejected' : null };
 export interface AturanBebanPerusahaan {
   'aktif' : boolean,
   'createdAt' : bigint,
@@ -48,49 +51,28 @@ export interface KonstantaUnitClient {
   'unitKeJamPerusahaan' : bigint,
   'updatedAt' : bigint,
 }
-export interface LayananAsistenku {
+export type LayananTypeV4 = { 'EFEKTIF' : null } |
+  { 'JAGA' : null } |
+  { 'RAPI' : null } |
+  { 'FOKUS' : null } |
+  { 'TENANG' : null };
+export interface LayananV4 {
   'id' : string,
-  'active' : boolean,
-  'name' : string,
-  'createdAt' : bigint,
-  'createdBy' : Principal,
-  'type' : LayananType,
-  'description' : string,
-  'updatedAt' : [] | [bigint],
-  'updatedBy' : [] | [Principal],
-  'price' : bigint,
-}
-export interface LayananMeta {
   'unitUsed' : bigint,
   'unitTotal' : bigint,
-  'ownerClient' : Principal,
   'createdAt' : bigint,
-  'isActive' : boolean,
-  'updatedAt' : bigint,
-  'layananId' : string,
-  'unitOnHold' : bigint,
-}
-export interface LayananPaketMeta {
-  'harga' : bigint,
-  'ownerClient' : Principal,
-  'createdAt' : bigint,
+  'createdBy' : Principal,
+  'tipe' : LayananTypeV4,
+  'isArchived' : boolean,
   'isActive' : boolean,
   'sharedWith' : Array<Principal>,
+  'clientPrincipal' : Principal,
   'updatedAt' : bigint,
-  'layananId' : string,
-  'paket' : PaketLayanan,
+  'updatedBy' : Principal,
+  'asistenmuPrincipal' : Principal,
+  'hargaPerUnit' : bigint,
 }
-export type LayananType = { 'BusinessConsulting' : null } |
-  { 'LegalServices' : null } |
-  { 'FinancialPlanning' : null } |
-  { 'DigitalMarketing' : null } |
-  { 'VirtualAssistant' : null } |
-  { 'Other' : string };
 export type MasterDataKey = string;
-export type PaketLayanan = { 'fokus' : null } |
-  { 'jaga' : null } |
-  { 'rapi' : null } |
-  { 'tenang' : null };
 export interface PartnerProfile {
   'keahlian' : string,
   'name' : string,
@@ -105,33 +87,13 @@ export interface SkillVerified {
   'createdAt' : bigint,
   'kategori' : string,
 }
-export interface Task {
-  'title' : string,
-  'ownerClient' : Principal,
-  'createdAt' : bigint,
-  'jamEfektif' : [] | [bigint],
-  'unitTerpakai' : [] | [bigint],
-  'detail' : string,
-  'breakdownAM' : [] | [string],
-  'lastRejectReason' : [] | [string],
-  'updatedAt' : bigint,
-  'taskId' : string,
-  'layananId' : string,
-  'phase' : TaskPhase,
-  'requestType' : string,
-  'assignedPartner' : [] | [Principal],
-}
-export type TaskPhase = { 'revisi' : null } |
-  { 'on_progress' : null } |
-  { 'permintaan_baru' : null } |
-  { 'selesai' : null } |
-  { 'review_client' : null } |
-  { 'ditolak_partner' : null } |
-  { 'dibatalkan_client' : null } |
-  { 'qa_asistenku' : null };
 export type TipePartner = { 'junior' : null } |
   { 'senior' : null } |
   { 'expert' : null };
+export interface UserApprovalInfo {
+  'status' : ApprovalStatus,
+  'principal' : Principal,
+}
 export type UserRole = { 'client' : ClientProfile } |
   { 'internal' : InternalProfile } |
   { 'superadmin' : null } |
@@ -139,102 +101,83 @@ export type UserRole = { 'client' : ClientProfile } |
 export type UserRole__1 = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
-export type UserStatus = { 'active' : null } |
-  { 'pending' : null } |
-  { 'suspended' : null } |
-  { 'blacklisted' : null };
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
+  'archiveLayananV4' : ActorMethod<[string], LayananV4>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole__1], undefined>,
-  'backToProgressFromRevisi' : ActorMethod<[string], string>,
-  'canCreateTaskUI' : ActorMethod<[], boolean>,
-  'cancelTask' : ActorMethod<[string], string>,
   'claimSuperadmin' : ActorMethod<[], undefined>,
-  'clientMarkSelesai' : ActorMethod<[string], string>,
-  'createLayananForClient' : ActorMethod<
-    [string, string, LayananType, bigint],
-    string
+  'createLayananV4' : ActorMethod<
+    [
+      {
+        'unitTotal' : bigint,
+        'tipe' : LayananTypeV4,
+        'isActive' : [] | [boolean],
+        'sharedWith' : Array<Principal>,
+        'clientPrincipal' : Principal,
+        'asistenmuPrincipal' : Principal,
+        'hargaPerUnit' : bigint,
+      },
+    ],
+    LayananV4
   >,
-  'createLayananForClientV2' : ActorMethod<[Principal, string, bigint], string>,
-  'createLayananPaketForClientV3' : ActorMethod<
-    [Principal, PaketLayanan, bigint, string],
-    string
-  >,
-  'createTask' : ActorMethod<[string, string, string, string], string>,
-  'delegateTask' : ActorMethod<
-    [string, Principal, bigint, bigint, string],
-    string
+  'editLayananV4' : ActorMethod<
+    [
+      string,
+      {
+        'unitTotal' : [] | [bigint],
+        'tipe' : [] | [LayananTypeV4],
+        'isActive' : [] | [boolean],
+        'sharedWith' : [] | [Array<Principal>],
+        'clientPrincipal' : [] | [Principal],
+        'asistenmuPrincipal' : [] | [Principal],
+        'hargaPerUnit' : [] | [bigint],
+      },
+    ],
+    LayananV4
   >,
   'getAllUsers' : ActorMethod<[], Array<[Principal, UserRole]>>,
   'getAturanBeban' : ActorMethod<[string], [] | [AturanBebanPerusahaan]>,
   'getCallerUser' : ActorMethod<[], [] | [UserRole]>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserRole]>,
   'getCallerUserRole' : ActorMethod<[], UserRole__1>,
-  'getHourlyRateByLevel' : ActorMethod<[TipePartner], bigint>,
   'getKamusPekerjaan' : ActorMethod<[string], [] | [KamusPekerjaan]>,
   'getKonstantaUnitClient' : ActorMethod<[], KonstantaUnitClient>,
-  'getLayananMeta' : ActorMethod<[string], [] | [LayananMeta]>,
-  'getLayananPaketMetaV3' : ActorMethod<[string], [] | [LayananPaketMeta]>,
   'getMasterData' : ActorMethod<[MasterDataKey], string>,
   'getMasterDataMap' : ActorMethod<[], [] | [Array<[string, string]>]>,
-  'getMyHourlyRate' : ActorMethod<[], bigint>,
-  'getMyLayananMeta' : ActorMethod<[string], [] | [LayananMeta]>,
-  'getMyPartnerLevel' : ActorMethod<[], TipePartner>,
   'getMyUserId' : ActorMethod<[], [] | [string]>,
-  'getMyUserStatus' : ActorMethod<[], UserStatus>,
-  'getPartnerLevel' : ActorMethod<[Principal], TipePartner>,
   'getPartnerVerifiedSkills' : ActorMethod<[Principal], Array<string>>,
-  'getRates' : ActorMethod<[], [bigint, bigint, bigint]>,
   'getSkillVerified' : ActorMethod<[string], [] | [SkillVerified]>,
-  'getTask' : ActorMethod<[string], [] | [Task]>,
   'getUser' : ActorMethod<[Principal], [] | [UserRole]>,
-  'getUserIdByPrincipal' : ActorMethod<[Principal], [] | [string]>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserRole]>,
-  'getUserStatus' : ActorMethod<[Principal], UserStatus>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
+  'isCallerApproved' : ActorMethod<[], boolean>,
   'kalkulatorAM' : ActorMethod<
     [string, TipePartner, bigint],
     { 'jamKePartner' : bigint, 'unitClient' : bigint, 'jamPerusahaan' : bigint }
   >,
+  'listAllLayananV4' : ActorMethod<[boolean], Array<LayananV4>>,
+  'listApprovals' : ActorMethod<[], Array<UserApprovalInfo>>,
   'listAturanBeban' : ActorMethod<[], Array<AturanBebanPerusahaan>>,
   'listKamusPekerjaan' : ActorMethod<[], Array<KamusPekerjaan>>,
-  'listMyLayanan' : ActorMethod<[], Array<LayananAsistenku>>,
-  'listMyLayananPaketIdsV3' : ActorMethod<[], Array<string>>,
-  'listMyLayananV2' : ActorMethod<[], Array<string>>,
-  'listMyTasks' : ActorMethod<[], Array<Task>>,
+  'listLayananV4ByClient' : ActorMethod<[Principal, boolean], Array<LayananV4>>,
   'listPartnerVerifiedSkills' : ActorMethod<
     [],
     Array<[Principal, Array<string>]>
   >,
   'listSkillVerified' : ActorMethod<[], Array<SkillVerified>>,
-  'listUsersBasic' : ActorMethod<
-    [string],
-    Array<[Principal, string, string, UserStatus]>
-  >,
-  'listUsersByStatus' : ActorMethod<[UserStatus], Array<Principal>>,
-  'moveToQa' : ActorMethod<[string], string>,
-  'moveToReviewClient' : ActorMethod<[string], string>,
-  'partnerAccept' : ActorMethod<[string], string>,
-  'partnerReject' : ActorMethod<[string, string], string>,
   'pushMasterData' : ActorMethod<[MasterDataKey, string], undefined>,
   'registerClient' : ActorMethod<[ClientProfile], undefined>,
   'registerInternal' : ActorMethod<[InternalProfile], undefined>,
   'registerPartner' : ActorMethod<[PartnerProfile], undefined>,
-  'requestRevisiClient' : ActorMethod<[string, string], string>,
-  'requestRevisiInternal' : ActorMethod<[string, string], string>,
+  'requestApproval' : ActorMethod<[], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserRole], undefined>,
+  'setApproval' : ActorMethod<[Principal, ApprovalStatus], undefined>,
   'setKonstantaUnitClient' : ActorMethod<[bigint], undefined>,
-  'setLayananActive' : ActorMethod<[string], undefined>,
-  'setLayananActiveV2' : ActorMethod<[string, boolean], string>,
-  'setLayananPaketActiveV3' : ActorMethod<[string, boolean], string>,
-  'setPartnerLevel' : ActorMethod<[Principal, TipePartner], undefined>,
+  'setLayananV4Active' : ActorMethod<[string, boolean], LayananV4>,
   'setPartnerVerifiedSkills' : ActorMethod<
     [Principal, Array<string>],
     undefined
   >,
-  'setUserStatus' : ActorMethod<[Principal, UserStatus], undefined>,
-  'shareLayananPaketV3' : ActorMethod<[string, Principal], string>,
-  'transitionTaskPhase' : ActorMethod<[string, TaskPhase], string>,
   'upsertAturanBeban' : ActorMethod<
     [
       [] | [string],

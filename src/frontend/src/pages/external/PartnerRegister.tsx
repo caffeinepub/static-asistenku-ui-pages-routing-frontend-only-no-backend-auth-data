@@ -2,7 +2,7 @@ import { useState } from 'react';
 import PageShell from '../_shared/PageShell';
 import { useInternetIdentity } from '../../hooks/useInternetIdentity';
 import { useActor } from '../../hooks/useActor';
-import type { PartnerProfile } from '../../backend';
+import type { PartnerProfile, UserRole } from '../../backend';
 
 export default function PartnerRegister() {
   const { login } = useInternetIdentity();
@@ -13,6 +13,7 @@ export default function PartnerRegister() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLoadingWorkspace, setIsLoadingWorkspace] = useState(false);
 
   const [nama, setNama] = useState('');
   const [email, setEmail] = useState('');
@@ -75,24 +76,47 @@ export default function PartnerRegister() {
   };
 
   const handleWorkspaceEntry = async () => {
+    if (isLoadingWorkspace) return;
     if (!actor) {
       setError('Sistem belum siap, silakan coba lagi');
       return;
     }
 
+    setIsLoadingWorkspace(true);
+    setError(null);
+
     try {
-      await actor.getCallerUser();
+      const user: UserRole | null = await actor.getCallerUser();
+
+      if (!user) {
+        window.location.href = '/external/partner/register';
+        return;
+      }
+
+      if (user.__kind__ !== 'partner') {
+        setError('Silahkan klik sesuai dengan akun anda');
+        setIsLoadingWorkspace(false);
+        return;
+      }
+
+      // User status check not yet implemented in backend
+      // Proceed directly to dashboard for now
       window.location.href = '/partner/dashboard';
     } catch (err: any) {
       setError(err.message || 'Terjadi kesalahan');
+      setIsLoadingWorkspace(false);
     }
+  };
+
+  const handleBackToLogin = () => {
+    window.location.href = '/external/partner/login';
   };
 
   if (success) {
     return (
       <PageShell>
         <div className="flex justify-center mb-12">
-          <img src="/asistenku-horizontal.png" alt="Asistenku" height="32" className="h-8" />
+          <img src="/assets/asistenku-horizontal.png" alt="Asistenku" height="32" className="h-8" />
         </div>
 
         <div className="rounded-3xl shadow-xl border border-[#d4c5a9]/30 p-10 space-y-8 bg-[#f5f1e8]">
@@ -105,15 +129,29 @@ export default function PartnerRegister() {
           {error && (
             <div className="rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-800">
               {error}
+              {error === 'Silahkan klik sesuai dengan akun anda' && (
+                <button
+                  type="button"
+                  onClick={handleBackToLogin}
+                  className="mt-2 text-red-600 hover:text-red-800 underline block"
+                >
+                  Kembali
+                </button>
+              )}
             </div>
           )}
 
           <button
             type="button"
             onClick={handleWorkspaceEntry}
-            className="w-full inline-flex items-center justify-center rounded-2xl text-base font-medium transition-colors bg-[#2d9cdb] text-white h-14 px-8 shadow-md hover:bg-[#2d9cdb]/90"
+            disabled={isLoadingWorkspace}
+            className={`w-full inline-flex items-center justify-center rounded-2xl text-base font-medium transition-colors h-14 px-8 shadow-md ${
+              isLoadingWorkspace
+                ? 'bg-[#2d9cdb]/50 text-white cursor-not-allowed'
+                : 'bg-[#2d9cdb] text-white hover:bg-[#2d9cdb]/90'
+            }`}
           >
-            Masuk ke ruang kerja
+            {isLoadingWorkspace ? 'Loading...' : 'Masuk ke ruang kerja'}
           </button>
         </div>
       </PageShell>
@@ -123,7 +161,7 @@ export default function PartnerRegister() {
   return (
     <PageShell>
       <div className="flex justify-center mb-12">
-        <img src="/asistenku-horizontal.png" alt="Asistenku" height="32" className="h-8" />
+        <img src="/assets/asistenku-horizontal.png" alt="Asistenku" height="32" className="h-8" />
       </div>
 
       <div className="rounded-3xl shadow-xl border border-[#d4c5a9]/30 p-10 space-y-8 bg-[#f5f1e8]">
@@ -189,8 +227,8 @@ export default function PartnerRegister() {
             <textarea
               value={keahlian}
               onChange={(e) => setKeahlian(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-[#d4c5a9] bg-white text-[#0f2942] placeholder:text-[#5a6c7d]/50 focus:outline-none focus:ring-2 focus:ring-[#2d9cdb] transition-all resize-none"
               rows={3}
+              className="w-full px-4 py-3 rounded-xl border border-[#d4c5a9] bg-white text-[#0f2942] placeholder:text-[#5a6c7d]/50 focus:outline-none focus:ring-2 focus:ring-[#2d9cdb] transition-all resize-none"
               placeholder="Jelaskan keahlian Anda"
             />
           </div>
@@ -201,7 +239,7 @@ export default function PartnerRegister() {
               value={domisili}
               onChange={(e) => setDomisili(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-[#d4c5a9] bg-white text-[#0f2942] placeholder:text-[#5a6c7d]/50 focus:outline-none focus:ring-2 focus:ring-[#2d9cdb] transition-all"
-              placeholder="Kota, Provinsi"
+              placeholder="Kota/Kabupaten"
             />
           </div>
         </div>
@@ -220,7 +258,7 @@ export default function PartnerRegister() {
         </button>
 
         <div className="text-center pt-4">
-          <a href="/partner/login" className="text-sm text-[#5a6c7d] hover:text-[#0f2942] transition-colors">
+          <a href="/external/partner/login" className="text-sm text-[#5a6c7d] hover:text-[#0f2942] transition-colors">
             Kembali
           </a>
         </div>

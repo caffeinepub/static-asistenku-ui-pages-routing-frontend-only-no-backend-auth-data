@@ -1,9 +1,5 @@
 import { useState, useEffect } from 'react';
 import Landing from './pages/Landing';
-import ClientLogin from './pages/client/ClientLogin';
-import ClientRegister from './pages/client/ClientRegister';
-import PartnerLogin from './pages/partner/PartnerLogin';
-import PartnerRegister from './pages/partner/PartnerRegister';
 import InternalLanding from './pages/internal/InternalLanding';
 import InternalLogin from './pages/internal/InternalLogin';
 import InternalRegister from './pages/internal/InternalRegister';
@@ -14,6 +10,10 @@ import ConciergeDashboard from './pages/dashboards/ConciergeDashboard';
 import AsistenmuDashboard from './pages/dashboards/AsistenmuDashboard';
 import ClientDashboard from './pages/dashboards/ClientDashboard';
 import PartnerDashboard from './pages/dashboards/PartnerDashboard';
+import ExternalClientLogin from './pages/external/ClientLogin';
+import ExternalClientRegister from './pages/external/ClientRegister';
+import ExternalPartnerLogin from './pages/external/PartnerLogin';
+import ExternalPartnerRegister from './pages/external/PartnerRegister';
 
 function NotFound() {
   return (
@@ -47,14 +47,14 @@ export default function App() {
     switch (currentPath) {
       case '/':
         return <Landing />;
-      case '/client/login':
-        return <ClientLogin />;
-      case '/client/register':
-        return <ClientRegister />;
-      case '/partner/login':
-        return <PartnerLogin />;
-      case '/partner/register':
-        return <PartnerRegister />;
+      case '/external/client/login':
+        return <ExternalClientLogin />;
+      case '/external/client/register':
+        return <ExternalClientRegister />;
+      case '/external/partner/login':
+        return <ExternalPartnerLogin />;
+      case '/external/partner/register':
+        return <ExternalPartnerRegister />;
       case '/internal':
         return <InternalLanding />;
       case '/internal/login':

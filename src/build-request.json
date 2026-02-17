@@ -1,262 +1,162 @@
 {
   "kind": "build_request",
-  "title": "Enable Internet Identity login + manual workspace and registration flows for external Client/Partner pages",
-  "projectName": "Asistenku Access",
+  "title": "Backend-only: Append-only Layanan V4 (internal-managed service instances)",
+  "projectName": "Asistenku",
   "priority": "normal",
   "requirements": [
     {
-      "id": "REQ-177",
-      "text": "Create and/or update ONLY these four page files to implement the required Internet Identity (II) + backend flows, without editing any other file: `frontend/src/pages/external/ClientLogin.tsx`, `frontend/src/pages/external/PartnerLogin.tsx`, `frontend/src/pages/external/ClientRegister.tsx`, `frontend/src/pages/external/PartnerRegister.tsx`. If any of these files do not exist yet, create them at exactly these paths and ensure each exports a default React component.",
-      "target": "frontend",
+      "id": "REQ-200",
+      "text": "Modify ONLY `backend/main.mo` to implement the new “Layanan V4” system strictly as an append-only change: add all new code at the very end of the actor (immediately before the final closing brace `}`) without modifying, deleting, moving, reformatting, or reorganizing any existing lines. Do not create any new files.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-user-build-sekarang",
+          "msg-user-layanan-v4-rules"
         ],
         "quotes": [
-          "Kerjakan HANYA file berikut (jangan sentuh file lain, jangan buat route baru): frontend/src/pages/external/ClientRegister.tsx ... PartnerRegister.tsx ... ClientLogin.tsx ... PartnerLogin.tsx"
+          "Ya — larangan lama (backend zero-diff) untuk bagian ini DICABUT. ... Hanya append di akhir.",
+          "Anda HANYA boleh mengubah backend/main.mo dengan cara: MENAMBAHKAN kode baru di BAGIAN AKHIR file (append-only)."
         ]
       },
       "acceptanceCriteria": [
-        "No files other than the 4 specified `frontend/src/pages/external/*` files are modified.",
-        "Each of the 4 files exists and default-exports a React component.",
-        "No new routes are added anywhere (no edits to routing files)."
+        "The only file changed is `backend/main.mo`.",
+        "All existing code in `backend/main.mo` remains byte-for-byte unchanged (no edits above the appended block).",
+        "No new files are created (including no `migration.mo` changes/usage)."
       ]
     },
     {
-      "id": "REQ-178",
-      "text": "In `frontend/src/pages/external/ClientLogin.tsx` and `frontend/src/pages/external/PartnerLogin.tsx`, implement the Login state and behavior using `useInternetIdentity()` and `useActor()` with these local states: `isLoggedInII` (boolean), `isLoadingII` (boolean), `isLoadingWorkspace` (boolean), `error` (string | null). The “Login Internet Identity” button must be enabled by default, call `login()` on click, and on success set `isLoggedInII=true`. Do not call `actor.getCallerUser()` on mount.",
-      "target": "frontend",
+      "id": "REQ-201",
+      "text": "In the appended block, define the Layanan V4 types exactly as specified: `public type LayananTypeV4 = { #TENANG; #RAPI; #FOKUS; #JAGA; #EFEKTIF };` and `public type LayananV4 = { id: Text; clientPrincipal: Principal; tipe: LayananTypeV4; unitTotal: Nat; unitUsed: Nat; hargaPerUnit: Nat; asistenmuPrincipal: Principal; sharedWith: [Principal]; isActive: Bool; isArchived: Bool; createdAt: Int; createdBy: Principal; updatedAt: Int; updatedBy: Principal; };`.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-user-layanan-v4-types"
         ],
         "quotes": [
-          "A) Login Client & Partner ... Implement state: isLoggedInII ... isLoadingII ... isLoadingWorkspace ... error ... Tombol Login Internet Identity Enabled default. OnClick → panggil login() dari useInternetIdentity() Setelah sukses: set isLoggedInII=true",
-          "IMPORTANT: tidak boleh memanggil getCallerUser() di mount."
+          "Tambahkan type: public type LayananTypeV4 = { #TENANG; #RAPI; #FOKUS; #JAGA; #EFEKTIF };",
+          "public type LayananV4 = { id: Text; clientPrincipal: Principal; tipe: LayananTypeV4; unitTotal: Nat; unitUsed: Nat; hargaPerUnit: Nat; asistenmuPrincipal: Principal; sharedWith: [Principal]; isActive: Bool; isArchived: Bool; createdAt: Int; createdBy: Principal; updatedAt: Int; updatedBy: Principal; };"
         ]
       },
       "acceptanceCriteria": [
-        "Both login pages render an enabled “Login Internet Identity” button (not labeled as disabled).",
-        "Clicking the II login button calls `login()` only from a user click handler, not from `useEffect`/onLoad.",
-        "`actor.getCallerUser()` is never called automatically on initial render/mount."
+        "Both types compile and are publicly available from the canister interface.",
+        "The variant names and record field names/types match the spec exactly (including capitalization)."
       ]
     },
     {
-      "id": "REQ-179",
-      "text": "In `frontend/src/pages/external/ClientLogin.tsx` and `frontend/src/pages/external/PartnerLogin.tsx`, implement the “Masuk ke ruang kerja” (Workspace) button behavior: it must be disabled when `!isLoggedInII`. On click, guard against double-submit, set `isLoadingWorkspace=true`, clear `error`, call `actor.getCallerUser()` exactly once, then decide: (1) if caller is not registered, navigate (manual button-triggered navigation) to the role’s register page (Client -> `/daftar/client` OR the existing client register path currently used in the project; Partner -> `/daftar/partner` OR the existing partner register path), (2) if role mismatch, show a public error state with the exact message `“Silahkan klik sesuai dengan akun anda”` and render a button that navigates back to the corresponding role login page, (3) if role matches and status is OK, navigate to the existing dashboard route for that role (use whatever dashboard path already exists in the project). Always set `isLoadingWorkspace=false` in a `finally` block.",
-      "target": "frontend",
+      "id": "REQ-202",
+      "text": "In the appended block, add new stable storage dedicated to V4 only (unique names; do not collide with existing vars): `stable var layananV4Counter : Nat = 0;`, `stable var layananV4Store : [(Text, LayananV4)] = [];`, and `stable var layananV4IndexByClient : [(Principal, [Text])] = [];`. Also add runtime `HashMap`/`Map` structures for fast access: (1) `layananV4ById` keyed by `Text` and (2) `layananV4IdsByClient` keyed by `Principal` to `[Text]`. Keep the stable and runtime stores consistent on every mutation.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-user-layanan-v4-storage"
         ],
         "quotes": [
-          "Tombol Masuk ke ruang kerja Disabled jika !isLoggedInII",
-          "OnClick: set isLoadingWorkspace=true panggil actor.getCallerUser() sekali",
-          "Jika user belum terdaftar: arahkan ke halaman daftar role yang sesuai: Client → /daftar/client (atau path yang sudah kamu pakai sekarang) Partner → /daftar/partner",
-          "Jika role mismatch: tampilkan error state publik: “Silahkan klik sesuai dengan akun anda” + tombol kembali ke /login",
-          "Jika role sesuai & status ok: arahkan ke dashboard role masing-masing (path existing proyek)",
-          "finally set loading false"
+          "Tambahkan stable vars baru ... layananV4Counter ... layananV4Store ... layananV4IndexByClient",
+          "Buat runtime map baru (HashMap) untuk: layananV4ById, layananV4IdsByClient"
         ]
       },
       "acceptanceCriteria": [
-        "Before II login succeeds, the Workspace button is disabled.",
-        "After II login succeeds, the Workspace button becomes enabled.",
-        "Clicking Workspace calls `actor.getCallerUser()` exactly once per click (no retries unless user clicks again).",
-        "If backend indicates the caller is unregistered, the page navigates to the appropriate existing register page for that role.",
-        "If backend indicates role mismatch, the page shows the exact mismatch string `Silahkan klik sesuai dengan akun anda` and provides a back button that navigates to the role’s login page.",
-        "If backend indicates role match and acceptable status, the page navigates to the existing role dashboard route.",
-        "No redirects occur automatically in `useEffect`/onLoad; navigation happens only from explicit button clicks."
+        "After a successful create/edit/toggle/archive, subsequent queries reflect the updated data and indexes (by id and by client).",
+        "State persists across upgrades using the new stable vars (no reliance on non-stable-only runtime data)."
       ]
     },
     {
-      "id": "REQ-180",
-      "text": "In `frontend/src/pages/external/ClientRegister.tsx` and `frontend/src/pages/external/PartnerRegister.tsx`, implement registration states and II gating using `useInternetIdentity()` and `useActor()` with these local states: form fields per the existing UI (Client: `nama`, `email`, `whatsapp`, `perusahaan`; Partner: `nama`, `email`, `whatsapp`, `keahlian`, `domisili`), plus `isSubmitting` (boolean), `isLoggedInII` (boolean), `success` (boolean), `error` (string | null). Add an enabled “Login Internet Identity” button above the Register button when not logged in; after successful II login set `isLoggedInII=true`. Do not auto-redirect on mount.",
-      "target": "frontend",
+      "id": "REQ-203",
+      "text": "In the appended block, implement LV4 id generation using the exact format `LV4-<Nat>` (e.g., `LV4-1`, `LV4-2`, …) based on `layananV4Counter` and ensure it increments monotonically.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-user-layanan-v4-id"
         ],
         "quotes": [
-          "B) Register Client & Partner ... Implement state: form field ... isSubmitting ... isLoggedInII ... success ... error",
-          "Tambahkan tombol Login Internet Identity di halaman register (kalau belum ada), atau jika sudah ada tetapi disabled → aktifkan.",
-          "Setelah login sukses: isLoggedInII=true",
-          "Semua redirect harus manual via tombol, tidak ada redirect otomatis di useEffect/onLoad."
+          "ID format: \"LV4-\" # Nat (contoh LV4-1, LV4-2, ...)."
         ]
       },
       "acceptanceCriteria": [
-        "Both register pages show an enabled “Login Internet Identity” button above the Register/Daftar button when not logged in.",
-        "The registration form’s submit action is not triggered automatically (no onLoad submission and no auto-redirect).",
-        "The component maintains local controlled state for each required input field."
+        "The first created record has id `LV4-1` (given initial counter 0) and each subsequent create increments by 1.",
+        "IDs are never re-used within the same canister state."
       ]
     },
     {
-      "id": "REQ-181",
-      "text": "In `frontend/src/pages/external/ClientRegister.tsx` and `frontend/src/pages/external/PartnerRegister.tsx`, implement form validation and enablement rules for the “Daftar” button. The button must be disabled if: user is not logged in with II (`!isLoggedInII`), or required fields are missing/invalid, or `isSubmitting` is true. Minimum validation: `nama` at least 2 characters; `email` contains `@`; `whatsapp` has at least 9 digits (simple validation is OK); other required fields are non-empty.",
-      "target": "frontend",
+      "id": "REQ-204",
+      "text": "In the appended block, add a new internal-only authorization helper that allows only callers whose existing role is one of: `superadmin`, `admin`, or `finance`. If not allowed, it must trap with the exact message `\"Unauthorized\"`. This helper must reuse the existing role system already present in `backend/main.mo` and must not modify any existing access control logic.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-user-layanan-v4-auth"
         ],
         "quotes": [
-          "Tombol “Daftar” Disabled jika: belum login II (!isLoggedInII) atau field wajib kosong/invalid atau isSubmitting",
-          "Validasi minimum: nama minimal 2 char email ada @ whatsapp minimal 9 digit ... field lain tidak kosong"
+          "Tambahkan helper function baru (gunakan role system yang sudah ada di main.mo): allow caller jika role-nya salah satu: superadmin/admin/finance Jika bukan, trap \"Unauthorized\"."
         ]
       },
       "acceptanceCriteria": [
-        "When not logged in with II, the “Daftar” button is disabled.",
-        "When logged in with II and all required fields are valid, the “Daftar” button becomes enabled.",
-        "If any required field becomes invalid/empty again, the “Daftar” button becomes disabled again."
+        "A caller without an allowed role receives a trap with exactly `Unauthorized` when calling any Layanan V4 method.",
+        "A caller with role `#superadmin` is allowed.",
+        "A caller with internal role `#admin` is allowed.",
+        "A caller with internal role `#finance` is allowed.",
+        "No changes are made to existing AccessControl or existing role checks outside the appended code."
       ]
     },
     {
-      "id": "REQ-182",
-      "text": "In `frontend/src/pages/external/ClientRegister.tsx`, on Daftar/submit click: guard against double-submit, set `isSubmitting=true`, clear previous `error`, then call the existing backend registration method for Client. Prefer `actor.registerClient(nama,email,whatsapp,perusahaan)`; if the backend method name/signature differs in the generated actor typings, call the existing client registration method that already exists in the project (do not add new backend methods). On success: set `success=true` and do not auto-navigate. On failure: show an error banner (non-crashing) with a safe message.",
-      "target": "frontend",
+      "id": "REQ-205",
+      "text": "In the appended block, implement the following public internal-only Layanan V4 methods with the exact names/parameters/behaviors specified, without changing any existing V1/V2/V3 layanan methods or other domains:\n1) `createLayananV4(input)` creates a new record: required input fields: `clientPrincipal`, `tipe`, `unitTotal`, `hargaPerUnit`, `asistenmuPrincipal`, `sharedWith` (may be empty), `isActive` (default `true` if not provided). It must set `unitUsed=0`, `isArchived=false`, set created/updated timestamps and principals to the caller, persist to store + index-by-client, and return the created `LayananV4`.\n2) `editLayananV4(layananId, patch)` allows editing ONLY: `clientPrincipal` (update index if changed), `tipe`, `unitTotal` (validate `unitTotal >= unitUsed`), `hargaPerUnit`, `asistenmuPrincipal`, `sharedWith`, `isActive`. It must NOT allow editing: `id`, `unitUsed`, `isArchived`, `createdAt`, `createdBy`. If layanan not found OR already archived, trap exactly `\"Not found\"`. If `unitTotal < unitUsed`, trap exactly `\"unitTotal cannot be less than unitUsed\"`. Must set `updatedAt/updatedBy` and return the updated `LayananV4`.\n3) `setLayananV4Active(layananId, isActive)` rejects if archived, updates `updatedAt/updatedBy`, returns updated `LayananV4`.\n4) `archiveLayananV4(layananId)` sets `isArchived=true`, `isActive=false`, updates `updatedAt/updatedBy`, returns updated `LayananV4`.\n5) `listAllLayananV4(includeArchived : Bool)` returns all V4 records, filtered by `isArchived` according to the flag.\n6) `listLayananV4ByClient(clientPrincipal, includeArchived : Bool)` returns V4 records for a specific client principal, filtered by `isArchived` according to the flag.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-user-layanan-v4-methods"
         ],
         "quotes": [
-          "OnSubmit daftar: set isSubmitting=true panggil backend register sesuai role: Client: actor.registerClient(nama,email,whatsapp,perusahaan)",
-          "Jika method backend berbeda namanya, gunakan method yang sudah ada di project ... (jangan bikin method baru).",
-          "Jika sukses: set success=true dan jangan auto redirect"
+          "Tambahkan method berikut (semua internal-only): createLayananV4 ... editLayananV4 ... setLayananV4Active ... archiveLayananV4 ... listAllLayananV4 ... listLayananV4ByClient ...",
+          "jika layanan tidak ada atau sudah archived => trap \"Not found\"",
+          "jika unitTotal < unitUsed => trap \"unitTotal cannot be less than unitUsed\""
         ]
       },
       "acceptanceCriteria": [
-        "Client registration calls a backend method for client registration exactly from the submit button click handler.",
-        "If the call succeeds, the page switches to a success state without any automatic redirect.",
-        "If the call fails, an error banner is shown and the page does not crash.",
-        "No new backend code or endpoints are introduced."
+        "All 6 methods exist and compile with the specified names.",
+        "All 6 methods trap with exactly `Unauthorized` when the caller is not superadmin/admin/finance.",
+        "`createLayananV4` sets `unitUsed=0` and `isArchived=false` regardless of input.",
+        "`editLayananV4` traps `Not found` when the id is missing OR the record is archived.",
+        "`editLayananV4` traps `unitTotal cannot be less than unitUsed` when patch reduces total below used.",
+        "`setLayananV4Active` and `archiveLayananV4` do not allow operating on archived records (must reject); archived records remain archived.",
+        "`listAllLayananV4(false)` excludes archived records; `listAllLayananV4(true)` includes them.",
+        "`listLayananV4ByClient` returns only that client’s ids (index maintained correctly when `clientPrincipal` changes via edit)."
       ]
     },
     {
-      "id": "REQ-183",
-      "text": "In `frontend/src/pages/external/PartnerRegister.tsx`, on Daftar/submit click: guard against double-submit, set `isSubmitting=true`, clear previous `error`, then call the existing backend registration method for Partner. Prefer `actor.registerPartner(nama,email,whatsapp,keahlian,domisili)`; if the backend method name/signature differs in the generated actor typings, call the existing partner registration method that already exists in the project (do not add new backend methods). On success: set `success=true` and do not auto-navigate. On failure: show an error banner (non-crashing) with a safe message.",
-      "target": "frontend",
+      "id": "REQ-206",
+      "text": "Perform a backend compile sanity pass after implementing Layanan V4 to ensure `backend/main.mo` compiles successfully and that no existing public methods (registration, claimSuperadmin, master data, status/partner-level utilities, etc.) have changed behavior due to the append-only patch.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-user-build-sekarang",
+          "msg-user-layanan-v4-output"
         ],
         "quotes": [
-          "Partner: actor.registerPartner(nama,email,whatsapp,keahlian,domisili)",
-          "Jika method backend berbeda namanya, gunakan method yang sudah ada di project untuk registrasi role tersebut (jangan bikin method baru).",
-          "Jika sukses: set success=true dan jangan auto redirect"
+          "Build sekarang",
+          "Pastikan compile. Pastikan stable upgrade aman ..."
         ]
       },
       "acceptanceCriteria": [
-        "Partner registration calls a backend method for partner registration exactly from the submit button click handler.",
-        "If the call succeeds, the page switches to a success state without any automatic redirect.",
-        "If the call fails, an error banner is shown and the page does not crash.",
-        "No new backend code or endpoints are introduced."
-      ]
-    },
-    {
-      "id": "REQ-184",
-      "text": "In both register pages, after successful registration (`success===true`), replace the form with a Success State UI that includes: (1) the exact success message `“Pendaftaran berhasil”`, and (2) a button labeled “Masuk ke ruang kerja” that performs a manual workspace navigation flow: on click, call `actor.getCallerUser()` exactly once and navigate to the existing dashboard route for that role (Client/Partner). No automatic redirect after success; navigation must be manual via the button.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-4"
-        ],
-        "quotes": [
-          "Success state: Tampilkan pesan “Pendaftaran berhasil” Tampilkan tombol Masuk ke ruang kerja (manual) Tombol ini memanggil flow yang sama seperti login: panggil actor.getCallerUser() sekali → redirect ke dashboard sesuai role.",
-          "Setelah daftar sukses: tampil Success State + tombol “Masuk ke ruang kerja” (manual)."
-        ]
-      },
-      "acceptanceCriteria": [
-        "After a successful registration, the form inputs are no longer shown and a success view is shown instead.",
-        "The success view shows the exact message `Pendaftaran berhasil`.",
-        "Clicking “Masuk ke ruang kerja” in the success view calls `actor.getCallerUser()` exactly once and then navigates to the existing role dashboard route.",
-        "No `useEffect`/onLoad redirect occurs after success."
-      ]
-    },
-    {
-      "id": "REQ-185",
-      "text": "Implement anti-double-submit protections across all 4 external pages: all action buttons (II login, Register/Daftar, Workspace) must be disabled while their corresponding loading flags are true, and each handler must early-return if the relevant `isLoading...`/`isSubmitting` flag is already true. Ensure `error` is cleared on new attempts and that loading flags reset reliably in `finally` blocks.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-4"
-        ],
-        "quotes": [
-          "C) Anti double submit Semua tombol aksi (Login II, Daftar, Masuk ke ruang kerja) wajib disable saat loading masing-masing true. Semua handler wajib guard: jika isLoading... true → return"
-        ]
-      },
-      "acceptanceCriteria": [
-        "Repeated clicks while loading do not trigger duplicate backend calls.",
-        "Buttons visually and functionally disable while loading/submitting.",
-        "Loading state always resets even when backend calls throw errors (no stuck loading state)."
-      ]
-    },
-    {
-      "id": "REQ-186",
-      "text": "UI/styling constraint: keep the existing layout and styling largely unchanged in these 4 pages (retain the current PageShell-based structure, spacing, and general button styles). Add only the minimum UI needed to support the new logic: enabled/disabled states, loading labels if desired, an error banner region, and the registration success state. Show an error banner when `error` is non-null.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-4"
-        ],
-        "quotes": [
-          "STEP 3 — UI (WAJIB) ... Jangan ubah styling besar-besaran, pertahankan layout yang ada.",
-          "Tampilkan error banner jika error ada"
-        ]
-      },
-      "acceptanceCriteria": [
-        "Pages still look and feel consistent with the existing public pages (no major visual redesign).",
-        "An error banner/alert area appears only when an error exists and does not break layout.",
-        "Login buttons are enabled/disabled exactly per the required state rules."
-      ]
-    },
-    {
-      "id": "REQ-187",
-      "text": "Manual navigation only: ensure that all navigation/redirect behavior in these 4 pages happens only as a result of explicit user button clicks (e.g., setting `window.location.href` or using existing navigation mechanism available within the file), and not via `useEffect`, not on initial load, and not as an automatic reaction to state changes such as `isLoggedInII` becoming true.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-4"
-        ],
-        "quotes": [
-          "Semua redirect harus manual via tombol, tidak ada redirect otomatis di useEffect/onLoad."
-        ]
-      },
-      "acceptanceCriteria": [
-        "There are no automatic redirects triggered by `useEffect`/onLoad in any of the 4 files.",
-        "After II login succeeds, the user remains on the current page until they click Workspace (or another explicit navigation button/link)."
-      ]
-    },
-    {
-      "id": "REQ-188",
-      "text": "Compile/runtime sanity: the app must compile without TypeScript errors after these changes. The 4 updated external pages must not crash in any of these states: not logged in (anonymous identity), actor still initializing (`useActor().isFetching` true and/or `actor` null), backend call failures/throws, unexpected `getCallerUser()` return shapes. Handle backend responses defensively (no assumptions about exact variant shapes beyond role/status checks needed for routing).",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-4"
-        ],
-        "quotes": [
-          "DELIVERABLE: ... Login Client/Partner bisa login II → tombol “Masuk ke ruang kerja” aktif → masuk dashboard bila terdaftar. Register ... submit form → sukses → masuk workspace manual."
-        ]
-      },
-      "acceptanceCriteria": [
-        "No runtime crash occurs when actor is null or still fetching; UI shows a calm error state instead of crashing when actions are attempted too early.",
-        "Backend exceptions are caught and surfaced in the error banner (no unhandled promise rejections).",
-        "TypeScript build passes."
+        "The canister builds without Motoko compiler errors.",
+        "No existing method signatures are modified.",
+        "No existing behavior is removed; all changes are additive and isolated to Layanan V4."
       ]
     }
   ],
   "constraints": [
-    "Do not create, edit, or reference any backend code; do not change `backend/main.mo` or any backend files.",
-    "Modify/create ONLY these four files: `frontend/src/pages/external/ClientRegister.tsx`, `frontend/src/pages/external/PartnerRegister.tsx`, `frontend/src/pages/external/ClientLogin.tsx`, `frontend/src/pages/external/PartnerLogin.tsx`. Do not edit any other frontend file (including `frontend/src/App.tsx`).",
-    "Do not add new routes.",
-    "Do not change internal login flow.",
-    "Do not change any dashboards.",
-    "No automatic redirects on mount/load or in `useEffect`; all navigation must be triggered manually by button clicks.",
-    "Use Internet Identity via the existing `useInternetIdentity()` hook (no third-party auth)."
+    "Backend scope is append-only: add new code only at the end of `backend/main.mo`; do not modify/move/delete/reformat any existing lines.",
+    "Do not create new files (including `backend/migration.mo`) and do not add/modify migration logic.",
+    "Do not change, refactor, or touch any existing domains: users, tasks, master data, finance, and existing layanan V1/V2/V3.",
+    "Do not change `registerClient`/`registerPartner` signatures or existing AccessControl implementation.",
+    "All new Layanan V4 APIs must be internal-only, allowing only superadmin/admin/finance; otherwise trap exactly `Unauthorized`.",
+    "Use the exact LV4 id format `LV4-<Nat>`.",
+    "If `preupgrade`/`postupgrade` already exist, only add V4 handling blocks without changing existing logic; if they do not exist, do not introduce upgrade hooks that require modifying existing code paths."
   ],
   "nonGoals": [
-    "Reworking or redesigning the overall UI theme of the public pages.",
-    "Changing route mappings or adding new route paths.",
-    "Implementing or modifying any internal user/admin/superadmin flows.",
-    "Adding new backend endpoints or changing backend role/status logic."
+    "No frontend changes (no UI/dashboard updates for Layanan V4 in this build).",
+    "No changes to existing layanan V1/V2/V3 behavior or storage.",
+    "No new external integrations or databases.",
+    "No new routing, authentication providers, or role model redesign."
   ],
   "imageRequirements": {
     "required": [],
