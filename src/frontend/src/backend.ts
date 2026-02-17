@@ -149,6 +149,19 @@ export interface KamusPekerjaan {
     jenisPekerjaan: string;
     jamStandar: bigint;
 }
+export interface SuperadminSummaryV1 {
+    partnerLevelJunior: bigint;
+    totalTasks: bigint;
+    clientsCount: bigint;
+    tasksSelesai: bigint;
+    partnerLevelSenior: bigint;
+    totalGMV: bigint;
+    partnersCount: bigint;
+    totalLayananV4: bigint;
+    layananActive: bigint;
+    partnerLevelExpert: bigint;
+    tasksActive: bigint;
+}
 export interface PartnerProfile {
     keahlian: string;
     name: string;
@@ -237,6 +250,7 @@ export interface backendInterface {
     getMyUserId(): Promise<string | null>;
     getPartnerVerifiedSkills(partner: Principal): Promise<Array<string>>;
     getSkillVerified(kode: string): Promise<SkillVerified | null>;
+    getSuperadminSummaryV1(): Promise<SuperadminSummaryV1>;
     getUser(callerPrincipal: Principal): Promise<UserRole | null>;
     getUserProfile(user: Principal): Promise<UserRole | null>;
     isCallerAdmin(): Promise<boolean>;
@@ -536,6 +550,20 @@ export class Backend implements backendInterface {
         } else {
             const result = await this.actor.getSkillVerified(arg0);
             return from_candid_opt_n34(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getSuperadminSummaryV1(): Promise<SuperadminSummaryV1> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getSuperadminSummaryV1();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getSuperadminSummaryV1();
+            return result;
         }
     }
     async getUser(arg0: Principal): Promise<UserRole | null> {

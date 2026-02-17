@@ -1,162 +1,97 @@
 {
   "kind": "build_request",
-  "title": "Backend-only: Append-only Layanan V4 (internal-managed service instances)",
-  "projectName": "Asistenku",
+  "title": "Append-only Ringkasan V1 summary sourced from existing LayananV4/Task/User storages",
+  "projectName": "Asistenku Control Room",
   "priority": "normal",
   "requirements": [
     {
-      "id": "REQ-200",
-      "text": "Modify ONLY `backend/main.mo` to implement the new “Layanan V4” system strictly as an append-only change: add all new code at the very end of the actor (immediately before the final closing brace `}`) without modifying, deleting, moving, reformatting, or reorganizing any existing lines. Do not create any new files.",
+      "id": "REQ-219",
+      "text": "Update `backend/main.mo` using an append-only patch (additions only, placed at the end of the actor) to introduce a new summary type `SuperadminSummaryV1` and a new query method `getSuperadminSummaryV1()` that computes Ringkasan metrics in real time using ONLY existing storages/maps already present in `backend/main.mo`, specifically the legacy read-only Ringkasan data sources: `taskById`, `layananV4ById`, `userRoles`, `userStatusByPrincipal`, and `partnerLevelByPrincipal` (if present). Do not modify, delete, rename, reorder, or rewrite any existing storage declarations or existing logic; all new logic must be additive/append-only.",
       "target": "backend",
       "source": {
         "messageIds": [
-          "msg-user-build-sekarang",
-          "msg-user-layanan-v4-rules"
+          "msg-1"
         ],
         "quotes": [
-          "Ya — larangan lama (backend zero-diff) untuk bagian ini DICABUT. ... Hanya append di akhir.",
-          "Anda HANYA boleh mengubah backend/main.mo dengan cara: MENAMBAHKAN kode baru di BAGIAN AKHIR file (append-only)."
+          "Semua perhitungan Ringkasan bersifat READ ONLY.\nJangan ubah, hapus, atau rewrite storage lama.\nSemua logic baru HARUS APPEND ONLY."
         ]
       },
       "acceptanceCriteria": [
-        "The only file changed is `backend/main.mo`.",
-        "All existing code in `backend/main.mo` remains byte-for-byte unchanged (no edits above the appended block).",
-        "No new files are created (including no `migration.mo` changes/usage)."
+        "`backend/main.mo` contains a new `public type SuperadminSummaryV1 = ...` and a new `public query ({ caller }) func getSuperadminSummaryV1() : async SuperadminSummaryV1` appended near the end of the actor without editing existing lines.",
+        "`getSuperadminSummaryV1()` reads from existing maps only and does not mutate `taskById`, `layananV4ById`, `userRoles`, `userStatusByPrincipal`, `partnerLevelByPrincipal`, or any other existing storage.",
+        "All calculations are derived from the described read-only sources: tasks totals derived from `taskById` and `TaskPhase`; layanan totals/GMV derived from `layananV4ById` and `LayananV4` fields (e.g., active when `isActive==true && isArchived==false`; GMV as `unitTotal * hargaPerUnit`).",
+        "The new summary method is gated using existing auth helpers (reuse existing role checks/helpers already in `main.mo`); unauthorized callers cannot access the summary.",
+        "No migration code is added/modified; no new files are created."
       ]
     },
     {
-      "id": "REQ-201",
-      "text": "In the appended block, define the Layanan V4 types exactly as specified: `public type LayananTypeV4 = { #TENANG; #RAPI; #FOKUS; #JAGA; #EFEKTIF };` and `public type LayananV4 = { id: Text; clientPrincipal: Principal; tipe: LayananTypeV4; unitTotal: Nat; unitUsed: Nat; hargaPerUnit: Nat; asistenmuPrincipal: Principal; sharedWith: [Principal]; isActive: Bool; isArchived: Bool; createdAt: Int; createdBy: Principal; updatedAt: Int; updatedBy: Principal; };`.",
+      "id": "REQ-220",
+      "text": "Ensure the summary computations in `getSuperadminSummaryV1()` treat the existing storages as immutable inputs and follow the existing semantics described by the user: tasks active = phases not `#selesai` and not `#dibatalkan_client`; tasks selesai = phase `#selesai`; layanan active = `isActive==true && isArchived==false`; GMV total = sum of `unitTotal * hargaPerUnit` across layanan V4 records. All new computations must remain read-only and append-only.",
       "target": "backend",
       "source": {
         "messageIds": [
-          "msg-user-layanan-v4-types"
+          "msg-1"
         ],
         "quotes": [
-          "Tambahkan type: public type LayananTypeV4 = { #TENANG; #RAPI; #FOKUS; #JAGA; #EFEKTIF };",
-          "public type LayananV4 = { id: Text; clientPrincipal: Principal; tipe: LayananTypeV4; unitTotal: Nat; unitUsed: Nat; hargaPerUnit: Nat; asistenmuPrincipal: Principal; sharedWith: [Principal]; isActive: Bool; isArchived: Bool; createdAt: Int; createdBy: Principal; updatedAt: Int; updatedBy: Principal; };"
+          "// taskById digunakan untuk:\n// - Hitung total task aktif (phase != #selesai dan != #dibatalkan_client)\n// - Hitung total task selesai (phase == #selesai)\n// - Konversi nilai task selesai untuk perhitungan saldo partner & margin\n//\n// layananV4ById digunakan untuk:\n// - Hitung total layanan aktif (isActive == true && isArchived == false)\n// - Hitung GMV total (unitTotal * hargaPerUnit)\n//\n// partnerLevelByPrincipal digunakan untuk:\n// - Tentukan RATE_JUNIOR / RATE_SENIOR / RATE_EXPERT"
         ]
       },
       "acceptanceCriteria": [
-        "Both types compile and are publicly available from the canister interface.",
-        "The variant names and record field names/types match the spec exactly (including capitalization)."
+        "The computed values for task counts and layanan counts follow the exact phase/flag rules described in the comments.",
+        "GMV is computed from V4 layanan only and matches the formula `unitTotal * hargaPerUnit` aggregated over the selected layanan set.",
+        "The method does not alter any task, layanan, or user storage as part of computing summary values."
       ]
     },
     {
-      "id": "REQ-202",
-      "text": "In the appended block, add new stable storage dedicated to V4 only (unique names; do not collide with existing vars): `stable var layananV4Counter : Nat = 0;`, `stable var layananV4Store : [(Text, LayananV4)] = [];`, and `stable var layananV4IndexByClient : [(Principal, [Text])] = [];`. Also add runtime `HashMap`/`Map` structures for fast access: (1) `layananV4ById` keyed by `Text` and (2) `layananV4IdsByClient` keyed by `Principal` to `[Text]`. Keep the stable and runtime stores consistent on every mutation.",
-      "target": "backend",
+      "id": "REQ-221",
+      "text": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to consume `actor.getSuperadminSummaryV1()` within the existing Ringkasan tab, adding minimal new local state (`summaryV1`, `summaryV1Loading`, `summaryV1Error`) and a Refresh control for this summary block only. This change must be additive and must not refactor or change the behavior/state/backend calls of the existing tabs beyond adding the new Ringkasan V1 block.",
+      "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-user-layanan-v4-storage"
+          "msg-1"
         ],
         "quotes": [
-          "Tambahkan stable vars baru ... layananV4Counter ... layananV4Store ... layananV4IndexByClient",
-          "Buat runtime map baru (HashMap) untuk: layananV4ById, layananV4IdsByClient"
+          "Build APPEND ONLY.\n... Semua logic baru HARUS APPEND ONLY."
         ]
       },
       "acceptanceCriteria": [
-        "After a successful create/edit/toggle/archive, subsequent queries reflect the updated data and indexes (by id and by client).",
-        "State persists across upgrades using the new stable vars (no reliance on non-stable-only runtime data)."
+        "`SuperadminDashboard.tsx` includes a new Ringkasan section that calls `actor.getSuperadminSummaryV1()` only when the Ringkasan tab is active and the backend actor is ready.",
+        "The new Ringkasan V1 UI shows calm loading and error states without crashing the dashboard.",
+        "A per-section Refresh action re-fetches only the Ringkasan V1 summary data.",
+        "All newly introduced user-facing strings in this new UI block are in English."
       ]
     },
     {
-      "id": "REQ-203",
-      "text": "In the appended block, implement LV4 id generation using the exact format `LV4-<Nat>` (e.g., `LV4-1`, `LV4-2`, …) based on `layananV4Counter` and ensure it increments monotonically.",
-      "target": "backend",
+      "id": "REQ-222",
+      "text": "Perform a compile/runtime sanity pass for the patched backend and `SuperadminDashboard.tsx` ensuring: (1) the backend compiles, (2) the dashboard does not crash in anonymous identity state (no backend calls), (3) the dashboard does not crash while the actor is initializing, and (4) unexpected/missing backend method shape errors are handled gracefully with an English error message (no raw traps shown to the user).",
+      "target": "both",
       "source": {
         "messageIds": [
-          "msg-user-layanan-v4-id"
+          "msg-1"
         ],
         "quotes": [
-          "ID format: \"LV4-\" # Nat (contoh LV4-1, LV4-2, ...)."
+          "Use English for any user-facing text in the build request."
         ]
       },
       "acceptanceCriteria": [
-        "The first created record has id `LV4-1` (given initial counter 0) and each subsequent create increments by 1.",
-        "IDs are never re-used within the same canister state."
-      ]
-    },
-    {
-      "id": "REQ-204",
-      "text": "In the appended block, add a new internal-only authorization helper that allows only callers whose existing role is one of: `superadmin`, `admin`, or `finance`. If not allowed, it must trap with the exact message `\"Unauthorized\"`. This helper must reuse the existing role system already present in `backend/main.mo` and must not modify any existing access control logic.",
-      "target": "backend",
-      "source": {
-        "messageIds": [
-          "msg-user-layanan-v4-auth"
-        ],
-        "quotes": [
-          "Tambahkan helper function baru (gunakan role system yang sudah ada di main.mo): allow caller jika role-nya salah satu: superadmin/admin/finance Jika bukan, trap \"Unauthorized\"."
-        ]
-      },
-      "acceptanceCriteria": [
-        "A caller without an allowed role receives a trap with exactly `Unauthorized` when calling any Layanan V4 method.",
-        "A caller with role `#superadmin` is allowed.",
-        "A caller with internal role `#admin` is allowed.",
-        "A caller with internal role `#finance` is allowed.",
-        "No changes are made to existing AccessControl or existing role checks outside the appended code."
-      ]
-    },
-    {
-      "id": "REQ-205",
-      "text": "In the appended block, implement the following public internal-only Layanan V4 methods with the exact names/parameters/behaviors specified, without changing any existing V1/V2/V3 layanan methods or other domains:\n1) `createLayananV4(input)` creates a new record: required input fields: `clientPrincipal`, `tipe`, `unitTotal`, `hargaPerUnit`, `asistenmuPrincipal`, `sharedWith` (may be empty), `isActive` (default `true` if not provided). It must set `unitUsed=0`, `isArchived=false`, set created/updated timestamps and principals to the caller, persist to store + index-by-client, and return the created `LayananV4`.\n2) `editLayananV4(layananId, patch)` allows editing ONLY: `clientPrincipal` (update index if changed), `tipe`, `unitTotal` (validate `unitTotal >= unitUsed`), `hargaPerUnit`, `asistenmuPrincipal`, `sharedWith`, `isActive`. It must NOT allow editing: `id`, `unitUsed`, `isArchived`, `createdAt`, `createdBy`. If layanan not found OR already archived, trap exactly `\"Not found\"`. If `unitTotal < unitUsed`, trap exactly `\"unitTotal cannot be less than unitUsed\"`. Must set `updatedAt/updatedBy` and return the updated `LayananV4`.\n3) `setLayananV4Active(layananId, isActive)` rejects if archived, updates `updatedAt/updatedBy`, returns updated `LayananV4`.\n4) `archiveLayananV4(layananId)` sets `isArchived=true`, `isActive=false`, updates `updatedAt/updatedBy`, returns updated `LayananV4`.\n5) `listAllLayananV4(includeArchived : Bool)` returns all V4 records, filtered by `isArchived` according to the flag.\n6) `listLayananV4ByClient(clientPrincipal, includeArchived : Bool)` returns V4 records for a specific client principal, filtered by `isArchived` according to the flag.",
-      "target": "backend",
-      "source": {
-        "messageIds": [
-          "msg-user-layanan-v4-methods"
-        ],
-        "quotes": [
-          "Tambahkan method berikut (semua internal-only): createLayananV4 ... editLayananV4 ... setLayananV4Active ... archiveLayananV4 ... listAllLayananV4 ... listLayananV4ByClient ...",
-          "jika layanan tidak ada atau sudah archived => trap \"Not found\"",
-          "jika unitTotal < unitUsed => trap \"unitTotal cannot be less than unitUsed\""
-        ]
-      },
-      "acceptanceCriteria": [
-        "All 6 methods exist and compile with the specified names.",
-        "All 6 methods trap with exactly `Unauthorized` when the caller is not superadmin/admin/finance.",
-        "`createLayananV4` sets `unitUsed=0` and `isArchived=false` regardless of input.",
-        "`editLayananV4` traps `Not found` when the id is missing OR the record is archived.",
-        "`editLayananV4` traps `unitTotal cannot be less than unitUsed` when patch reduces total below used.",
-        "`setLayananV4Active` and `archiveLayananV4` do not allow operating on archived records (must reject); archived records remain archived.",
-        "`listAllLayananV4(false)` excludes archived records; `listAllLayananV4(true)` includes them.",
-        "`listLayananV4ByClient` returns only that client’s ids (index maintained correctly when `clientPrincipal` changes via edit)."
-      ]
-    },
-    {
-      "id": "REQ-206",
-      "text": "Perform a backend compile sanity pass after implementing Layanan V4 to ensure `backend/main.mo` compiles successfully and that no existing public methods (registration, claimSuperadmin, master data, status/partner-level utilities, etc.) have changed behavior due to the append-only patch.",
-      "target": "backend",
-      "source": {
-        "messageIds": [
-          "msg-user-build-sekarang",
-          "msg-user-layanan-v4-output"
-        ],
-        "quotes": [
-          "Build sekarang",
-          "Pastikan compile. Pastikan stable upgrade aman ..."
-        ]
-      },
-      "acceptanceCriteria": [
-        "The canister builds without Motoko compiler errors.",
-        "No existing method signatures are modified.",
-        "No existing behavior is removed; all changes are additive and isolated to Layanan V4."
+        "Backend compiles successfully after the append-only additions.",
+        "When identity is anonymous, the Superadmin dashboard renders the existing login guidance view and does not call `getSuperadminSummaryV1()`.",
+        "When `actor` is null/undefined or `actorFetching` is true, Ringkasan V1 does not attempt backend calls and the UI remains stable.",
+        "If `actor.getSuperadminSummaryV1` is missing at runtime, the UI shows a calm English message instead of crashing."
       ]
     }
   ],
   "constraints": [
-    "Backend scope is append-only: add new code only at the end of `backend/main.mo`; do not modify/move/delete/reformat any existing lines.",
-    "Do not create new files (including `backend/migration.mo`) and do not add/modify migration logic.",
-    "Do not change, refactor, or touch any existing domains: users, tasks, master data, finance, and existing layanan V1/V2/V3.",
-    "Do not change `registerClient`/`registerPartner` signatures or existing AccessControl implementation.",
-    "All new Layanan V4 APIs must be internal-only, allowing only superadmin/admin/finance; otherwise trap exactly `Unauthorized`.",
-    "Use the exact LV4 id format `LV4-<Nat>`.",
-    "If `preupgrade`/`postupgrade` already exist, only add V4 handling blocks without changing existing logic; if they do not exist, do not introduce upgrade hooks that require modifying existing code paths."
+    "Backend changes must be APPEND ONLY in `backend/main.mo`: do not modify, delete, move, rename, reorder, or reformat any existing lines; add new code only at the end of the actor.",
+    "Do not change, delete, or rewrite any existing storages/maps used as Ringkasan data sources (`taskById`, `layananV4ById`, `userRoles`, `userStatusByPrincipal`, `partnerLevelByPrincipal`); treat them as read-only inputs for summary.",
+    "Do not add or modify `backend/migration.mo`, and do not introduce migration imports/upgrade hooks as part of this change.",
+    "Frontend scope is limited to modifying ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` for the Ringkasan V1 UI addition; no routing changes and no new pages/files.",
+    "All newly introduced user-facing strings must be in English."
   ],
   "nonGoals": [
-    "No frontend changes (no UI/dashboard updates for Layanan V4 in this build).",
-    "No changes to existing layanan V1/V2/V3 behavior or storage.",
-    "No new external integrations or databases.",
-    "No new routing, authentication providers, or role model redesign."
+    "Do not refactor or redesign the existing Superadmin dashboard tabs (Users, Master Data, Rates, Tasks) beyond the minimal additive Ringkasan V1 block.",
+    "Do not change any existing Layanan V4 / Task / User storage schemas or indexing behavior.",
+    "Do not implement new backend CRUD endpoints for Layanan V4, Tasks, or Users beyond the single summary query required here."
   ],
   "imageRequirements": {
     "required": [],

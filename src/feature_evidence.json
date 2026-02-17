@@ -1,4 +1,45 @@
 {
   "kind": "feature_evidence_report",
-  "features": []
+  "features": [
+    {
+      "featureId": "feature-modify-only-frontend-src-pages-dashboards-superadmindashboard-tsx-to-consume-actor-getsuperadminsummaryv1-within-the-existing-ringkasan-tab-adding-minimal-new-local-state-summaryv1-summaryv1loading-summaryv1error-and-a-refresh-control-for-this-summary-block-only-this-change-must-be-additive-and-must-not-refactor-or-change-the-behavior-state-backend-calls-of-the-existing-tabs-beyond-adding-the-new-ringkasan-v1-block",
+      "featureTitle": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to consume `actor.getSuperadminSummaryV1()` within the existing Ringkasan tab, adding minimal new local state (`summaryV1`, `summaryV1Loading`, `summaryV1Error`) and a Refresh control for this summary block only. This change must be additive and must not refactor or change the behavior/state/backend calls of the existing tabs beyond adding the new Ringkasan V1 block.",
+      "files": [
+        "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0",
+        "user-approval@3.0.0"
+      ],
+      "testIds": [
+        "REQ-221"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-perform-a-compile-runtime-sanity-pass-for-the-patched-backend-and-superadmindashboard-tsx-ensuring-1-the-backend-compiles-2-the-dashboard-does-not-crash-in-anonymous-identity-state-no-backend-calls-3-the-dashboard-does-not-crash-while-the-actor-is-initializing-and-4-unexpected-missing-backend-method-shape-errors-are-handled-gracefully-with-an-english-error-message-no-raw-traps-shown-to-the-user",
+      "featureTitle": "Perform a compile/runtime sanity pass for the patched backend and `SuperadminDashboard.tsx` ensuring: (1) the backend compiles, (2) the dashboard does not crash in anonymous identity state (no backend calls), (3) the dashboard does not crash while the actor is initializing, and (4) unexpected/missing backend method shape errors are handled gracefully with an English error message (no raw traps shown to the user).",
+      "files": [
+        "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0",
+        "user-approval@3.0.0"
+      ],
+      "testIds": [
+        "REQ-222"
+      ],
+      "confidence": "high"
+    }
+  ]
 }

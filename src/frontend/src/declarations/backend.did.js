@@ -104,6 +104,19 @@ export const SkillVerified = IDL.Record({
   'createdAt' : IDL.Int,
   'kategori' : IDL.Text,
 });
+export const SuperadminSummaryV1 = IDL.Record({
+  'partnerLevelJunior' : IDL.Nat,
+  'totalTasks' : IDL.Nat,
+  'clientsCount' : IDL.Nat,
+  'tasksSelesai' : IDL.Nat,
+  'partnerLevelSenior' : IDL.Nat,
+  'totalGMV' : IDL.Nat,
+  'partnersCount' : IDL.Nat,
+  'totalLayananV4' : IDL.Nat,
+  'layananActive' : IDL.Nat,
+  'partnerLevelExpert' : IDL.Nat,
+  'tasksActive' : IDL.Nat,
+});
 export const ApprovalStatus = IDL.Variant({
   'pending' : IDL.Null,
   'approved' : IDL.Null,
@@ -186,6 +199,7 @@ export const idlService = IDL.Service({
       [IDL.Opt(SkillVerified)],
       ['query'],
     ),
+  'getSuperadminSummaryV1' : IDL.Func([], [SuperadminSummaryV1], ['query']),
   'getUser' : IDL.Func([IDL.Principal], [IDL.Opt(UserRole)], ['query']),
   'getUserProfile' : IDL.Func([IDL.Principal], [IDL.Opt(UserRole)], ['query']),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
@@ -364,6 +378,19 @@ export const idlFactory = ({ IDL }) => {
     'createdAt' : IDL.Int,
     'kategori' : IDL.Text,
   });
+  const SuperadminSummaryV1 = IDL.Record({
+    'partnerLevelJunior' : IDL.Nat,
+    'totalTasks' : IDL.Nat,
+    'clientsCount' : IDL.Nat,
+    'tasksSelesai' : IDL.Nat,
+    'partnerLevelSenior' : IDL.Nat,
+    'totalGMV' : IDL.Nat,
+    'partnersCount' : IDL.Nat,
+    'totalLayananV4' : IDL.Nat,
+    'layananActive' : IDL.Nat,
+    'partnerLevelExpert' : IDL.Nat,
+    'tasksActive' : IDL.Nat,
+  });
   const ApprovalStatus = IDL.Variant({
     'pending' : IDL.Null,
     'approved' : IDL.Null,
@@ -446,6 +473,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Opt(SkillVerified)],
         ['query'],
       ),
+    'getSuperadminSummaryV1' : IDL.Func([], [SuperadminSummaryV1], ['query']),
     'getUser' : IDL.Func([IDL.Principal], [IDL.Opt(UserRole)], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],

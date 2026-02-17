@@ -87,6 +87,19 @@ export interface SkillVerified {
   'createdAt' : bigint,
   'kategori' : string,
 }
+export interface SuperadminSummaryV1 {
+  'partnerLevelJunior' : bigint,
+  'totalTasks' : bigint,
+  'clientsCount' : bigint,
+  'tasksSelesai' : bigint,
+  'partnerLevelSenior' : bigint,
+  'totalGMV' : bigint,
+  'partnersCount' : bigint,
+  'totalLayananV4' : bigint,
+  'layananActive' : bigint,
+  'partnerLevelExpert' : bigint,
+  'tasksActive' : bigint,
+}
 export type TipePartner = { 'junior' : null } |
   { 'senior' : null } |
   { 'expert' : null };
@@ -147,6 +160,7 @@ export interface _SERVICE {
   'getMyUserId' : ActorMethod<[], [] | [string]>,
   'getPartnerVerifiedSkills' : ActorMethod<[Principal], Array<string>>,
   'getSkillVerified' : ActorMethod<[string], [] | [SkillVerified]>,
+  'getSuperadminSummaryV1' : ActorMethod<[], SuperadminSummaryV1>,
   'getUser' : ActorMethod<[Principal], [] | [UserRole]>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserRole]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,

@@ -5,10 +5,10 @@ import Principal "mo:core/Principal";
 import Time "mo:core/Time";
 import Runtime "mo:core/Runtime";
 import Array "mo:core/Array";
-import Iter "mo:core/Iter";
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
 import UserApproval "user-approval/approval";
+import Iter "mo:core/Iter";
 import Int "mo:core/Int";
 
 actor {
@@ -943,5 +943,91 @@ actor {
   system func postupgrade() {
     layananV4ById := Map.fromIter<Text, LayananV4>(layananV4Store.values());
     layananV4IdsByClient := Map.fromIter<Principal, [Text]>(layananV4IndexByClient.values());
+  };
+
+  // PATCH STARTS HERE
+  public type SuperadminSummaryV1 = {
+    totalTasks : Nat;
+    tasksActive : Nat;
+    tasksSelesai : Nat;
+    totalLayananV4 : Nat;
+    layananActive : Nat;
+    totalGMV : Nat;
+    clientsCount : Nat;
+    partnersCount : Nat;
+    partnerLevelJunior : Nat;
+    partnerLevelSenior : Nat;
+    partnerLevelExpert : Nat;
+  };
+
+  public query ({ caller }) func getSuperadminSummaryV1() : async SuperadminSummaryV1 {
+    if (not isSuperadmin(caller)) {
+      Runtime.trap("Permission denied. Only superadmin can view this summary.");
+    };
+
+    var totalTasks = 0;
+    var tasksActive = 0;
+    var tasksSelesai = 0;
+
+    let taskIt = taskById.values();
+    for (task in taskIt) {
+      totalTasks += 1;
+      switch (task.phase) {
+        case (#selesai) { tasksSelesai += 1 };
+        case (#dibatalkan_client) {};
+        case (_) { tasksActive += 1 };
+      };
+    };
+
+    var totalLayananV4 = 0;
+    var layananActive = 0;
+    var totalGMV = 0;
+
+    let layananIt = layananV4ById.values();
+    for (layanan in layananIt) {
+      totalLayananV4 += 1;
+      if (layanan.isActive and not layanan.isArchived) {
+        layananActive += 1;
+      };
+      totalGMV += layanan.unitTotal * layanan.hargaPerUnit;
+    };
+
+    var clientsCount = 0;
+    var partnersCount = 0;
+    var partnerLevelJunior = 0;
+    var partnerLevelSenior = 0;
+    var partnerLevelExpert = 0;
+
+    let userIt = userRoles.values();
+    for (userRole in userIt) {
+      switch (userRole) {
+        case (#client(_)) { clientsCount += 1 };
+        case (#partner(_)) { partnersCount += 1 };
+        case (_) {};
+      };
+    };
+
+    let levelIt = partnerLevelByPrincipal.values();
+    for (level in levelIt) {
+      switch (level) {
+        case (#junior) { partnerLevelJunior += 1 };
+        case (#senior) { partnerLevelSenior += 1 };
+        case (#expert) { partnerLevelExpert += 1 };
+      };
+    };
+
+    {
+      totalTasks;
+      tasksActive;
+      tasksSelesai;
+      totalLayananV4;
+      layananActive;
+      totalGMV;
+      clientsCount;
+      partnersCount;
+      partnerLevelJunior;
+      partnerLevelSenior;
+      partnerLevelExpert;
+    };
   };
 };

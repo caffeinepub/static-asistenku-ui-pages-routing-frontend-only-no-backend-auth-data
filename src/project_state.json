@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 75,
-  "summary": "Scope update: Backend-only append-only change to implement new internal-managed “Layanan V4” system in backend/main.mo. Rules: append code at end of file only; no refactor/rewrite; do not modify/move/delete existing code; do not affect users/tasks/master data/finance or existing layanan V1/V2/V3. If preupgrade/postupgrade exist, only append V4 handling blocks inside them without altering existing logic. Implement V4 types, stable storage + runtime HashMaps with stable<->runtime conversion, internal-only auth (superadmin/admin/finance -> otherwise trap \"Unauthorized\"), LV4-<Nat> id generation, and methods: createLayananV4, editLayananV4 (id/unitUsed/isArchived/created* immutable; validate unitTotal>=unitUsed; archived/not found -> trap), setLayananV4Active (reject if archived), archiveLayananV4 (soft delete), listAllLayananV4(includeArchived), listLayananV4ByClient(clientPrincipal, includeArchived).",
+  "projectStateVersion": 81,
+  "summary": "Scope update: Append-only patch (no refactor/rewrite; do not modify/move/delete existing lines; no new files/routes; do not touch preupgrade/postupgrade) limited to ONLY `backend/main.mo` and `frontend/src/pages/dashboards/SuperadminDashboard.tsx`. Goal: add real-time \"Ringkasan V1\" in Superadmin Dashboard using ONLY existing storages/maps (users via `userRoles` + `userStatusByPrincipal` + `partnerLevelByPrincipal` + `partnerSkillsByPrincipal`; layanan via `layananV4ById`; tasks via `taskById`) and existing auth helper. Backend: append `SuperadminSummaryV1` type + `getSuperadminSummaryV1()` method gated to superadmin/admin/finance computing Users/Layanan/Tasks/Financial in real time (GMV from layananV4; task cost from selesai tasks). Frontend: append-only additions inside Ringkasan tab—new state (summaryV1/loading/error), call `actor.getSuperadminSummaryV1()` when Ringkasan active, and add new summary card(s) without changing existing cards or other tabs.",
   "architectural_notes": [
     "Use react-router-dom Routes with explicit mappings and a '*' fallback 404 page with a button back to '/'",
     "Ensure App.tsx uses BrowserRouter + Routes from react-router-dom and does not crash on load.",
@@ -1091,6 +1091,118 @@
         "REQ-199"
       ],
       "version": 1
+    },
+    {
+      "id": "feature-modify-only-frontend-src-pages-dashboards-superadmindashboard-tsx-to-add-a-new-in-page-tab-labeled-layanan-as-the-6th-tab-with-the-exact-tab-order-ringkasan-users-master-data-rates-tasks-layanan-this-must-be-additive-do-not-replace-refactor-or-change-the-behavior-state-or-backend-calls-of-the-existing-5-tabs",
+      "title": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to add a new in-page tab labeled “Layanan” as the 6th tab, with the exact tab order: Ringkasan, Users, Master Data, Rates, Tasks, Layanan. This must be additive: do not replace, refactor, or change the behavior, state, or backend calls of the existing 5 tabs.",
+      "reqIds": [
+        "REQ-207"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-the-layanan-tab-ui-as-a-minimal-straightforward-table-modal-approach-no-new-collapsible-ui-systems-add-a-toggle-labeled-exactly-show-archived-that-controls-whether-archived-items-are-included-in-the-listing-add-a-primary-action-button-labeled-exactly-tambah-layanan-that-opens-a-create-modal",
+      "title": "Implement the “Layanan” tab UI as a minimal, straightforward table + modal approach (no new collapsible UI systems). Add a toggle labeled exactly “Show Archived” that controls whether archived items are included in the listing. Add a primary action button labeled exactly “Tambah Layanan” that opens a Create modal.",
+      "reqIds": [
+        "REQ-208"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-the-layanan-tab-fetch-and-render-the-list-using-only-actor-listalllayananv4-includearchived-and-render-a-table-with-the-exact-columns-id-clientprincipal-tipe-unittotal-unitused-hargaperunit-asistenmuprincipal-sharedwithcount-status-active-archived-sharedwithcount-must-be-derived-client-side-as-the-length-of-sharedwith-when-present-otherwise-show-0-status-must-reflect-archived-state-active-vs-archived",
+      "title": "In the “Layanan” tab, fetch and render the list using ONLY `actor.listAllLayananV4(includeArchived)` and render a table with the exact columns: id, clientPrincipal, tipe, unitTotal, unitUsed, hargaPerUnit, asistenmuPrincipal, sharedWithCount, status (active/archived). `sharedWithCount` must be derived client-side as the length of `sharedWith` when present; otherwise show 0. `status` must reflect archived state (active vs archived).",
+      "reqIds": [
+        "REQ-209"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-row-actions-in-the-layanan-table-with-these-actions-per-row-1-edit-opens-an-edit-modal-2-archive-must-show-a-confirm-prompt-before-calling-the-backend-and-3-activate-deactivate-a-single-control-that-toggles-active-state-these-actions-must-call-only-the-v4-actor-methods-editlayananv4-archivelayananv4-and-setlayananv4active",
+      "title": "Implement row actions in the “Layanan” table with these actions per row: (1) Edit (opens an Edit modal), (2) Archive (must show a confirm prompt before calling the backend), and (3) Activate/Deactivate (a single control that toggles active state). These actions must call ONLY the V4 actor methods: `editLayananV4`, `archiveLayananV4`, and `setLayananV4Active`.",
+      "reqIds": [
+        "REQ-210"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-the-create-and-edit-modals-for-layanan-v4-using-the-same-styling-pattern-already-used-by-existing-crud-modals-in-superadmindashboard-tsx-simple-modal-no-new-component-frameworks-the-create-form-must-include-clientprincipal-text-tipe-dropdown-with-exact-options-tenang-rapi-fokus-jaga-efektif-unittotal-number-hargaperunit-number-asistenmuprincipal-text-sharedwith-textarea-1-principal-per-line-isactive-checkbox-default-true-the-edit-form-must-include-the-same-fields-and-must-show-unitused-as-read-only-visible-but-not-editable",
+      "title": "Implement the Create and Edit modals for Layanan V4 using the same styling/pattern already used by existing CRUD modals in `SuperadminDashboard.tsx` (simple modal, no new component frameworks). The Create form must include: clientPrincipal (text), tipe (dropdown with exact options TENANG/RAPI/FOKUS/JAGA/EFEKTIF), unitTotal (number), hargaPerUnit (number), asistenmuPrincipal (text), sharedWith (textarea; 1 principal per line), isActive (checkbox; default true). The Edit form must include the same fields and must show unitUsed as read-only (visible but not editable).",
+      "reqIds": [
+        "REQ-211"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-for-all-layanan-tab-backend-interactions-list-create-edit-archive-activate-deactivate-wrap-calls-in-try-catch-show-errors-using-the-same-banner-alert-ui-pattern-already-used-in-the-users-master-data-tabs-within-superadmindashboard-tsx-reuse-the-existing-error-presentation-approach-do-not-introduce-a-new-error-system-and-refresh-the-layanan-list-after-any-successful-mutation",
+      "title": "For all Layanan tab backend interactions (list, create, edit, archive, activate/deactivate): wrap calls in try/catch, show errors using the same banner/alert UI pattern already used in the Users/Master Data tabs within `SuperadminDashboard.tsx` (reuse the existing error presentation approach; do not introduce a new error system), and refresh the Layanan list after any successful mutation.",
+      "reqIds": [
+        "REQ-212"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-keep-scope-and-architecture-constraints-do-not-create-new-pages-do-not-change-routing-do-not-change-other-tabs-and-do-not-add-auto-redirect-on-load-logic-it-is-allowed-to-add-new-local-state-and-handlers-required-for-the-layanan-tab-but-do-not-refactor-existing-state-handlers-for-other-tabs-changes-must-remain-local-and-additive-inside-superadmindashboard-tsx",
+      "title": "Keep scope and architecture constraints: do not create new pages, do not change routing, do not change other tabs, and do not add auto-redirect-on-load logic. It is allowed to add new local state and handlers required for the Layanan tab, but do not refactor existing state/handlers for other tabs; changes must remain local and additive inside `SuperadminDashboard.tsx`.",
+      "reqIds": [
+        "REQ-213"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-robustness-guards-in-the-layanan-tab-if-actor-is-null-undefined-or-actorfetching-is-true-disable-mutation-buttons-tambah-layanan-save-create-edit-save-archive-confirm-action-activate-deactivate-and-show-a-calm-non-crashing-inline-message-in-the-layanan-tab-indicating-the-backend-is-not-ready-ensure-the-dashboard-never-crashes-due-to-missing-actor-methods-or-unexpected-return-shapes-defensive-handling",
+      "title": "Add robustness guards in the Layanan tab: if `actor` is null/undefined or `actorFetching` is true, disable mutation buttons (Tambah Layanan, Save/Create, Edit Save, Archive confirm action, Activate/Deactivate) and show a calm, non-crashing inline message in the Layanan tab indicating the backend is not ready. Ensure the dashboard never crashes due to missing actor methods or unexpected return shapes (defensive handling).",
+      "reqIds": [
+        "REQ-214"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-restore-frontend-src-pages-dashboards-superadmindashboard-tsx-to-match-the-internal-build-version-37-implementation-for-the-five-existing-tabs-ringkasan-users-master-data-rates-tasks-replacing-the-current-placeholder-only-content-while-preserving-the-current-overall-dashboard-layout-styling-conventions-used-in-this-file",
+      "title": "Restore `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to match the internal build version 37 implementation for the five existing tabs (Ringkasan, Users, Master Data, Rates, Tasks), replacing the current placeholder-only content, while preserving the current overall dashboard layout/styling conventions used in this file.",
+      "reqIds": [
+        "REQ-215"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-keep-the-layanan-tab-6th-tab-in-frontend-src-pages-dashboards-superadmindashboard-tsx-and-ensure-it-is-added-strictly-additively-on-top-of-the-restored-build-v37-dashboard-without-altering-the-behavior-state-back-end-calls-of-the-other-five-tabs",
+      "title": "Keep the Layanan tab (6th tab) in `frontend/src/pages/dashboards/SuperadminDashboard.tsx` and ensure it is added strictly additively on top of the restored build v37 dashboard, without altering the behavior/state/back-end calls of the other five tabs.",
+      "reqIds": [
+        "REQ-216"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-the-layanan-tab-within-frontend-src-pages-dashboards-superadmindashboard-tsx-implement-the-ui-and-v4-only-backend-interactions-as-specified-show-archived-toggle-list-using-actor-listalllayananv4-includearchived-table-columns-id-clientprincipal-tipe-unittotal-unitused-hargaperunit-asistenmuprincipal-sharedwithcount-status-active-archived-row-actions-edit-modal-archive-confirm-activate-deactivate-toggle-and-a-tambah-layanan-create-modal-with-the-specified-fields-and-edit-modal-showing-unitused-read-only",
+      "title": "In the Layanan tab within `frontend/src/pages/dashboards/SuperadminDashboard.tsx`, implement the UI and V4-only backend interactions as specified: Show Archived toggle; list using `actor.listAllLayananV4(includeArchived)`; table columns `id, clientPrincipal, tipe, unitTotal, unitUsed, hargaPerUnit, asistenmuPrincipal, sharedWithCount, status (active/archived)`; row actions Edit (modal), Archive (confirm), Activate/Deactivate (toggle); and a “Tambah Layanan” create modal with the specified fields (and Edit modal showing `unitUsed` read-only).",
+      "reqIds": [
+        "REQ-217"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-ensure-the-layanan-tab-error-handling-and-robustness-rules-do-not-crash-the-dashboard-wrap-all-layanan-backend-calls-in-try-catch-display-errors-using-the-same-existing-banner-alert-pattern-in-the-dashboard-guard-against-missing-actor-methods-and-actor-initialization-disable-mutation-controls-when-the-backend-actor-is-not-ready-and-refresh-the-layanan-listing-after-every-successful-mutation",
+      "title": "Ensure the Layanan tab error handling and robustness rules do not crash the dashboard: wrap all Layanan backend calls in try/catch; display errors using the same existing banner/alert pattern in the dashboard; guard against missing actor/methods and actor initialization; disable mutation controls when the backend actor is not ready; and refresh the Layanan listing after every successful mutation.",
+      "reqIds": [
+        "REQ-218"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-modify-only-frontend-src-pages-dashboards-superadmindashboard-tsx-to-consume-actor-getsuperadminsummaryv1-within-the-existing-ringkasan-tab-adding-minimal-new-local-state-summaryv1-summaryv1loading-summaryv1error-and-a-refresh-control-for-this-summary-block-only-this-change-must-be-additive-and-must-not-refactor-or-change-the-behavior-state-backend-calls-of-the-existing-tabs-beyond-adding-the-new-ringkasan-v1-block",
+      "title": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to consume `actor.getSuperadminSummaryV1()` within the existing Ringkasan tab, adding minimal new local state (`summaryV1`, `summaryV1Loading`, `summaryV1Error`) and a Refresh control for this summary block only. This change must be additive and must not refactor or change the behavior/state/backend calls of the existing tabs beyond adding the new Ringkasan V1 block.",
+      "reqIds": [
+        "REQ-221"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-perform-a-compile-runtime-sanity-pass-for-the-patched-backend-and-superadmindashboard-tsx-ensuring-1-the-backend-compiles-2-the-dashboard-does-not-crash-in-anonymous-identity-state-no-backend-calls-3-the-dashboard-does-not-crash-while-the-actor-is-initializing-and-4-unexpected-missing-backend-method-shape-errors-are-handled-gracefully-with-an-english-error-message-no-raw-traps-shown-to-the-user",
+      "title": "Perform a compile/runtime sanity pass for the patched backend and `SuperadminDashboard.tsx` ensuring: (1) the backend compiles, (2) the dashboard does not crash in anonymous identity state (no backend calls), (3) the dashboard does not crash while the actor is initializing, and (4) unexpected/missing backend method shape errors are handled gracefully with an English error message (no raw traps shown to the user).",
+      "reqIds": [
+        "REQ-222"
+      ],
+      "version": 1
     }
   ],
   "new_feature_requests": [
@@ -1927,6 +2039,40 @@
       "summary": "Perform a backend compile sanity pass after implementing Layanan V4 to ensure `backend/main.mo` compiles successfully and that no existing public methods (registration, claimSuperadmin, master data, status/partner-level utilities, etc.) have changed behavior due to the append-only patch.",
       "reqIds": [
         "REQ-206"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-117",
+      "summary": "Frontend-only (scope lock): Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to add a 6th tab \"Layanan\" (order: Ringkasan, Users, Master Data, Rates, Tasks, Layanan) implementing end-to-end Layanan V4 management via actor methods `listAllLayananV4(includeArchived)`, `createLayananV4`, `editLayananV4`, `setLayananV4Active`, `archiveLayananV4`. UI: simple table + modal Create/Edit (reuse existing Master Data modal styling/patterns), toggle \"Show Archived\", row actions Edit/Archive(confirm)/Activate-Deactivate, \"Tambah Layanan\" modal, unitUsed read-only in Edit. All actions must use try/catch, show errors using the same banner/alert pattern already used in Users/Master Data, and refresh the list after success. No routing changes, no new pages, no changes/refactors to other tabs; changes must be local/additive (allow new state/handlers only for Layanan tab).",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-118",
+      "summary": "Fix regression in `frontend/src/pages/dashboards/SuperadminDashboard.tsx`: restore full functionality of existing tabs (Ringkasan/Users/Master Data/Rates/Tasks) from internal build version 37, then add the Layanan V4 tab/features (list/create/edit/archive/activate-deactivate with Show Archived + modals) additively without overwriting or altering the other tabs’ existing logic.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-119",
+      "summary": "Append-only Ringkasan V1 (real-time) feature: backend adds `SuperadminSummaryV1` + `getSuperadminSummaryV1()` computed from existing maps only; frontend SuperadminDashboard Ringkasan tab adds minimal state+single fetch+new card(s) showing layanan/task/GMV/cost/margin metrics without altering other tabs or layout.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-120",
+      "summary": "Update `backend/main.mo` using an append-only patch (additions only, placed at the end of the actor) to introduce a new summary type `SuperadminSummaryV1` and a new query method `getSuperadminSummaryV1()` that computes Ringkasan metrics in real time using ONLY existing storages/maps already present in `backend/main.mo`, specifically the legacy read-only Ringkasan data sources: `taskById`, `layananV4ById`, `userRoles`, `userStatusByPrincipal`, and `partnerLevelByPrincipal` (if present). Do not modify, delete, rename, reorder, or rewrite any existing storage declarations or existing logic; all new logic must be additive/append-only.",
+      "reqIds": [
+        "REQ-219"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-121",
+      "summary": "Ensure the summary computations in `getSuperadminSummaryV1()` treat the existing storages as immutable inputs and follow the existing semantics described by the user: tasks active = phases not `#selesai` and not `#dibatalkan_client`; tasks selesai = phase `#selesai`; layanan active = `isActive==true && isArchived==false`; GMV total = sum of `unitTotal * hargaPerUnit` across layanan V4 records. All new computations must remain read-only and append-only.",
+      "reqIds": [
+        "REQ-220"
       ],
       "status": "pending"
     }

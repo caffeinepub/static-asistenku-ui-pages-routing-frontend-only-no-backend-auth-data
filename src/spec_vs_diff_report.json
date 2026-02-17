@@ -1,123 +1,57 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-17T14:59:08.196Z",
-  "summary": "Diff does not implement the requested backend-only, append-only Layanan V4 change. Multiple non-backend files were modified (frontend + project_state.json), and backend/main.mo shows edits near the top of the file (not an end-of-actor append). The provided truncated backend diff does not show any Layanan V4 types/storage/methods, while it does show unrelated new approval/authorization behavior and frontend UI changes that were explicitly non-goals.",
+  "generatedAt": "2026-02-17T17:56:46.723Z",
+  "summary": "The diff evidence clearly shows new Ringkasan V1 state added to SuperadminDashboard.tsx, but the truncated backend diff does not show the required appended SuperadminSummaryV1 type or getSuperadminSummaryV1() method. Additionally, files outside the allowed scope were modified (frontend-file-summaries.txt and project_state.json), which violates the BuildRequest constraint that frontend changes must be limited to SuperadminDashboard.tsx and backend changes to append-only additions in backend/main.mo.",
   "missing_requirements": [
     {
-      "id": "REQ-200",
-      "requirement": "Modify ONLY backend/main.mo as an append-only change at the very end of the actor; no other files changed; no edits above appended block; no new files.",
-      "reason": "The diff summary shows 9 modified files including multiple frontend files and project_state.json, and backend/main.mo includes visible edits at the top of the file (imports and new approval-related functions), not an appended-only block at the end.",
+      "id": "REQ-219",
+      "requirement": "Append-only additions at the end of backend/main.mo: introduce public type SuperadminSummaryV1 and public query ({ caller }) func getSuperadminSummaryV1() : async SuperadminSummaryV1, computed from existing storages only and gated by existing auth helpers.",
+      "reason": "The provided backend/main.mo diff is truncated and does not include any evidence of the new public type or the new getSuperadminSummaryV1() query method, nor evidence that it is appended at the end of the actor and auth-gated.",
       "evidence": [
-        "backend/main.mo (truncated)",
-        "frontend/src/hooks/useQueries.ts",
-        "frontend/src/pages/dashboards/SuperadminDashboard.tsx",
-        "frontend/src/pages/external/ClientLogin.tsx",
-        "frontend/src/pages/external/ClientRegister.tsx",
-        "frontend/src/pages/external/PartnerLogin.tsx",
-        "frontend/src/pages/external/PartnerRegister.tsx",
-        "frontend-file-summaries.txt",
-        "project_state.json"
+        "backend/main.mo (truncated snippet shows only existing code; no SuperadminSummaryV1 type or getSuperadminSummaryV1 method visible)"
       ]
     },
     {
-      "id": "REQ-201",
-      "requirement": "Define public types LayananTypeV4 and LayananV4 exactly as specified in the appended block.",
-      "reason": "The truncated backend/main.mo excerpt contains no Layanan V4 type definitions, so there is no evidence these types were added exactly as specified.",
+      "id": "REQ-220",
+      "requirement": "Summary computations must follow the specified semantics (task active/selesai phase rules; layanan active flags; GMV=sum(unitTotal*hargaPerUnit)) and remain read-only.",
+      "reason": "No backend implementation of getSuperadminSummaryV1() is visible in the diff summary, so there is no evidence the specified phase/flag/GMV semantics were implemented read-only.",
       "evidence": [
-        "backend/main.mo (truncated)"
+        "backend/main.mo (truncated; summary computation logic not shown)"
       ]
     },
     {
-      "id": "REQ-202",
-      "requirement": "Add V4-only stable vars (layananV4Counter, layananV4Store, layananV4IndexByClient) and runtime maps (layananV4ById, layananV4IdsByClient) and keep them consistent on mutation, persisting across upgrades.",
-      "reason": "The truncated backend/main.mo excerpt does not show the required stable vars or runtime map structures, nor any upgrade handling for persisting them.",
+      "id": "REQ-221",
+      "requirement": "In SuperadminDashboard.tsx, call actor.getSuperadminSummaryV1() only when Ringkasan tab is active and actor is ready; add loading/error states and a per-block Refresh.",
+      "reason": "While new state for summaryV1/loading/error is visible, the diff snippet is truncated before any effect/callsite/UI block is shown, so there is no evidence of the conditional fetch (tab-active + actor-ready), refresh control wiring, or loading/error rendering.",
       "evidence": [
-        "backend/main.mo (truncated)"
+        "frontend/src/pages/dashboards/SuperadminDashboard.tsx (truncated; shows state additions but not the getSuperadminSummaryV1 call or UI block)"
       ]
     },
     {
-      "id": "REQ-203",
-      "requirement": "Implement LV4 id generation in exact format LV4-<Nat> using layananV4Counter, monotonically incrementing.",
-      "reason": "No evidence of LV4 id generation or layananV4Counter usage is present in the truncated backend/main.mo excerpt.",
+      "id": "REQ-222",
+      "requirement": "Frontend runtime guards: do not call getSuperadminSummaryV1 when anonymous or while actor is initializing; handle missing backend method shape gracefully with an English message.",
+      "reason": "The diff snippet is truncated before the Ringkasan V1 fetch logic and UI rendering, so there is no direct evidence that anonymous/actor-initializing guards and missing-method handling were implemented.",
       "evidence": [
-        "backend/main.mo (truncated)"
-      ]
-    },
-    {
-      "id": "REQ-204",
-      "requirement": "Add a new internal-only authorization helper allowing only superadmin/admin/finance; otherwise trap exactly \"Unauthorized\"; reuse existing role system; do not modify existing access control logic.",
-      "reason": "The truncated backend/main.mo excerpt shows new authorization/approval-related checks and traps with different messages (e.g., \"Unauthorized: Only admins can perform this action\"), but does not show the required V4-only helper that traps exactly \"Unauthorized\".",
-      "evidence": [
-        "backend/main.mo (truncated)"
-      ]
-    },
-    {
-      "id": "REQ-205",
-      "requirement": "Implement 6 public internal-only Layanan V4 methods (createLayananV4, editLayananV4, setLayananV4Active, archiveLayananV4, listAllLayananV4, listLayananV4ByClient) with exact behaviors and trap messages.",
-      "reason": "None of the Layanan V4 methods are visible in the provided truncated backend/main.mo excerpt, so there is no evidence they exist or match the specified behaviors/trap messages.",
-      "evidence": [
-        "backend/main.mo (truncated)"
-      ]
-    },
-    {
-      "id": "REQ-206",
-      "requirement": "Compile sanity pass; additive isolated change; no existing signatures/behavior changed.",
-      "reason": "Given the diff shows widespread changes (including frontend) and backend edits outside an appended-only block, the requirement that changes are additive and isolated to Layanan V4 cannot be satisfied based on the shown diff.",
-      "evidence": [
-        "backend/main.mo (truncated)",
-        "frontend/src/hooks/useQueries.ts",
-        "frontend/src/pages/dashboards/SuperadminDashboard.tsx",
-        "project_state.json"
+        "frontend/src/pages/dashboards/SuperadminDashboard.tsx (truncated; guards and error handling not visible)"
       ]
     }
   ],
   "hallucinated_features": [
     {
-      "description": "Frontend changes (new/updated pages/hooks and routing-related summaries) despite the build being backend-only with explicit non-goal: no frontend changes.",
-      "reason": "Multiple frontend files were modified and frontend routing/UI behavior is described, which was explicitly out of scope.",
+      "description": "Modifications to files outside the allowed scope (frontend changes must be limited to SuperadminDashboard.tsx; backend changes must be append-only in backend/main.mo).",
+      "reason": "The diff summary lists additional modified files beyond the two permitted targets, indicating extra changes not requested/allowed by the BuildRequest constraints.",
       "evidence": [
-        "frontend/src/hooks/useQueries.ts",
-        "frontend/src/pages/dashboards/SuperadminDashboard.tsx",
-        "frontend/src/pages/external/ClientLogin.tsx",
-        "frontend/src/pages/external/ClientRegister.tsx",
-        "frontend/src/pages/external/PartnerLogin.tsx",
-        "frontend/src/pages/external/PartnerRegister.tsx",
-        "frontend-file-summaries.txt"
-      ]
-    },
-    {
-      "description": "Added/modified approval workflow APIs and state (isCallerApproved, requestApproval, setApproval, listApprovals, approvalState/UserApproval integration) unrelated to Layanan V4.",
-      "reason": "BuildRequest requested only append-only Layanan V4 APIs and explicitly said not to touch other domains/access control behavior; the diff shows new approval-related endpoints and logic.",
-      "evidence": [
-        "backend/main.mo (truncated)"
-      ]
-    },
-    {
-      "description": "Changed/added authorization trap messages not matching the required exact string \"Unauthorized\" for the V4 auth helper and methods (e.g., \"Unauthorized: Only admins can perform this action\").",
-      "reason": "BuildRequest requires exact trap message \"Unauthorized\" for V4 internal-only methods; diff shows other unauthorized message strings being used (at least in new approval endpoints).",
-      "evidence": [
-        "backend/main.mo (truncated)"
-      ]
-    },
-    {
-      "description": "Project metadata/state file modified (project_state.json) even though only backend/main.mo should change.",
-      "reason": "REQ-200 requires only backend/main.mo to be changed; project_state.json was modified.",
-      "evidence": [
-        "project_state.json"
+        "frontend-file-summaries.txt (modified)",
+        "project_state.json (modified)"
       ]
     }
   ],
-  "confidence": 0.86,
+  "confidence": 0.58,
   "changed_files": [
     "backend/main.mo",
     "frontend-file-summaries.txt",
-    "frontend/src/hooks/useQueries.ts",
     "frontend/src/pages/dashboards/SuperadminDashboard.tsx",
-    "frontend/src/pages/external/ClientLogin.tsx",
-    "frontend/src/pages/external/ClientRegister.tsx",
-    "frontend/src/pages/external/PartnerLogin.tsx",
-    "frontend/src/pages/external/PartnerRegister.tsx",
     "project_state.json"
   ]
 }

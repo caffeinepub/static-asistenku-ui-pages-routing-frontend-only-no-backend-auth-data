@@ -1,6 +1,41 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Asistenku — Frontend-only plan (no frontend changes required for Backend-only Layanan V4 build)",
-  "requirements": []
+  "title": "Asistenku Control Room — Superadmin Ringkasan V1 UI",
+  "requirements": [
+    {
+      "id": "REQ-221",
+      "summary": "Add an additive Ringkasan V1 block in the existing Ringkasan tab that fetches and displays getSuperadminSummaryV1() with per-block refresh and minimal local state.",
+      "acceptanceCriteria": [
+        "`SuperadminDashboard.tsx` includes a new Ringkasan section that calls `actor.getSuperadminSummaryV1()` only when the Ringkasan tab is active and the backend actor is ready.",
+        "The new Ringkasan V1 UI shows calm loading and error states without crashing the dashboard.",
+        "A per-section Refresh action re-fetches only the Ringkasan V1 summary data.",
+        "All newly introduced user-facing strings in this new UI block are in English."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/dashboards/SuperadminDashboard.tsx",
+          "operation": "modify",
+          "description": "Append-only update: add new local state (`summaryV1`, `summaryV1Loading`, `summaryV1Error`) and an additive fetch function that calls `actor.getSuperadminSummaryV1()` only when `activeTab === 'ringkasan'`, `actorReady` is true, and the method exists. Render a new Ringkasan V1 summary block inside the existing Ringkasan tab UI, including a per-block Refresh control that re-fetches only this summary. Use existing shadcn-ui components already in use (e.g., Card, Button, Alert) for consistent layout and calm loading/error states; verify the component's usage instructions before implementing. Ensure all new user-facing strings in this new block are English, and do not refactor or change behavior/state of existing tabs beyond adding this block."
+        }
+      ]
+    },
+    {
+      "id": "REQ-222",
+      "summary": "Harden the Superadmin dashboard Ringkasan V1 block against anonymous/actor-initializing states and missing backend method shape at runtime, with calm English error handling.",
+      "acceptanceCriteria": [
+        "Backend compiles successfully after the append-only additions.",
+        "When identity is anonymous, the Superadmin dashboard renders the existing login guidance view and does not call `getSuperadminSummaryV1()`.",
+        "When `actor` is null/undefined or `actorFetching` is true, Ringkasan V1 does not attempt backend calls and the UI remains stable.",
+        "If `actor.getSuperadminSummaryV1` is missing at runtime, the UI shows a calm English message instead of crashing."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/dashboards/SuperadminDashboard.tsx",
+          "operation": "modify",
+          "description": "Additive runtime/compile sanity: guard Ringkasan V1 fetching with `!isAnonymous`, `!!actor`, `!actorFetching`, and `typeof actor.getSuperadminSummaryV1 === 'function'` checks. Ensure the Ringkasan V1 block uses try/catch to convert unexpected errors into a calm English message (no raw trap text surfaced), and keep the UI stable while actor is initializing. Use existing shadcn-ui Alert/Card patterns already used in this file for consistent error messaging; verify the component's usage instructions before implementing."
+        }
+      ]
+    }
+  ]
 }
