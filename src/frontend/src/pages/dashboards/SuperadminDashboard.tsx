@@ -199,6 +199,8 @@ export default function SuperadminDashboard() {
   const [mdMapExpanded, setMdMapExpanded] = useState(true);
   const [mdMapKey, setMdMapKey] = useState('');
   const [mdMapValue, setMdMapValue] = useState('');
+  const [mdMapEditMode, setMdMapEditMode] = useState(false);
+  const [mdMapEditingKey, setMdMapEditingKey] = useState('');
 
   const [kamusData, setKamusData] = useState<KamusPekerjaan[]>([]);
   const [kamusLoading, setKamusLoading] = useState(false);
@@ -208,6 +210,8 @@ export default function SuperadminDashboard() {
   const [kamusFormData, setKamusFormData] = useState<any>({});
   const [kamusFormErrors, setKamusFormErrors] = useState<any>({});
   const [kamusShowArchived, setKamusShowArchived] = useState(false);
+  const [kamusEditMode, setKamusEditMode] = useState(false);
+  const [kamusEditingIndex, setKamusEditingIndex] = useState<number | null>(null);
 
   const [aturanData, setAturanData] = useState<AturanBebanPerusahaan[]>([]);
   const [aturanLoading, setAturanLoading] = useState(false);
@@ -217,6 +221,8 @@ export default function SuperadminDashboard() {
   const [aturanFormData, setAturanFormData] = useState<any>({});
   const [aturanFormErrors, setAturanFormErrors] = useState<any>({});
   const [aturanShowArchived, setAturanShowArchived] = useState(false);
+  const [aturanEditMode, setAturanEditMode] = useState(false);
+  const [aturanEditingIndex, setAturanEditingIndex] = useState<number | null>(null);
 
   const [konstantaData, setKonstantaData] = useState<KonstantaUnitClient | null>(null);
   const [konstantaLoading, setKonstantaLoading] = useState(false);
@@ -225,7 +231,7 @@ export default function SuperadminDashboard() {
   const [konstantaInput, setKonstantaInput] = useState('');
   const [konstantaInputError, setKonstantaInputError] = useState('');
 
-  // STEP 2: Saving guards for Master Data mutations
+  // Saving guards for Master Data mutations
   const [kamusSaving, setKamusSaving] = useState(false);
   const [aturanSaving, setAturanSaving] = useState(false);
   const [mapSaving, setMapSaving] = useState(false);
@@ -241,10 +247,13 @@ export default function SuperadminDashboard() {
     setRingkasanError(null);
     
     try {
-      const [usersResult, masterDataResult, ratesResult] = await Promise.all([
+      const [usersResult, masterDataResult, ratesResult, kamusResult, aturanResult, konstantaResult] = await Promise.all([
         actor.listUsersBasic('').catch(() => []),
         actor.getMasterDataMap().catch(() => null),
         actor.getRates().catch(() => null),
+        actor.listKamusPekerjaan().catch(() => []),
+        actor.listAturanBeban().catch(() => []),
+        actor.getKonstantaUnitClient().catch(() => null),
       ]);
 
       setRingkasanData({
@@ -254,21 +263,19 @@ export default function SuperadminDashboard() {
         usersBreakdown: usersResult,
       });
 
-      // STEP 3: Fetch Master Data for Ringkasan if not already loaded
-      if (!masterDataData) {
-        const [kamusResult, aturanResult, konstantaResult] = await Promise.all([
-          actor.listKamusPekerjaan().catch(() => []),
-          actor.listAturanBeban().catch(() => []),
-          actor.getKonstantaUnitClient().catch(() => null),
-        ]);
+      // Update Master Data state for Ringkasan counts
+      setMasterDataData({
+        masterDataMap: masterDataResult,
+        kamusPekerjaan: kamusResult,
+        aturanBeban: aturanResult,
+        konstanta: konstantaResult,
+      });
 
-        setMasterDataData({
-          masterDataMap: masterDataResult,
-          kamusPekerjaan: kamusResult,
-          aturanBeban: aturanResult,
-          konstanta: konstantaResult,
-        });
-      }
+      // Update individual section states
+      setMdMapData(masterDataResult);
+      setKamusData(kamusResult);
+      setAturanData(aturanResult);
+      setKonstantaData(konstantaResult);
     } catch (error: any) {
       setRingkasanError(error?.message || 'Failed to load summary data');
     } finally {
@@ -360,6 +367,12 @@ export default function SuperadminDashboard() {
         aturanBeban: aturanResult,
         konstanta: konstantaResult,
       });
+
+      // Update individual section states
+      setMdMapData(masterDataResult);
+      setKamusData(kamusResult);
+      setAturanData(aturanResult);
+      setKonstantaData(konstantaResult);
     } catch (error: any) {
       setMasterDataError(error?.message || 'Failed to load master data');
     } finally {
@@ -497,141 +510,76 @@ export default function SuperadminDashboard() {
 
   // Handle logout
   const handleLogout = async () => {
-    try {
-      await clear();
-      window.location.assign('/');
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
+    await clear();
+    window.location.href = '/';
   };
 
-  // Search functionality
-  const searchResults = enrichedUsers.filter((user) => {
-    if (!searchQuery) return false;
-    const query = searchQuery.toLowerCase();
-    return (
-      user.userId.toLowerCase().includes(query) ||
-      user.principal.toString().toLowerCase().includes(query) ||
-      (user.name && user.name.toLowerCase().includes(query)) ||
-      user.role.toLowerCase().includes(query)
-    );
-  });
-
-  const totalSearchPages = Math.ceil(searchResults.length / SEARCH_PAGE_SIZE);
-  const paginatedSearchResults = searchResults.slice(
-    (searchPage - 1) * SEARCH_PAGE_SIZE,
-    searchPage * SEARCH_PAGE_SIZE
-  );
-
-  // Categorize users (without search filter for main sections)
-  const pendingUsers = enrichedUsers.filter((u) => u.status === 'pending');
-  const clientUsers = enrichedUsers.filter((u) => u.role === 'client');
-  const partnerUsers = enrichedUsers.filter((u) => u.role === 'partner');
-  const internalUsers = enrichedUsers.filter((u) => u.role === 'internal');
-
-  // Client subsections
-  const clientActive = clientUsers.filter((u) => u.status === 'active');
-  const clientSuspended = clientUsers.filter((u) => u.status === 'suspended');
-  const clientBlacklisted = clientUsers.filter((u) => u.status === 'blacklisted');
-
-  // Partner subsections
-  const partnerActive = partnerUsers.filter((u) => u.status === 'active');
-  const partnerPending = partnerUsers.filter((u) => u.status === 'pending');
-  const partnerSuspended = partnerUsers.filter((u) => u.status === 'suspended');
-  const partnerBlacklisted = partnerUsers.filter((u) => u.status === 'blacklisted');
-
-  // Internal subsections
-  const internalActive = internalUsers.filter((u) => u.status === 'active');
-  const internalPending = internalUsers.filter((u) => u.status === 'pending');
-
-  // Handle activate user
-  const handleActivateUser = async (user: EnrichedUser) => {
-    if (!actor || actorFetching || updateLoading) return;
-    try {
-      await actor.setUserStatus(user.principal, 'active' as UserStatus);
-      await fetchUsers();
-    } catch (error: any) {
-      alert('Failed to activate user: ' + (error?.message || 'Unknown error'));
-    }
-  };
-
-  // Handle open detail modal
-  const handleOpenDetail = async (user: EnrichedUser) => {
-    if (!actor) return;
+  // User detail modal handlers
+  const openUserDetail = (user: EnrichedUser) => {
     setSelectedUser(user);
     setDetailModalMode('view');
-    
-    try {
-      const profile = await actor.getUserProfile(user.principal);
-      if (profile && '__kind__' in profile) {
-        const kind = profile.__kind__;
-        if (kind === 'client' && 'client' in profile) {
-          const data = { ...profile.client, status: user.status };
-          setEditFormData(data);
-          setOriginalFormData(data);
-        } else if (kind === 'partner' && 'partner' in profile) {
-          const level = await actor.getPartnerLevel(user.principal);
-          const data = { ...profile.partner, status: user.status, partnerLevel: level };
-          setEditFormData(data);
-          setOriginalFormData(data);
-        } else if (kind === 'internal' && 'internal' in profile) {
-          const data = { ...profile.internal, status: user.status };
-          setEditFormData(data);
-          setOriginalFormData(data);
-        }
-      }
-    } catch (error: any) {
-      console.error('Failed to load user profile:', error);
-    }
-    
     setDetailModalOpen(true);
   };
 
-  // Handle edit mode
-  const handleEditMode = () => {
+  const handleEditUser = () => {
+    if (!selectedUser) return;
+    
+    const formData: any = {
+      status: selectedUser.status,
+    };
+
+    if (selectedUser.role === 'partner' && selectedUser.partnerLevel) {
+      formData.partnerLevel = selectedUser.partnerLevel;
+    }
+
+    setEditFormData(formData);
+    setOriginalFormData({ ...formData });
     setDetailModalMode('edit');
   };
 
-  // Handle cancel edit
   const handleCancelEdit = () => {
-    setEditFormData(originalFormData);
+    setEditFormData({});
+    setOriginalFormData({});
     setDetailModalMode('view');
   };
 
-  // Handle update user
   const handleUpdateUser = async () => {
-    if (!actor || !selectedUser || updateLoading) return;
-    
+    if (!selectedUser || !actor) return;
+
     setUpdateLoading(true);
     try {
       // Update status if changed
       if (editFormData.status !== originalFormData.status) {
-        await actor.setUserStatus(selectedUser.principal, editFormData.status as UserStatus);
+        await actor.setUserStatus(selectedUser.principal, editFormData.status);
       }
 
       // Update partner level if changed
       if (selectedUser.role === 'partner' && editFormData.partnerLevel !== originalFormData.partnerLevel) {
-        await actor.setPartnerLevel(selectedUser.principal, editFormData.partnerLevel as TipePartner);
+        await actor.setPartnerLevel(selectedUser.principal, editFormData.partnerLevel);
       }
 
       // Refresh users data
       await fetchUsers();
-      
-      // Update modal data
-      setOriginalFormData(editFormData);
+
+      // Update selected user
+      const updatedUser = enrichedUsers.find(u => u.principal.toString() === selectedUser.principal.toString());
+      if (updatedUser) {
+        setSelectedUser(updatedUser);
+      }
+
       setDetailModalMode('view');
-      
-      alert('User updated successfully');
+      setEditFormData({});
+      setOriginalFormData({});
     } catch (error: any) {
-      alert('Failed to update user: ' + (error?.message || 'Unknown error'));
+      alert(`Failed to update user: ${error?.message || 'Unknown error'}`);
     } finally {
       setUpdateLoading(false);
     }
   };
 
-  // Master Data Map handlers with saving guard
+  // Master Data Map handlers
   const handleSaveMdMap = async () => {
-    if (!actor || actorFetching || mapSaving) return;
+    if (!actor || mapSaving) return;
     if (!mdMapKey.trim() || !mdMapValue.trim()) {
       alert('Key and value are required');
       return;
@@ -640,19 +588,51 @@ export default function SuperadminDashboard() {
     setMapSaving(true);
     try {
       await actor.pushMasterData(mdMapKey, mdMapValue);
+      await fetchMdMap();
       setMdMapKey('');
       setMdMapValue('');
-      await fetchMdMap();
+      setMdMapEditMode(false);
+      setMdMapEditingKey('');
     } catch (error: any) {
-      alert('Failed to save: ' + (error?.message || 'Unknown error'));
+      alert(`Failed to save: ${error?.message || 'Unknown error'}`);
     } finally {
       setMapSaving(false);
     }
   };
 
-  // Kamus Pekerjaan handlers with saving guard
-  const handleOpenKamusModal = (item?: KamusPekerjaan) => {
-    if (item) {
+  const handleEditMdMap = (key: string, value: string) => {
+    setMdMapKey(key);
+    setMdMapValue(value);
+    setMdMapEditMode(true);
+    setMdMapEditingKey(key);
+  };
+
+  const handleCancelMdMapEdit = () => {
+    setMdMapKey('');
+    setMdMapValue('');
+    setMdMapEditMode(false);
+    setMdMapEditingKey('');
+  };
+
+  const handleDeleteMdMap = async (key: string) => {
+    if (!actor || mapSaving) return;
+    if (!confirm(`Delete key "${key}"?`)) return;
+
+    setMapSaving(true);
+    try {
+      await actor.pushMasterData(key, '');
+      await fetchMdMap();
+    } catch (error: any) {
+      alert(`Failed to delete: ${error?.message || 'Unknown error'}`);
+    } finally {
+      setMapSaving(false);
+    }
+  };
+
+  // Kamus Pekerjaan handlers
+  const openKamusModal = (editIndex: number | null = null) => {
+    if (editIndex !== null) {
+      const item = kamusData[editIndex];
       setKamusFormData({
         kategoriPekerjaan: item.kategoriPekerjaan,
         jenisPekerjaan: item.jenisPekerjaan,
@@ -660,6 +640,8 @@ export default function SuperadminDashboard() {
         tipePartnerBoleh: item.tipePartnerBoleh,
         aktif: item.aktif,
       });
+      setKamusEditMode(true);
+      setKamusEditingIndex(editIndex);
     } else {
       setKamusFormData({
         kategoriPekerjaan: '',
@@ -668,22 +650,30 @@ export default function SuperadminDashboard() {
         tipePartnerBoleh: [],
         aktif: true,
       });
+      setKamusEditMode(false);
+      setKamusEditingIndex(null);
     }
     setKamusFormErrors({});
     setKamusModalOpen(true);
   };
 
-  const handleSaveKamus = async () => {
-    if (!actor || actorFetching || kamusSaving) return;
+  const closeKamusModal = () => {
+    setKamusModalOpen(false);
+    setKamusFormData({});
+    setKamusFormErrors({});
+    setKamusEditMode(false);
+    setKamusEditingIndex(null);
+  };
 
-    // Validate
+  const handleSaveKamus = async () => {
+    if (!actor || kamusSaving) return;
+
     const errors: any = {};
     if (!kamusFormData.kategoriPekerjaan?.trim()) errors.kategoriPekerjaan = 'Required';
     if (!kamusFormData.jenisPekerjaan?.trim()) errors.jenisPekerjaan = 'Required';
-    const jamParsed = parseNatToBigInt(kamusFormData.jamStandar);
-    if (jamParsed.error) errors.jamStandar = jamParsed.error;
+    if (!kamusFormData.jamStandar?.trim()) errors.jamStandar = 'Required';
     if (!kamusFormData.tipePartnerBoleh || kamusFormData.tipePartnerBoleh.length === 0) {
-      errors.tipePartnerBoleh = 'At least one partner type required';
+      errors.tipePartnerBoleh = 'At least one type required';
     }
 
     if (Object.keys(errors).length > 0) {
@@ -691,33 +681,46 @@ export default function SuperadminDashboard() {
       return;
     }
 
+    const parsed = parseNatToBigInt(kamusFormData.jamStandar);
+    if (parsed.error) {
+      setKamusFormErrors({ jamStandar: parsed.error });
+      return;
+    }
+
     setKamusSaving(true);
     try {
+      const kodeOpt = kamusEditMode && kamusEditingIndex !== null 
+        ? `KMS-${String(kamusEditingIndex + 1).padStart(4, '0')}`
+        : null;
+
       await actor.upsertKamusPekerjaan(
-        null,
+        kodeOpt,
         kamusFormData.kategoriPekerjaan,
         kamusFormData.jenisPekerjaan,
-        jamParsed.value!,
+        parsed.value!,
         kamusFormData.tipePartnerBoleh,
         kamusFormData.aktif
       );
-      setKamusModalOpen(false);
+
       await fetchKamus();
+      closeKamusModal();
     } catch (error: any) {
-      alert('Failed to save: ' + (error?.message || 'Unknown error'));
+      alert(`Failed to save: ${error?.message || 'Unknown error'}`);
     } finally {
       setKamusSaving(false);
     }
   };
 
-  const handleDeleteKamus = async (item: KamusPekerjaan) => {
-    if (!actor || actorFetching || kamusSaving) return;
-    if (!confirm('Soft delete this item?')) return;
+  const handleArchiveKamus = async (index: number) => {
+    if (!actor || kamusSaving) return;
+    if (!confirm('Archive this item?')) return;
 
+    const item = kamusData[index];
     setKamusSaving(true);
     try {
+      const kode = `KMS-${String(index + 1).padStart(4, '0')}`;
       await actor.upsertKamusPekerjaan(
-        null,
+        kode,
         item.kategoriPekerjaan,
         item.jenisPekerjaan,
         item.jamStandar,
@@ -726,15 +729,16 @@ export default function SuperadminDashboard() {
       );
       await fetchKamus();
     } catch (error: any) {
-      alert('Failed to delete: ' + (error?.message || 'Unknown error'));
+      alert(`Failed to archive: ${error?.message || 'Unknown error'}`);
     } finally {
       setKamusSaving(false);
     }
   };
 
-  // Aturan Beban handlers with saving guard
-  const handleOpenAturanModal = (item?: AturanBebanPerusahaan) => {
-    if (item) {
+  // Aturan Beban handlers
+  const openAturanModal = (editIndex: number | null = null) => {
+    if (editIndex !== null) {
+      const item = aturanData[editIndex];
       setAturanFormData({
         tipePartner: item.tipePartner,
         jamMin: item.jamMin.toString(),
@@ -743,6 +747,8 @@ export default function SuperadminDashboard() {
         nilai: item.nilai.toString(),
         aktif: item.aktif,
       });
+      setAturanEditMode(true);
+      setAturanEditingIndex(editIndex);
     } else {
       setAturanFormData({
         tipePartner: 'junior',
@@ -752,56 +758,86 @@ export default function SuperadminDashboard() {
         nilai: '',
         aktif: true,
       });
+      setAturanEditMode(false);
+      setAturanEditingIndex(null);
     }
     setAturanFormErrors({});
     setAturanModalOpen(true);
   };
 
-  const handleSaveAturan = async () => {
-    if (!actor || actorFetching || aturanSaving) return;
+  const closeAturanModal = () => {
+    setAturanModalOpen(false);
+    setAturanFormData({});
+    setAturanFormErrors({});
+    setAturanEditMode(false);
+    setAturanEditingIndex(null);
+  };
 
-    // Validate
+  const handleSaveAturan = async () => {
+    if (!actor || aturanSaving) return;
+
     const errors: any = {};
-    const jamMinParsed = parseNatToBigInt(aturanFormData.jamMin);
-    if (jamMinParsed.error) errors.jamMin = jamMinParsed.error;
-    const jamMaxParsed = parseNatToBigInt(aturanFormData.jamMax);
-    if (jamMaxParsed.error) errors.jamMax = jamMaxParsed.error;
-    const nilaiParsed = parseNatToBigInt(aturanFormData.nilai);
-    if (nilaiParsed.error) errors.nilai = nilaiParsed.error;
+    if (!aturanFormData.jamMin?.trim()) errors.jamMin = 'Required';
+    if (!aturanFormData.jamMax?.trim()) errors.jamMax = 'Required';
+    if (!aturanFormData.nilai?.trim()) errors.nilai = 'Required';
 
     if (Object.keys(errors).length > 0) {
       setAturanFormErrors(errors);
       return;
     }
 
+    const parsedMin = parseNatToBigInt(aturanFormData.jamMin);
+    const parsedMax = parseNatToBigInt(aturanFormData.jamMax);
+    const parsedNilai = parseNatToBigInt(aturanFormData.nilai);
+
+    if (parsedMin.error) {
+      setAturanFormErrors({ jamMin: parsedMin.error });
+      return;
+    }
+    if (parsedMax.error) {
+      setAturanFormErrors({ jamMax: parsedMax.error });
+      return;
+    }
+    if (parsedNilai.error) {
+      setAturanFormErrors({ nilai: parsedNilai.error });
+      return;
+    }
+
     setAturanSaving(true);
     try {
+      const kodeOpt = aturanEditMode && aturanEditingIndex !== null
+        ? `ATB-${String(aturanEditingIndex + 1).padStart(4, '0')}`
+        : null;
+
       await actor.upsertAturanBeban(
-        null,
-        aturanFormData.tipePartner as TipePartner,
-        jamMinParsed.value!,
-        jamMaxParsed.value!,
-        aturanFormData.polaBeban as Variant_TAMBAH_PER_JAM_TAMBAH_JAM_TETAP,
-        nilaiParsed.value!,
+        kodeOpt,
+        aturanFormData.tipePartner,
+        parsedMin.value!,
+        parsedMax.value!,
+        aturanFormData.polaBeban,
+        parsedNilai.value!,
         aturanFormData.aktif
       );
-      setAturanModalOpen(false);
+
       await fetchAturan();
+      closeAturanModal();
     } catch (error: any) {
-      alert('Failed to save: ' + (error?.message || 'Unknown error'));
+      alert(`Failed to save: ${error?.message || 'Unknown error'}`);
     } finally {
       setAturanSaving(false);
     }
   };
 
-  const handleDeleteAturan = async (item: AturanBebanPerusahaan) => {
-    if (!actor || actorFetching || aturanSaving) return;
-    if (!confirm('Soft delete this item?')) return;
+  const handleArchiveAturan = async (index: number) => {
+    if (!actor || aturanSaving) return;
+    if (!confirm('Archive this item?')) return;
 
+    const item = aturanData[index];
     setAturanSaving(true);
     try {
+      const kode = `ATB-${String(index + 1).padStart(4, '0')}`;
       await actor.upsertAturanBeban(
-        null,
+        kode,
         item.tipePartner,
         item.jamMin,
         item.jamMax,
@@ -811,15 +847,15 @@ export default function SuperadminDashboard() {
       );
       await fetchAturan();
     } catch (error: any) {
-      alert('Failed to delete: ' + (error?.message || 'Unknown error'));
+      alert(`Failed to archive: ${error?.message || 'Unknown error'}`);
     } finally {
       setAturanSaving(false);
     }
   };
 
-  // Konstanta handler with saving guard
-  const handleUpdateKonstanta = async () => {
-    if (!actor || actorFetching || konstantaSaving) return;
+  // Konstanta handlers
+  const handleSaveKonstanta = async () => {
+    if (!actor || konstantaSaving) return;
 
     const parsed = parseNatToBigInt(konstantaInput);
     if (parsed.error) {
@@ -830,42 +866,92 @@ export default function SuperadminDashboard() {
     setKonstantaSaving(true);
     try {
       await actor.setKonstantaUnitClient(parsed.value!);
+      await fetchKonstanta();
       setKonstantaInput('');
       setKonstantaInputError('');
-      await fetchKonstanta();
     } catch (error: any) {
-      alert('Failed to update: ' + (error?.message || 'Unknown error'));
+      alert(`Failed to save: ${error?.message || 'Unknown error'}`);
     } finally {
       setKonstantaSaving(false);
     }
   };
 
-  // STEP 3: Compute Master Data counts for Ringkasan
-  const kamusActiveCount = masterDataData?.kamusPekerjaan.filter(k => k.aktif).length || 0;
-  const kamusArchivedCount = masterDataData?.kamusPekerjaan.filter(k => !k.aktif).length || 0;
-  const aturanActiveCount = masterDataData?.aturanBeban.filter(a => a.aktif).length || 0;
-  const aturanArchivedCount = masterDataData?.aturanBeban.filter(a => !a.aktif).length || 0;
-  const masterDataMapKeyCount = masterDataData?.masterDataMap?.length || 0;
+  // Filter functions
+  const getFilteredKamus = () => {
+    if (kamusShowArchived) return kamusData;
+    return kamusData.filter(item => item.aktif);
+  };
 
-  // STEP 3: Filter Kamus and Aturan based on archived toggle
-  const filteredKamus = kamusShowArchived 
-    ? kamusData 
-    : kamusData.filter(k => k.aktif);
+  const getFilteredAturan = () => {
+    if (aturanShowArchived) return aturanData;
+    return aturanData.filter(item => item.aktif);
+  };
 
-  const filteredAturan = aturanShowArchived 
-    ? aturanData 
-    : aturanData.filter(a => a.aktif);
+  // Compute Ringkasan counts
+  const kamusActiveCount = kamusData.filter(k => k.aktif).length;
+  const kamusArchivedCount = kamusData.filter(k => !k.aktif).length;
+  const aturanActiveCount = aturanData.filter(a => a.aktif).length;
+  const aturanArchivedCount = aturanData.filter(a => !a.aktif).length;
+
+  // Filter users by role and status
+  const pendingUsers = enrichedUsers.filter(u => u.status === 'pending');
+  const clientUsers = enrichedUsers.filter(u => u.role === 'client');
+  const partnerUsers = enrichedUsers.filter(u => u.role === 'partner');
+  const internalUsers = enrichedUsers.filter(u => u.role === 'internal');
+
+  const clientActive = clientUsers.filter(u => u.status === 'active');
+  const clientSuspended = clientUsers.filter(u => u.status === 'suspended');
+  const clientBlacklisted = clientUsers.filter(u => u.status === 'blacklisted');
+
+  const partnerActive = partnerUsers.filter(u => u.status === 'active');
+  const partnerPending = partnerUsers.filter(u => u.status === 'pending');
+  const partnerSuspended = partnerUsers.filter(u => u.status === 'suspended');
+  const partnerBlacklisted = partnerUsers.filter(u => u.status === 'blacklisted');
+
+  const internalActive = internalUsers.filter(u => u.status === 'active');
+  const internalPending = internalUsers.filter(u => u.status === 'pending');
+
+  // Search functionality
+  const searchResults = enrichedUsers.filter(user => {
+    const query = searchQuery.toLowerCase();
+    return (
+      user.name?.toLowerCase().includes(query) ||
+      user.email?.toLowerCase().includes(query) ||
+      user.userId.toLowerCase().includes(query) ||
+      user.principal.toString().toLowerCase().includes(query)
+    );
+  });
+
+  const totalSearchPages = Math.ceil(searchResults.length / SEARCH_PAGE_SIZE);
+  const paginatedSearchResults = searchResults.slice(
+    (searchPage - 1) * SEARCH_PAGE_SIZE,
+    searchPage * SEARCH_PAGE_SIZE
+  );
+
+  // Render helpers
+  const renderUserRow = (user: EnrichedUser) => (
+    <TableRow key={user.principal.toString()} className="cursor-pointer hover:bg-muted/50" onClick={() => openUserDetail(user)}>
+      <TableCell className="font-mono text-xs">{user.userId}</TableCell>
+      <TableCell>{user.name || '-'}</TableCell>
+      <TableCell>{user.email || '-'}</TableCell>
+      <TableCell>
+        <Badge variant={user.status === 'active' ? 'default' : user.status === 'pending' ? 'secondary' : 'destructive'}>
+          {formatUserStatus(user.status)}
+        </Badge>
+      </TableCell>
+    </TableRow>
+  );
 
   if (isAnonymous) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[oklch(0.25_0.05_250)] to-[oklch(0.85_0.05_70)] flex items-center justify-center p-4">
-        <Card className="w-full max-w-md bg-[oklch(0.98_0.01_70)]">
+      <div className="min-h-screen bg-gradient-to-br from-[oklch(0.25_0.05_250)] to-[oklch(0.85_0.03_60)] flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle className="text-center text-[oklch(0.25_0.05_250)]">Authentication Required</CardTitle>
+            <CardTitle>Authentication Required</CardTitle>
           </CardHeader>
-          <CardContent className="text-center">
-            <p className="text-[oklch(0.4_0.03_250)] mb-4">Please log in to access the Superadmin Dashboard.</p>
-            <Button onClick={() => window.location.assign('/internal/login')} className="bg-[oklch(0.45_0.15_250)] hover:bg-[oklch(0.35_0.15_250)]">
+          <CardContent>
+            <p className="text-muted-foreground mb-4">Please log in to access the Superadmin Dashboard.</p>
+            <Button onClick={() => window.location.href = '/internal/login'} className="w-full">
               Go to Login
             </Button>
           </CardContent>
@@ -875,28 +961,26 @@ export default function SuperadminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[oklch(0.25_0.05_250)] to-[oklch(0.85_0.05_70)]">
+    <div className="min-h-screen bg-gradient-to-br from-[oklch(0.25_0.05_250)] to-[oklch(0.85_0.03_60)]">
       {/* Header */}
-      <header className="bg-[oklch(0.98_0.01_70)] border-b border-[oklch(0.85_0.02_70)] shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+      <header className="bg-[oklch(0.98_0.01_60)] border-b border-[oklch(0.85_0.02_60)] sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src="/assets/asistenku-horizontal.png" alt="Asistenku" className="h-8" />
-            <span className="text-lg font-semibold text-[oklch(0.25_0.05_250)]">Superadmin</span>
+            <span className="text-sm text-muted-foreground">
+              Hello, Superadmin
+            </span>
           </div>
-          <Button
-            onClick={handleLogout}
-            variant="outline"
-            className="border-[oklch(0.45_0.15_250)] text-[oklch(0.45_0.15_250)] hover:bg-[oklch(0.45_0.15_250)] hover:text-white"
-          >
+          <Button variant="outline" size="sm" onClick={handleLogout}>
             Logout
           </Button>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-6 bg-[oklch(0.98_0.01_70)]">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="ringkasan">Ringkasan</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="masterdata">Master Data</TabsTrigger>
@@ -907,16 +991,15 @@ export default function SuperadminDashboard() {
           {/* Ringkasan Tab */}
           <TabsContent value="ringkasan" className="space-y-4">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-white">Summary</h2>
+              <h2 className="text-2xl font-bold">Summary</h2>
               <Button
-                onClick={fetchRingkasan}
-                disabled={ringkasanLoading || !actor || actorFetching}
                 variant="outline"
                 size="sm"
-                className="bg-white"
+                onClick={fetchRingkasan}
+                disabled={ringkasanLoading || !actor || actorFetching}
+                type="button"
               >
                 {ringkasanLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                <span className="ml-2">Refresh</span>
               </Button>
             </div>
 
@@ -927,110 +1010,127 @@ export default function SuperadminDashboard() {
               </Alert>
             )}
 
-            {ringkasanLoading && !ringkasanData ? (
-              <div className="flex justify-center items-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-white" />
-              </div>
-            ) : ringkasanData ? (
+            {!ringkasanData && !ringkasanLoading && (
+              <Alert>
+                <AlertDescription>No data available. Click Refresh to load.</AlertDescription>
+              </Alert>
+            )}
+
+            {ringkasanData && (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <Card className="bg-[oklch(0.98_0.01_70)]">
+                <Card>
                   <CardHeader>
-                    <CardTitle className="text-[oklch(0.25_0.05_250)]">Total Users</CardTitle>
+                    <CardTitle className="text-sm font-medium">Total Users</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-3xl font-bold text-[oklch(0.45_0.15_250)]">{ringkasanData.totalUsers}</p>
+                    <div className="text-2xl font-bold">{ringkasanData.totalUsers}</div>
                   </CardContent>
                 </Card>
 
-                <Card className="bg-[oklch(0.98_0.01_70)]">
+                <Card>
                   <CardHeader>
-                    <CardTitle className="text-[oklch(0.25_0.05_250)]">Master Data Keys</CardTitle>
+                    <CardTitle className="text-sm font-medium">Master Data Keys</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-3xl font-bold text-[oklch(0.45_0.15_250)]">{ringkasanData.masterDataKeys}</p>
+                    <div className="text-2xl font-bold">{ringkasanData.masterDataKeys}</div>
                   </CardContent>
                 </Card>
 
-                <Card className="bg-[oklch(0.98_0.01_70)]">
+                <Card>
                   <CardHeader>
-                    <CardTitle className="text-[oklch(0.25_0.05_250)]">Partner Rates</CardTitle>
+                    <CardTitle className="text-sm font-medium">Kamus Pekerjaan</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {ringkasanData.rates ? (
-                      <div className="space-y-1 text-sm">
-                        <p>Junior: Rp {ringkasanData.rates[0].toString()}</p>
-                        <p>Senior: Rp {ringkasanData.rates[1].toString()}</p>
-                        <p>Expert: Rp {ringkasanData.rates[2].toString()}</p>
+                    <div className="space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Active:</span>
+                        <span className="font-semibold">{kamusActiveCount}</span>
                       </div>
-                    ) : (
-                      <p className="text-[oklch(0.5_0.03_250)]">-</p>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* STEP 3: Master Data Counts */}
-                <Card className="bg-[oklch(0.98_0.01_70)]">
-                  <CardHeader>
-                    <CardTitle className="text-[oklch(0.25_0.05_250)]">Kamus Pekerjaan</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-1 text-sm">
-                      <p>Active: <span className="font-semibold text-green-600">{kamusActiveCount}</span></p>
-                      <p>Archived: <span className="font-semibold text-gray-500">{kamusArchivedCount}</span></p>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Archived:</span>
+                        <span className="font-semibold">{kamusArchivedCount}</span>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="bg-[oklch(0.98_0.01_70)]">
+                <Card>
                   <CardHeader>
-                    <CardTitle className="text-[oklch(0.25_0.05_250)]">Aturan Beban</CardTitle>
+                    <CardTitle className="text-sm font-medium">Aturan Beban</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-1 text-sm">
-                      <p>Active: <span className="font-semibold text-green-600">{aturanActiveCount}</span></p>
-                      <p>Archived: <span className="font-semibold text-gray-500">{aturanArchivedCount}</span></p>
+                    <div className="space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Active:</span>
+                        <span className="font-semibold">{aturanActiveCount}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Archived:</span>
+                        <span className="font-semibold">{aturanArchivedCount}</span>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="bg-[oklch(0.98_0.01_70)]">
+                <Card>
                   <CardHeader>
-                    <CardTitle className="text-[oklch(0.25_0.05_250)]">Konstanta Unit Client</CardTitle>
+                    <CardTitle className="text-sm font-medium">Konstanta Unit Client</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {masterDataData?.konstanta ? (
-                      <div className="space-y-1 text-sm">
-                        <p>Value: <span className="font-semibold">{masterDataData.konstanta.unitKeJamPerusahaan.toString()}</span></p>
-                        <p className="text-xs text-gray-500">Updated: {formatTimestamp(masterDataData.konstanta.updatedAt)}</p>
+                    <div className="space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Value:</span>
+                        <span className="font-semibold">{konstantaData?.unitKeJamPerusahaan.toString() || '-'}</span>
                       </div>
-                    ) : (
-                      <p className="text-[oklch(0.5_0.03_250)]">-</p>
-                    )}
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Updated:</span>
+                        <span className="text-xs">{formatTimestamp(konstantaData?.updatedAt)}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium">Partner Rates</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-1">
+                      {ringkasanData.rates && (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">Junior:</span>
+                            <span className="font-semibold">{ringkasanData.rates[0].toString()}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">Senior:</span>
+                            <span className="font-semibold">{ringkasanData.rates[1].toString()}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">Expert:</span>
+                            <span className="font-semibold">{ringkasanData.rates[2].toString()}</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               </div>
-            ) : (
-              <Card className="bg-[oklch(0.98_0.01_70)]">
-                <CardContent className="py-8 text-center text-[oklch(0.5_0.03_250)]">
-                  No data available. Click Refresh to load.
-                </CardContent>
-              </Card>
             )}
           </TabsContent>
 
           {/* Users Tab */}
           <TabsContent value="users" className="space-y-4">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-white">Users Management</h2>
+              <h2 className="text-2xl font-bold">Users Management</h2>
               <Button
-                onClick={fetchUsers}
-                disabled={usersLoading || !actor || actorFetching}
                 variant="outline"
                 size="sm"
-                className="bg-white"
+                onClick={fetchUsers}
+                disabled={usersLoading || !actor || actorFetching}
+                type="button"
               >
                 {usersLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                <span className="ml-2">Refresh</span>
               </Button>
             </div>
 
@@ -1041,621 +1141,408 @@ export default function SuperadminDashboard() {
               </Alert>
             )}
 
-            {/* Search */}
-            <Card className="bg-[oklch(0.98_0.01_70)]">
+            {/* Search Panel */}
+            <Card>
               <CardHeader>
-                <CardTitle className="text-[oklch(0.25_0.05_250)]">Search Users</CardTitle>
+                <CardTitle className="text-lg">Search Users</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <div className="flex gap-2">
                   <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      type="text"
-                      placeholder="Search by User ID, Principal, Name, or Role..."
+                      placeholder="Search by name, email, user ID, or principal..."
                       value={searchQuery}
                       onChange={(e) => {
                         setSearchQuery(e.target.value);
                         setSearchPage(1);
                       }}
-                      className="pl-10"
+                      className="pl-9"
                     />
                   </div>
                 </div>
 
-                {searchQuery && searchResults.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="font-semibold mb-2">Search Results ({searchResults.length})</h3>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>User ID</TableHead>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Role</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {paginatedSearchResults.map((user) => (
-                          <TableRow key={user.userId}>
-                            <TableCell className="font-mono text-xs">{user.userId}</TableCell>
-                            <TableCell>{user.name || '-'}</TableCell>
-                            <TableCell>{user.role}</TableCell>
-                            <TableCell>
-                              <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
-                                {formatUserStatus(user.status)}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleOpenDetail(user)}
-                              >
-                                View
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-
-                    {totalSearchPages > 1 && (
-                      <div className="flex items-center justify-between mt-4">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setSearchPage((p) => Math.max(1, p - 1))}
-                          disabled={searchPage === 1}
-                        >
-                          Previous
-                        </Button>
-                        <span className="text-sm">
-                          Page {searchPage} of {totalSearchPages}
-                        </span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setSearchPage((p) => Math.min(totalSearchPages, p + 1))}
-                          disabled={searchPage === totalSearchPages}
-                        >
-                          Next
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {searchQuery && searchResults.length === 0 && (
-                  <p className="mt-4 text-center text-gray-500">No results found</p>
-                )}
-              </CardContent>
-            </Card>
-
-            {usersLoading && !usersData ? (
-              <div className="flex justify-center items-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-white" />
-              </div>
-            ) : usersData ? (
-              <div className="space-y-4">
-                {/* Pending Users */}
-                <Card className="bg-[oklch(0.98_0.01_70)]">
-                  <CardHeader
-                    className="cursor-pointer hover:bg-gray-50"
-                    onClick={() => setPendingUsersExpanded(!pendingUsersExpanded)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-[oklch(0.25_0.05_250)]">
-                        Pending Approval ({pendingUsers.length})
-                      </CardTitle>
-                      {pendingUsersExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-                    </div>
-                  </CardHeader>
-                  {pendingUsersExpanded && (
-                    <CardContent>
-                      {pendingUsers.length === 0 ? (
-                        <p className="text-center text-gray-500 py-4">No pending users</p>
-                      ) : (
+                {searchQuery && (
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
+                    </p>
+                    {searchResults.length > 0 && (
+                      <>
                         <Table>
                           <TableHeader>
                             <TableRow>
                               <TableHead>User ID</TableHead>
                               <TableHead>Name</TableHead>
-                              <TableHead>Role</TableHead>
-                              <TableHead>Actions</TableHead>
+                              <TableHead>Email</TableHead>
+                              <TableHead>Status</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {pendingUsers.map((user) => (
-                              <TableRow key={user.userId}>
-                                <TableCell className="font-mono text-xs">{user.userId}</TableCell>
-                                <TableCell>{user.name || '-'}</TableCell>
-                                <TableCell>{user.role}</TableCell>
-                                <TableCell>
-                                  <div className="flex gap-2">
-                                    <Button
-                                      size="sm"
-                                      onClick={() => handleActivateUser(user)}
-                                      disabled={!actor || actorFetching || updateLoading}
-                                    >
-                                      Activate
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleOpenDetail(user)}
-                                    >
-                                      View
-                                    </Button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))}
+                            {paginatedSearchResults.map(renderUserRow)}
                           </TableBody>
                         </Table>
-                      )}
-                    </CardContent>
+                        {totalSearchPages > 1 && (
+                          <div className="flex items-center justify-between mt-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSearchPage(p => Math.max(1, p - 1))}
+                              disabled={searchPage === 1}
+                              type="button"
+                            >
+                              Previous
+                            </Button>
+                            <span className="text-sm text-muted-foreground">
+                              Page {searchPage} of {totalSearchPages}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSearchPage(p => Math.min(totalSearchPages, p + 1))}
+                              disabled={searchPage === totalSearchPages}
+                              type="button"
+                            >
+                              Next
+                            </Button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Pending Users */}
+            <Card>
+              <CardHeader
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => setPendingUsersExpanded(!pendingUsersExpanded)}
+              >
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">Pending Users ({pendingUsers.length})</CardTitle>
+                  {pendingUsersExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+                </div>
+              </CardHeader>
+              {pendingUsersExpanded && (
+                <CardContent>
+                  {pendingUsers.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No pending users</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>User ID</TableHead>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {pendingUsers.map(renderUserRow)}
+                      </TableBody>
+                    </Table>
                   )}
-                </Card>
-
-                {/* Client Users */}
-                <Card className="bg-[oklch(0.98_0.01_70)]">
-                  <CardHeader
-                    className="cursor-pointer hover:bg-gray-50"
-                    onClick={() => setClientExpanded(!clientExpanded)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-[oklch(0.25_0.05_250)]">
-                        Clients ({clientUsers.length})
-                      </CardTitle>
-                      {clientExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-                    </div>
-                  </CardHeader>
-                  {clientExpanded && (
-                    <CardContent className="space-y-4">
-                      {/* Active Clients */}
-                      <div>
-                        <div
-                          className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-2 rounded"
-                          onClick={() => setClientActiveExpanded(!clientActiveExpanded)}
-                        >
-                          <h4 className="font-semibold text-green-600">Active ({clientActive.length})</h4>
-                          {clientActiveExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        </div>
-                        {clientActiveExpanded && clientActive.length > 0 && (
-                          <Table className="mt-2">
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>User ID</TableHead>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Company</TableHead>
-                                <TableHead>Actions</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {clientActive.map((user) => (
-                                <TableRow key={user.userId}>
-                                  <TableCell className="font-mono text-xs">{user.userId}</TableCell>
-                                  <TableCell>{user.name || '-'}</TableCell>
-                                  <TableCell>{user.company || '-'}</TableCell>
-                                  <TableCell>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleOpenDetail(user)}
-                                    >
-                                      View
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        )}
-                      </div>
-
-                      {/* Suspended Clients */}
-                      <div>
-                        <div
-                          className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-2 rounded"
-                          onClick={() => setClientSuspendedExpanded(!clientSuspendedExpanded)}
-                        >
-                          <h4 className="font-semibold text-orange-600">Suspended ({clientSuspended.length})</h4>
-                          {clientSuspendedExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        </div>
-                        {clientSuspendedExpanded && clientSuspended.length > 0 && (
-                          <Table className="mt-2">
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>User ID</TableHead>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Company</TableHead>
-                                <TableHead>Actions</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {clientSuspended.map((user) => (
-                                <TableRow key={user.userId}>
-                                  <TableCell className="font-mono text-xs">{user.userId}</TableCell>
-                                  <TableCell>{user.name || '-'}</TableCell>
-                                  <TableCell>{user.company || '-'}</TableCell>
-                                  <TableCell>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleOpenDetail(user)}
-                                    >
-                                      View
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        )}
-                      </div>
-
-                      {/* Blacklisted Clients */}
-                      <div>
-                        <div
-                          className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-2 rounded"
-                          onClick={() => setClientBlacklistedExpanded(!clientBlacklistedExpanded)}
-                        >
-                          <h4 className="font-semibold text-red-600">Blacklisted ({clientBlacklisted.length})</h4>
-                          {clientBlacklistedExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        </div>
-                        {clientBlacklistedExpanded && clientBlacklisted.length > 0 && (
-                          <Table className="mt-2">
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>User ID</TableHead>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Company</TableHead>
-                                <TableHead>Actions</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {clientBlacklisted.map((user) => (
-                                <TableRow key={user.userId}>
-                                  <TableCell className="font-mono text-xs">{user.userId}</TableCell>
-                                  <TableCell>{user.name || '-'}</TableCell>
-                                  <TableCell>{user.company || '-'}</TableCell>
-                                  <TableCell>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleOpenDetail(user)}
-                                    >
-                                      View
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        )}
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
-
-                {/* Partner Users */}
-                <Card className="bg-[oklch(0.98_0.01_70)]">
-                  <CardHeader
-                    className="cursor-pointer hover:bg-gray-50"
-                    onClick={() => setPartnerExpanded(!partnerExpanded)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-[oklch(0.25_0.05_250)]">
-                        Partners ({partnerUsers.length})
-                      </CardTitle>
-                      {partnerExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-                    </div>
-                  </CardHeader>
-                  {partnerExpanded && (
-                    <CardContent className="space-y-4">
-                      {/* Active Partners */}
-                      <div>
-                        <div
-                          className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-2 rounded"
-                          onClick={() => setPartnerActiveExpanded(!partnerActiveExpanded)}
-                        >
-                          <h4 className="font-semibold text-green-600">Active ({partnerActive.length})</h4>
-                          {partnerActiveExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        </div>
-                        {partnerActiveExpanded && partnerActive.length > 0 && (
-                          <Table className="mt-2">
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>User ID</TableHead>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Level</TableHead>
-                                <TableHead>Actions</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {partnerActive.map((user) => (
-                                <TableRow key={user.userId}>
-                                  <TableCell className="font-mono text-xs">{user.userId}</TableCell>
-                                  <TableCell>{user.name || '-'}</TableCell>
-                                  <TableCell>{user.partnerLevel ? formatTipePartner(user.partnerLevel) : '-'}</TableCell>
-                                  <TableCell>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleOpenDetail(user)}
-                                    >
-                                      View
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        )}
-                      </div>
-
-                      {/* Pending Partners */}
-                      <div>
-                        <div
-                          className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-2 rounded"
-                          onClick={() => setPartnerPendingExpanded(!partnerPendingExpanded)}
-                        >
-                          <h4 className="font-semibold text-yellow-600">Pending ({partnerPending.length})</h4>
-                          {partnerPendingExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        </div>
-                        {partnerPendingExpanded && partnerPending.length > 0 && (
-                          <Table className="mt-2">
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>User ID</TableHead>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Actions</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {partnerPending.map((user) => (
-                                <TableRow key={user.userId}>
-                                  <TableCell className="font-mono text-xs">{user.userId}</TableCell>
-                                  <TableCell>{user.name || '-'}</TableCell>
-                                  <TableCell>
-                                    <div className="flex gap-2">
-                                      <Button
-                                        size="sm"
-                                        onClick={() => handleActivateUser(user)}
-                                        disabled={!actor || actorFetching || updateLoading}
-                                      >
-                                        Activate
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleOpenDetail(user)}
-                                      >
-                                        View
-                                      </Button>
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        )}
-                      </div>
-
-                      {/* Suspended Partners */}
-                      <div>
-                        <div
-                          className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-2 rounded"
-                          onClick={() => setPartnerSuspendedExpanded(!partnerSuspendedExpanded)}
-                        >
-                          <h4 className="font-semibold text-orange-600">Suspended ({partnerSuspended.length})</h4>
-                          {partnerSuspendedExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        </div>
-                        {partnerSuspendedExpanded && partnerSuspended.length > 0 && (
-                          <Table className="mt-2">
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>User ID</TableHead>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Actions</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {partnerSuspended.map((user) => (
-                                <TableRow key={user.userId}>
-                                  <TableCell className="font-mono text-xs">{user.userId}</TableCell>
-                                  <TableCell>{user.name || '-'}</TableCell>
-                                  <TableCell>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleOpenDetail(user)}
-                                    >
-                                      View
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        )}
-                      </div>
-
-                      {/* Blacklisted Partners */}
-                      <div>
-                        <div
-                          className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-2 rounded"
-                          onClick={() => setPartnerBlacklistedExpanded(!partnerBlacklistedExpanded)}
-                        >
-                          <h4 className="font-semibold text-red-600">Blacklisted ({partnerBlacklisted.length})</h4>
-                          {partnerBlacklistedExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        </div>
-                        {partnerBlacklistedExpanded && partnerBlacklisted.length > 0 && (
-                          <Table className="mt-2">
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>User ID</TableHead>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Actions</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {partnerBlacklisted.map((user) => (
-                                <TableRow key={user.userId}>
-                                  <TableCell className="font-mono text-xs">{user.userId}</TableCell>
-                                  <TableCell>{user.name || '-'}</TableCell>
-                                  <TableCell>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleOpenDetail(user)}
-                                    >
-                                      View
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        )}
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
-
-                {/* Internal Users */}
-                <Card className="bg-[oklch(0.98_0.01_70)]">
-                  <CardHeader
-                    className="cursor-pointer hover:bg-gray-50"
-                    onClick={() => setInternalExpanded(!internalExpanded)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-[oklch(0.25_0.05_250)]">
-                        Internal ({internalUsers.length})
-                      </CardTitle>
-                      {internalExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-                    </div>
-                  </CardHeader>
-                  {internalExpanded && (
-                    <CardContent className="space-y-4">
-                      {/* Active Internal */}
-                      <div>
-                        <div
-                          className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-2 rounded"
-                          onClick={() => setInternalActiveExpanded(!internalActiveExpanded)}
-                        >
-                          <h4 className="font-semibold text-green-600">Active ({internalActive.length})</h4>
-                          {internalActiveExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        </div>
-                        {internalActiveExpanded && internalActive.length > 0 && (
-                          <Table className="mt-2">
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>User ID</TableHead>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Internal Role</TableHead>
-                                <TableHead>Actions</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {internalActive.map((user) => (
-                                <TableRow key={user.userId}>
-                                  <TableCell className="font-mono text-xs">{user.userId}</TableCell>
-                                  <TableCell>{user.name || '-'}</TableCell>
-                                  <TableCell>{user.internalRole || '-'}</TableCell>
-                                  <TableCell>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleOpenDetail(user)}
-                                    >
-                                      View
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        )}
-                      </div>
-
-                      {/* Pending Internal */}
-                      <div>
-                        <div
-                          className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-2 rounded"
-                          onClick={() => setInternalPendingExpanded(!internalPendingExpanded)}
-                        >
-                          <h4 className="font-semibold text-yellow-600">Pending ({internalPending.length})</h4>
-                          {internalPendingExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        </div>
-                        {internalPendingExpanded && internalPending.length > 0 && (
-                          <Table className="mt-2">
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>User ID</TableHead>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Internal Role</TableHead>
-                                <TableHead>Actions</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {internalPending.map((user) => (
-                                <TableRow key={user.userId}>
-                                  <TableCell className="font-mono text-xs">{user.userId}</TableCell>
-                                  <TableCell>{user.name || '-'}</TableCell>
-                                  <TableCell>{user.internalRole || '-'}</TableCell>
-                                  <TableCell>
-                                    <div className="flex gap-2">
-                                      <Button
-                                        size="sm"
-                                        onClick={() => handleActivateUser(user)}
-                                        disabled={!actor || actorFetching || updateLoading}
-                                      >
-                                        Activate
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleOpenDetail(user)}
-                                      >
-                                        View
-                                      </Button>
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        )}
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
-              </div>
-            ) : (
-              <Card className="bg-[oklch(0.98_0.01_70)]">
-                <CardContent className="py-8 text-center text-[oklch(0.5_0.03_250)]">
-                  No data available. Click Refresh to load.
                 </CardContent>
-              </Card>
-            )}
+              )}
+            </Card>
+
+            {/* Client Users */}
+            <Card>
+              <CardHeader
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => setClientExpanded(!clientExpanded)}
+              >
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">Client Users ({clientUsers.length})</CardTitle>
+                  {clientExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+                </div>
+              </CardHeader>
+              {clientExpanded && (
+                <CardContent className="space-y-4">
+                  {/* Active Clients */}
+                  <div>
+                    <div
+                      className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-2 rounded"
+                      onClick={() => setClientActiveExpanded(!clientActiveExpanded)}
+                    >
+                      <h4 className="font-semibold">Active ({clientActive.length})</h4>
+                      {clientActiveExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </div>
+                    {clientActiveExpanded && clientActive.length > 0 && (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>User ID</TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {clientActive.map(renderUserRow)}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </div>
+
+                  {/* Suspended Clients */}
+                  <div>
+                    <div
+                      className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-2 rounded"
+                      onClick={() => setClientSuspendedExpanded(!clientSuspendedExpanded)}
+                    >
+                      <h4 className="font-semibold">Suspended ({clientSuspended.length})</h4>
+                      {clientSuspendedExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </div>
+                    {clientSuspendedExpanded && clientSuspended.length > 0 && (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>User ID</TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {clientSuspended.map(renderUserRow)}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </div>
+
+                  {/* Blacklisted Clients */}
+                  <div>
+                    <div
+                      className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-2 rounded"
+                      onClick={() => setClientBlacklistedExpanded(!clientBlacklistedExpanded)}
+                    >
+                      <h4 className="font-semibold">Blacklisted ({clientBlacklisted.length})</h4>
+                      {clientBlacklistedExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </div>
+                    {clientBlacklistedExpanded && clientBlacklisted.length > 0 && (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>User ID</TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {clientBlacklisted.map(renderUserRow)}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+
+            {/* Partner Users */}
+            <Card>
+              <CardHeader
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => setPartnerExpanded(!partnerExpanded)}
+              >
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">Partner Users ({partnerUsers.length})</CardTitle>
+                  {partnerExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+                </div>
+              </CardHeader>
+              {partnerExpanded && (
+                <CardContent className="space-y-4">
+                  {/* Active Partners */}
+                  <div>
+                    <div
+                      className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-2 rounded"
+                      onClick={() => setPartnerActiveExpanded(!partnerActiveExpanded)}
+                    >
+                      <h4 className="font-semibold">Active ({partnerActive.length})</h4>
+                      {partnerActiveExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </div>
+                    {partnerActiveExpanded && partnerActive.length > 0 && (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>User ID</TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {partnerActive.map(renderUserRow)}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </div>
+
+                  {/* Pending Partners */}
+                  <div>
+                    <div
+                      className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-2 rounded"
+                      onClick={() => setPartnerPendingExpanded(!partnerPendingExpanded)}
+                    >
+                      <h4 className="font-semibold">Pending ({partnerPending.length})</h4>
+                      {partnerPendingExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </div>
+                    {partnerPendingExpanded && partnerPending.length > 0 && (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>User ID</TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {partnerPending.map(renderUserRow)}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </div>
+
+                  {/* Suspended Partners */}
+                  <div>
+                    <div
+                      className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-2 rounded"
+                      onClick={() => setPartnerSuspendedExpanded(!partnerSuspendedExpanded)}
+                    >
+                      <h4 className="font-semibold">Suspended ({partnerSuspended.length})</h4>
+                      {partnerSuspendedExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </div>
+                    {partnerSuspendedExpanded && partnerSuspended.length > 0 && (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>User ID</TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {partnerSuspended.map(renderUserRow)}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </div>
+
+                  {/* Blacklisted Partners */}
+                  <div>
+                    <div
+                      className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-2 rounded"
+                      onClick={() => setPartnerBlacklistedExpanded(!partnerBlacklistedExpanded)}
+                    >
+                      <h4 className="font-semibold">Blacklisted ({partnerBlacklisted.length})</h4>
+                      {partnerBlacklistedExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </div>
+                    {partnerBlacklistedExpanded && partnerBlacklisted.length > 0 && (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>User ID</TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {partnerBlacklisted.map(renderUserRow)}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+
+            {/* Internal Users */}
+            <Card>
+              <CardHeader
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => setInternalExpanded(!internalExpanded)}
+              >
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">Internal Users ({internalUsers.length})</CardTitle>
+                  {internalExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+                </div>
+              </CardHeader>
+              {internalExpanded && (
+                <CardContent className="space-y-4">
+                  {/* Active Internal */}
+                  <div>
+                    <div
+                      className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-2 rounded"
+                      onClick={() => setInternalActiveExpanded(!internalActiveExpanded)}
+                    >
+                      <h4 className="font-semibold">Active ({internalActive.length})</h4>
+                      {internalActiveExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </div>
+                    {internalActiveExpanded && internalActive.length > 0 && (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>User ID</TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {internalActive.map(renderUserRow)}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </div>
+
+                  {/* Pending Internal */}
+                  <div>
+                    <div
+                      className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-2 rounded"
+                      onClick={() => setInternalPendingExpanded(!internalPendingExpanded)}
+                    >
+                      <h4 className="font-semibold">Pending ({internalPending.length})</h4>
+                      {internalPendingExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </div>
+                    {internalPendingExpanded && internalPending.length > 0 && (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>User ID</TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {internalPending.map(renderUserRow)}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </div>
+                </CardContent>
+              )}
+            </Card>
           </TabsContent>
 
           {/* Master Data Tab */}
           <TabsContent value="masterdata" className="space-y-4">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-white">Master Data</h2>
+              <h2 className="text-2xl font-bold">Master Data</h2>
               <Button
-                onClick={fetchMasterData}
-                disabled={masterDataLoading || !actor || actorFetching}
                 variant="outline"
                 size="sm"
-                className="bg-white"
+                onClick={fetchMasterData}
+                disabled={masterDataLoading || !actor || actorFetching}
+                type="button"
               >
                 {masterDataLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                <span className="ml-2">Refresh</span>
               </Button>
             </div>
 
@@ -1667,23 +1554,23 @@ export default function SuperadminDashboard() {
             )}
 
             {/* Master Data Map */}
-            <Card className="bg-[oklch(0.98_0.01_70)]">
+            <Card>
               <CardHeader
-                className="cursor-pointer hover:bg-gray-50"
+                className="cursor-pointer hover:bg-muted/50"
                 onClick={() => setMdMapExpanded(!mdMapExpanded)}
               >
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-[oklch(0.25_0.05_250)]">Master Data Map</CardTitle>
+                  <CardTitle>Master Data Map (Key/Value)</CardTitle>
                   <div className="flex items-center gap-2">
                     <Button
-                      type="button"
+                      variant="ghost"
                       size="sm"
-                      variant="outline"
                       onClick={(e) => {
                         e.stopPropagation();
                         fetchMdMap();
                       }}
                       disabled={mdMapLoading || !actor || actorFetching}
+                      type="button"
                     >
                       {mdMapLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                     </Button>
@@ -1692,86 +1579,124 @@ export default function SuperadminDashboard() {
                 </div>
               </CardHeader>
               {mdMapExpanded && (
-                <CardContent>
+                <CardContent className="space-y-4">
                   {mdMapError && (
-                    <Alert variant="destructive" className="mb-4">
+                    <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription>{mdMapError}</AlertDescription>
                     </Alert>
                   )}
 
-                  <div className="space-y-4">
+                  <div className="space-y-2">
                     <div className="grid grid-cols-2 gap-2">
-                      <Input
-                        type="text"
-                        placeholder="Key"
-                        value={mdMapKey}
-                        onChange={(e) => setMdMapKey(e.target.value)}
-                        disabled={!actor || actorFetching || mapSaving}
-                      />
-                      <Input
-                        type="text"
-                        placeholder="Value"
-                        value={mdMapValue}
-                        onChange={(e) => setMdMapValue(e.target.value)}
-                        disabled={!actor || actorFetching || mapSaving}
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      onClick={handleSaveMdMap}
-                      disabled={!actor || actorFetching || mapSaving}
-                    >
-                      {mapSaving ? 'Saving...' : 'Save'}
-                    </Button>
-
-                    {mdMapLoading && !mdMapData ? (
-                      <div className="flex justify-center py-4">
-                        <Loader2 className="h-6 w-6 animate-spin" />
+                      <div>
+                        <Label>Key</Label>
+                        <Input
+                          value={mdMapKey}
+                          onChange={(e) => setMdMapKey(e.target.value)}
+                          placeholder="Enter key"
+                          disabled={mapSaving || mdMapEditMode}
+                          readOnly={mdMapEditMode}
+                        />
                       </div>
-                    ) : mdMapData && mdMapData.length > 0 ? (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Key</TableHead>
-                            <TableHead>Value</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {mdMapData.map(([key, value]) => (
-                            <TableRow key={key}>
-                              <TableCell className="font-mono text-xs">{key}</TableCell>
-                              <TableCell>{value}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    ) : (
-                      <p className="text-center text-gray-500 py-4">No data</p>
-                    )}
+                      <div>
+                        <Label>Value</Label>
+                        <Input
+                          value={mdMapValue}
+                          onChange={(e) => setMdMapValue(e.target.value)}
+                          placeholder="Enter value"
+                          disabled={mapSaving}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleSaveMdMap}
+                        disabled={mapSaving || !actor || actorFetching}
+                        size="sm"
+                        type="button"
+                      >
+                        {mapSaving ? 'Saving...' : 'Save'}
+                      </Button>
+                      {mdMapEditMode && (
+                        <Button
+                          variant="outline"
+                          onClick={handleCancelMdMapEdit}
+                          disabled={mapSaving}
+                          size="sm"
+                          type="button"
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                    </div>
                   </div>
+
+                  {mdMapData && mdMapData.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Key</TableHead>
+                          <TableHead>Value</TableHead>
+                          <TableHead className="w-24">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {mdMapData.map(([key, value]) => (
+                          <TableRow key={key}>
+                            <TableCell className="font-mono text-sm">{key}</TableCell>
+                            <TableCell className="text-sm">{value}</TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditMdMap(key, value)}
+                                  disabled={mapSaving}
+                                  type="button"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteMdMap(key)}
+                                  disabled={mapSaving}
+                                  type="button"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Belum ada data</p>
+                  )}
                 </CardContent>
               )}
             </Card>
 
             {/* Kamus Pekerjaan */}
-            <Card className="bg-[oklch(0.98_0.01_70)]">
+            <Card>
               <CardHeader
-                className="cursor-pointer hover:bg-gray-50"
+                className="cursor-pointer hover:bg-muted/50"
                 onClick={() => setKamusExpanded(!kamusExpanded)}
               >
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-[oklch(0.25_0.05_250)]">Kamus Pekerjaan</CardTitle>
+                  <CardTitle>Kamus Pekerjaan</CardTitle>
                   <div className="flex items-center gap-2">
                     <Button
-                      type="button"
+                      variant="ghost"
                       size="sm"
-                      variant="outline"
                       onClick={(e) => {
                         e.stopPropagation();
                         fetchKamus();
                       }}
                       disabled={kamusLoading || !actor || actorFetching}
+                      type="button"
                     >
                       {kamusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                     </Button>
@@ -1780,101 +1705,111 @@ export default function SuperadminDashboard() {
                 </div>
               </CardHeader>
               {kamusExpanded && (
-                <CardContent>
+                <CardContent className="space-y-4">
                   {kamusError && (
-                    <Alert variant="destructive" className="mb-4">
+                    <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription>{kamusError}</AlertDescription>
                     </Alert>
                   )}
 
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Button
-                        type="button"
-                        onClick={() => handleOpenKamusModal()}
-                        disabled={!actor || actorFetching || kamusSaving}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add New
-                      </Button>
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="kamus-show-archived" className="text-sm">Show Archived</Label>
-                        <Switch
-                          id="kamus-show-archived"
-                          checked={kamusShowArchived}
-                          onCheckedChange={setKamusShowArchived}
-                        />
-                      </div>
+                  <div className="flex items-center justify-between">
+                    <Button
+                      onClick={() => openKamusModal()}
+                      disabled={!actor || actorFetching}
+                      size="sm"
+                      type="button"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add New
+                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="kamus-show-archived" className="text-sm">Show Archived</Label>
+                      <Switch
+                        id="kamus-show-archived"
+                        checked={kamusShowArchived}
+                        onCheckedChange={setKamusShowArchived}
+                      />
                     </div>
-
-                    {kamusLoading && kamusData.length === 0 ? (
-                      <div className="flex justify-center py-4">
-                        <Loader2 className="h-6 w-6 animate-spin" />
-                      </div>
-                    ) : filteredKamus.length > 0 ? (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Kategori</TableHead>
-                            <TableHead>Jenis</TableHead>
-                            <TableHead>Jam Standar</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredKamus.map((item, idx) => (
-                            <TableRow key={idx}>
-                              <TableCell>{item.kategoriPekerjaan}</TableCell>
-                              <TableCell>{item.jenisPekerjaan}</TableCell>
-                              <TableCell>{item.jamStandar.toString()}</TableCell>
-                              <TableCell>
-                                <Badge variant={item.aktif ? 'default' : 'secondary'} className={item.aktif ? 'bg-green-600' : 'bg-gray-500'}>
-                                  {item.aktif ? 'Active' : 'Archived'}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => handleDeleteKamus(item)}
-                                  disabled={!actor || actorFetching || kamusSaving}
-                                >
-                                  {kamusSaving ? 'Deleting...' : <Trash2 className="h-4 w-4" />}
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    ) : (
-                      <p className="text-center text-gray-500 py-4">No data</p>
-                    )}
                   </div>
+
+                  {getFilteredKamus().length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Kategori</TableHead>
+                          <TableHead>Jenis</TableHead>
+                          <TableHead>Jam Standar</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="w-32">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {getFilteredKamus().map((item, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{item.kategoriPekerjaan}</TableCell>
+                            <TableCell>{item.jenisPekerjaan}</TableCell>
+                            <TableCell>{item.jamStandar.toString()}</TableCell>
+                            <TableCell>
+                              {item.aktif ? (
+                                <Badge variant="default">Active</Badge>
+                              ) : (
+                                kamusShowArchived && <Badge variant="secondary">Archived</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openKamusModal(index)}
+                                  disabled={kamusSaving}
+                                  type="button"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                {item.aktif && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleArchiveKamus(index)}
+                                    disabled={kamusSaving}
+                                    type="button"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No data available</p>
+                  )}
                 </CardContent>
               )}
             </Card>
 
             {/* Aturan Beban */}
-            <Card className="bg-[oklch(0.98_0.01_70)]">
+            <Card>
               <CardHeader
-                className="cursor-pointer hover:bg-gray-50"
+                className="cursor-pointer hover:bg-muted/50"
                 onClick={() => setAturanExpanded(!aturanExpanded)}
               >
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-[oklch(0.25_0.05_250)]">Aturan Beban Perusahaan</CardTitle>
+                  <CardTitle>Aturan Beban Perusahaan</CardTitle>
                   <div className="flex items-center gap-2">
                     <Button
-                      type="button"
+                      variant="ghost"
                       size="sm"
-                      variant="outline"
                       onClick={(e) => {
                         e.stopPropagation();
                         fetchAturan();
                       }}
                       disabled={aturanLoading || !actor || actorFetching}
+                      type="button"
                     >
                       {aturanLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                     </Button>
@@ -1883,105 +1818,115 @@ export default function SuperadminDashboard() {
                 </div>
               </CardHeader>
               {aturanExpanded && (
-                <CardContent>
+                <CardContent className="space-y-4">
                   {aturanError && (
-                    <Alert variant="destructive" className="mb-4">
+                    <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription>{aturanError}</AlertDescription>
                     </Alert>
                   )}
 
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Button
-                        type="button"
-                        onClick={() => handleOpenAturanModal()}
-                        disabled={!actor || actorFetching || aturanSaving}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add New
-                      </Button>
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="aturan-show-archived" className="text-sm">Show Archived</Label>
-                        <Switch
-                          id="aturan-show-archived"
-                          checked={aturanShowArchived}
-                          onCheckedChange={setAturanShowArchived}
-                        />
-                      </div>
+                  <div className="flex items-center justify-between">
+                    <Button
+                      onClick={() => openAturanModal()}
+                      disabled={!actor || actorFetching}
+                      size="sm"
+                      type="button"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add New
+                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="aturan-show-archived" className="text-sm">Show Archived</Label>
+                      <Switch
+                        id="aturan-show-archived"
+                        checked={aturanShowArchived}
+                        onCheckedChange={setAturanShowArchived}
+                      />
                     </div>
-
-                    {aturanLoading && aturanData.length === 0 ? (
-                      <div className="flex justify-center py-4">
-                        <Loader2 className="h-6 w-6 animate-spin" />
-                      </div>
-                    ) : filteredAturan.length > 0 ? (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Tipe Partner</TableHead>
-                            <TableHead>Jam Min</TableHead>
-                            <TableHead>Jam Max</TableHead>
-                            <TableHead>Pola</TableHead>
-                            <TableHead>Nilai</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredAturan.map((item, idx) => (
-                            <TableRow key={idx}>
-                              <TableCell>{formatTipePartner(item.tipePartner)}</TableCell>
-                              <TableCell>{item.jamMin.toString()}</TableCell>
-                              <TableCell>{item.jamMax.toString()}</TableCell>
-                              <TableCell>{formatPolaBeban(item.polaBeban)}</TableCell>
-                              <TableCell>{item.nilai.toString()}</TableCell>
-                              <TableCell>
-                                <Badge variant={item.aktif ? 'default' : 'secondary'} className={item.aktif ? 'bg-green-600' : 'bg-gray-500'}>
-                                  {item.aktif ? 'Active' : 'Archived'}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => handleDeleteAturan(item)}
-                                  disabled={!actor || actorFetching || aturanSaving}
-                                >
-                                  {aturanSaving ? 'Deleting...' : <Trash2 className="h-4 w-4" />}
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    ) : (
-                      <p className="text-center text-gray-500 py-4">No data</p>
-                    )}
                   </div>
+
+                  {getFilteredAturan().length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Tipe Partner</TableHead>
+                          <TableHead>Jam Min</TableHead>
+                          <TableHead>Jam Max</TableHead>
+                          <TableHead>Pola</TableHead>
+                          <TableHead>Nilai</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="w-32">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {getFilteredAturan().map((item, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{formatTipePartner(item.tipePartner)}</TableCell>
+                            <TableCell>{item.jamMin.toString()}</TableCell>
+                            <TableCell>{item.jamMax.toString()}</TableCell>
+                            <TableCell>{formatPolaBeban(item.polaBeban)}</TableCell>
+                            <TableCell>{item.nilai.toString()}</TableCell>
+                            <TableCell>
+                              {item.aktif ? (
+                                <Badge variant="default">Active</Badge>
+                              ) : (
+                                aturanShowArchived && <Badge variant="secondary">Archived</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openAturanModal(index)}
+                                  disabled={aturanSaving}
+                                  type="button"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                {item.aktif && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleArchiveAturan(index)}
+                                    disabled={aturanSaving}
+                                    type="button"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No data available</p>
+                  )}
                 </CardContent>
               )}
             </Card>
 
             {/* Konstanta Unit Client */}
-            <Card className="bg-[oklch(0.98_0.01_70)]">
+            <Card>
               <CardHeader
-                className="cursor-pointer hover:bg-gray-50"
+                className="cursor-pointer hover:bg-muted/50"
                 onClick={() => setKonstantaExpanded(!konstantaExpanded)}
               >
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-[oklch(0.25_0.05_250)]">Konstanta Unit Client</CardTitle>
+                  <CardTitle>Konstanta Unit Client</CardTitle>
                   <div className="flex items-center gap-2">
                     <Button
-                      type="button"
+                      variant="ghost"
                       size="sm"
-                      variant="outline"
                       onClick={(e) => {
                         e.stopPropagation();
                         fetchKonstanta();
                       }}
                       disabled={konstantaLoading || !actor || actorFetching}
+                      type="button"
                     >
                       {konstantaLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                     </Button>
@@ -1990,47 +1935,44 @@ export default function SuperadminDashboard() {
                 </div>
               </CardHeader>
               {konstantaExpanded && (
-                <CardContent>
+                <CardContent className="space-y-4">
                   {konstantaError && (
-                    <Alert variant="destructive" className="mb-4">
+                    <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription>{konstantaError}</AlertDescription>
                     </Alert>
                   )}
 
-                  <div className="space-y-4">
-                    {konstantaData && (
-                      <div className="p-4 bg-gray-50 rounded">
-                        <p className="text-sm text-gray-600">Current Value</p>
-                        <p className="text-2xl font-bold">{konstantaData.unitKeJamPerusahaan.toString()}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Updated: {formatTimestamp(konstantaData.updatedAt)}
-                        </p>
-                      </div>
-                    )}
-
-                    <div className="space-y-2">
-                      <Label htmlFor="konstanta-input">New Value</Label>
-                      <Input
-                        id="konstanta-input"
-                        type="text"
-                        placeholder="Enter new value"
-                        value={konstantaInput}
-                        onChange={(e) => {
-                          setKonstantaInput(e.target.value);
-                          setKonstantaInputError('');
-                        }}
-                        disabled={!actor || actorFetching || konstantaSaving}
-                      />
-                      {konstantaInputError && (
-                        <p className="text-sm text-red-600">{konstantaInputError}</p>
-                      )}
+                  {konstantaData && (
+                    <div className="p-4 bg-muted rounded-lg">
+                      <p className="text-sm text-muted-foreground">Current Value</p>
+                      <p className="text-2xl font-bold">{konstantaData.unitKeJamPerusahaan.toString()}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Updated: {formatTimestamp(konstantaData.updatedAt)}
+                      </p>
                     </div>
+                  )}
 
+                  <div className="space-y-2">
+                    <Label>New Value</Label>
+                    <Input
+                      type="number"
+                      value={konstantaInput}
+                      onChange={(e) => {
+                        setKonstantaInput(e.target.value);
+                        setKonstantaInputError('');
+                      }}
+                      placeholder="Enter new value"
+                      disabled={konstantaSaving}
+                    />
+                    {konstantaInputError && (
+                      <p className="text-sm text-destructive">{konstantaInputError}</p>
+                    )}
                     <Button
+                      onClick={handleSaveKonstanta}
+                      disabled={konstantaSaving || !actor || actorFetching}
+                      size="sm"
                       type="button"
-                      onClick={handleUpdateKonstanta}
-                      disabled={!actor || actorFetching || konstantaSaving}
                     >
                       {konstantaSaving ? 'Updating...' : 'Update'}
                     </Button>
@@ -2043,16 +1985,15 @@ export default function SuperadminDashboard() {
           {/* Rates Tab */}
           <TabsContent value="rates" className="space-y-4">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-white">Partner Rates</h2>
+              <h2 className="text-2xl font-bold">Partner Rates</h2>
               <Button
-                onClick={fetchRates}
-                disabled={ratesLoading || !actor || actorFetching}
                 variant="outline"
                 size="sm"
-                className="bg-white"
+                onClick={fetchRates}
+                disabled={ratesLoading || !actor || actorFetching}
+                type="button"
               >
                 {ratesLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                <span className="ml-2">Refresh</span>
               </Button>
             </div>
 
@@ -2063,67 +2004,50 @@ export default function SuperadminDashboard() {
               </Alert>
             )}
 
-            {ratesLoading && !ratesData ? (
-              <div className="flex justify-center items-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-white" />
-              </div>
-            ) : ratesData ? (
+            {ratesData && (
               <div className="grid gap-4 md:grid-cols-3">
-                <Card className="bg-[oklch(0.98_0.01_70)]">
+                <Card>
                   <CardHeader>
-                    <CardTitle className="text-[oklch(0.25_0.05_250)]">Junior Rate</CardTitle>
+                    <CardTitle>Junior Rate</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-2xl font-bold text-[oklch(0.45_0.15_250)]">
-                      Rp {ratesData.juniorRate?.toString() || '-'}
-                    </p>
+                    <p className="text-3xl font-bold">{ratesData.juniorRate?.toString() || '-'}</p>
                   </CardContent>
                 </Card>
 
-                <Card className="bg-[oklch(0.98_0.01_70)]">
+                <Card>
                   <CardHeader>
-                    <CardTitle className="text-[oklch(0.25_0.05_250)]">Senior Rate</CardTitle>
+                    <CardTitle>Senior Rate</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-2xl font-bold text-[oklch(0.45_0.15_250)]">
-                      Rp {ratesData.seniorRate?.toString() || '-'}
-                    </p>
+                    <p className="text-3xl font-bold">{ratesData.seniorRate?.toString() || '-'}</p>
                   </CardContent>
                 </Card>
 
-                <Card className="bg-[oklch(0.98_0.01_70)]">
+                <Card>
                   <CardHeader>
-                    <CardTitle className="text-[oklch(0.25_0.05_250)]">Expert Rate</CardTitle>
+                    <CardTitle>Expert Rate</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-2xl font-bold text-[oklch(0.45_0.15_250)]">
-                      Rp {ratesData.expertRate?.toString() || '-'}
-                    </p>
+                    <p className="text-3xl font-bold">{ratesData.expertRate?.toString() || '-'}</p>
                   </CardContent>
                 </Card>
               </div>
-            ) : (
-              <Card className="bg-[oklch(0.98_0.01_70)]">
-                <CardContent className="py-8 text-center text-[oklch(0.5_0.03_250)]">
-                  No data available. Click Refresh to load.
-                </CardContent>
-              </Card>
             )}
           </TabsContent>
 
           {/* Tasks Tab */}
           <TabsContent value="tasks" className="space-y-4">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-white">Tasks Overview</h2>
+              <h2 className="text-2xl font-bold">Tasks</h2>
               <Button
-                onClick={fetchTasks}
-                disabled={tasksLoading || !actor || actorFetching}
                 variant="outline"
                 size="sm"
-                className="bg-white"
+                onClick={fetchTasks}
+                disabled={tasksLoading || !actor || actorFetching}
+                type="button"
               >
                 {tasksLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                <span className="ml-2">Refresh</span>
               </Button>
             </div>
 
@@ -2134,48 +2058,37 @@ export default function SuperadminDashboard() {
               </Alert>
             )}
 
-            {tasksLoading && !tasksData ? (
-              <div className="flex justify-center items-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-white" />
-              </div>
-            ) : tasksData ? (
-              <Card className="bg-[oklch(0.98_0.01_70)]">
-                <CardHeader>
-                  <CardTitle className="text-[oklch(0.25_0.05_250)]">All Tasks ({tasksData.tasks.length})</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {tasksData.tasks.length === 0 ? (
-                    <p className="text-center text-gray-500 py-4">No tasks found</p>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Task ID</TableHead>
-                          <TableHead>Title</TableHead>
-                          <TableHead>Phase</TableHead>
-                          <TableHead>Created</TableHead>
+            {tasksData && tasksData.tasks.length > 0 ? (
+              <Card>
+                <CardContent className="pt-6">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Task ID</TableHead>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Phase</TableHead>
+                        <TableHead>Created</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {tasksData.tasks.map((task) => (
+                        <TableRow key={task.taskId}>
+                          <TableCell className="font-mono text-xs">{task.taskId}</TableCell>
+                          <TableCell>{task.title}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{String(task.phase)}</Badge>
+                          </TableCell>
+                          <TableCell className="text-sm">{formatTimestamp(task.createdAt)}</TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {tasksData.tasks.map((task) => (
-                          <TableRow key={task.taskId}>
-                            <TableCell className="font-mono text-xs">{task.taskId}</TableCell>
-                            <TableCell>{task.title}</TableCell>
-                            <TableCell>
-                              <Badge>{String(task.phase)}</Badge>
-                            </TableCell>
-                            <TableCell>{formatTimestamp(task.createdAt)}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
+                      ))}
+                    </TableBody>
+                  </Table>
                 </CardContent>
               </Card>
             ) : (
-              <Card className="bg-[oklch(0.98_0.01_70)]">
-                <CardContent className="py-8 text-center text-[oklch(0.5_0.03_250)]">
-                  No data available. Click Refresh to load.
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-sm text-muted-foreground text-center">No tasks available</p>
                 </CardContent>
               </Card>
             )}
@@ -2185,11 +2098,11 @@ export default function SuperadminDashboard() {
 
       {/* User Detail Modal */}
       <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>User Details</DialogTitle>
             <DialogDescription>
-              {selectedUser && `${selectedUser.role} - ${selectedUser.userId}`}
+              {detailModalMode === 'view' ? 'View user information' : 'Edit user information'}
             </DialogDescription>
           </DialogHeader>
 
@@ -2197,111 +2110,101 @@ export default function SuperadminDashboard() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm font-semibold">User ID</Label>
-                  <p className="text-sm font-mono">{selectedUser.userId}</p>
+                  <Label className="text-sm text-muted-foreground">User ID</Label>
+                  <p className="font-mono text-sm">{selectedUser.userId}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-semibold">Role</Label>
+                  <Label className="text-sm text-muted-foreground">Role</Label>
                   <p className="text-sm">{selectedUser.role}</p>
                 </div>
-              </div>
-
-              <div>
-                <Label className="text-sm font-semibold">Principal</Label>
-                <p className="text-xs font-mono break-all">{selectedUser.principal.toString()}</p>
-              </div>
-
-              <div>
-                <Label htmlFor="edit-status" className="text-sm font-semibold">Status</Label>
-                {detailModalMode === 'view' ? (
-                  <p className="text-sm">{formatUserStatus(editFormData.status)}</p>
-                ) : (
-                  <Select
-                    value={editFormData.status}
-                    onValueChange={(value) => setEditFormData({ ...editFormData, status: value })}
-                  >
-                    <SelectTrigger id="edit-status">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="suspended">Suspended</SelectItem>
-                      <SelectItem value="blacklisted">Blacklisted</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div>
+                  <Label className="text-sm text-muted-foreground">Name</Label>
+                  <p className="text-sm">{selectedUser.name || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-sm text-muted-foreground">Email</Label>
+                  <p className="text-sm">{selectedUser.email || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-sm text-muted-foreground">WhatsApp</Label>
+                  <p className="text-sm">{selectedUser.whatsapp || '-'}</p>
+                </div>
+                {selectedUser.company && (
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Company</Label>
+                    <p className="text-sm">{selectedUser.company}</p>
+                  </div>
+                )}
+                {selectedUser.keahlian && (
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Keahlian</Label>
+                    <p className="text-sm">{selectedUser.keahlian}</p>
+                  </div>
+                )}
+                {selectedUser.domisili && (
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Domisili</Label>
+                    <p className="text-sm">{selectedUser.domisili}</p>
+                  </div>
                 )}
               </div>
 
-              {editFormData.name && (
-                <div>
-                  <Label className="text-sm font-semibold">Name</Label>
-                  <p className="text-sm">{editFormData.name}</p>
+              {detailModalMode === 'view' ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Status</Label>
+                    <p className="text-sm">
+                      <Badge variant={selectedUser.status === 'active' ? 'default' : selectedUser.status === 'pending' ? 'secondary' : 'destructive'}>
+                        {formatUserStatus(selectedUser.status)}
+                      </Badge>
+                    </p>
+                  </div>
+                  {selectedUser.role === 'partner' && selectedUser.partnerLevel && (
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Partner Level</Label>
+                      <p className="text-sm">
+                        <Badge variant="outline">{formatTipePartner(selectedUser.partnerLevel)}</Badge>
+                      </p>
+                    </div>
+                  )}
                 </div>
-              )}
-
-              {editFormData.email && (
-                <div>
-                  <Label className="text-sm font-semibold">Email</Label>
-                  <p className="text-sm">{editFormData.email}</p>
-                </div>
-              )}
-
-              {editFormData.whatsapp && (
-                <div>
-                  <Label className="text-sm font-semibold">WhatsApp</Label>
-                  <p className="text-sm">{editFormData.whatsapp}</p>
-                </div>
-              )}
-
-              {editFormData.company && (
-                <div>
-                  <Label className="text-sm font-semibold">Company</Label>
-                  <p className="text-sm">{editFormData.company}</p>
-                </div>
-              )}
-
-              {editFormData.keahlian && (
-                <div>
-                  <Label className="text-sm font-semibold">Keahlian</Label>
-                  <p className="text-sm">{editFormData.keahlian}</p>
-                </div>
-              )}
-
-              {editFormData.domisili && (
-                <div>
-                  <Label className="text-sm font-semibold">Domisili</Label>
-                  <p className="text-sm">{editFormData.domisili}</p>
-                </div>
-              )}
-
-              {selectedUser.role === 'partner' && (
-                <div>
-                  <Label htmlFor="edit-partner-level" className="text-sm font-semibold">Partner Level</Label>
-                  {detailModalMode === 'view' ? (
-                    <p className="text-sm">{editFormData.partnerLevel ? formatTipePartner(editFormData.partnerLevel) : '-'}</p>
-                  ) : (
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Status</Label>
                     <Select
-                      value={editFormData.partnerLevel || 'junior'}
-                      onValueChange={(value) => setEditFormData({ ...editFormData, partnerLevel: value })}
+                      value={editFormData.status}
+                      onValueChange={(value) => setEditFormData({ ...editFormData, status: value })}
                     >
-                      <SelectTrigger id="edit-partner-level">
+                      <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="junior">Junior</SelectItem>
-                        <SelectItem value="senior">Senior</SelectItem>
-                        <SelectItem value="expert">Expert</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="suspended">Suspended</SelectItem>
+                        <SelectItem value="blacklisted">Blacklisted</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                  {selectedUser.role === 'partner' && (
+                    <div>
+                      <Label>Partner Level</Label>
+                      <Select
+                        value={editFormData.partnerLevel}
+                        onValueChange={(value) => setEditFormData({ ...editFormData, partnerLevel: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="junior">Junior</SelectItem>
+                          <SelectItem value="senior">Senior</SelectItem>
+                          <SelectItem value="expert">Expert</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   )}
-                </div>
-              )}
-
-              {editFormData.internalRole && (
-                <div>
-                  <Label className="text-sm font-semibold">Internal Role</Label>
-                  <p className="text-sm">{editFormData.internalRole}</p>
                 </div>
               )}
             </div>
@@ -2310,19 +2213,19 @@ export default function SuperadminDashboard() {
           <DialogFooter>
             {detailModalMode === 'view' ? (
               <>
-                <Button variant="outline" onClick={() => setDetailModalOpen(false)}>
+                <Button variant="outline" onClick={() => setDetailModalOpen(false)} type="button">
                   Close
                 </Button>
-                <Button onClick={handleEditMode}>
+                <Button onClick={handleEditUser} type="button">
                   Edit
                 </Button>
               </>
             ) : (
               <>
-                <Button variant="outline" onClick={handleCancelEdit}>
+                <Button variant="outline" onClick={handleCancelEdit} disabled={updateLoading} type="button">
                   Cancel
                 </Button>
-                <Button onClick={handleUpdateUser} disabled={updateLoading || !actor || actorFetching}>
+                <Button onClick={handleUpdateUser} disabled={updateLoading} type="button">
                   {updateLoading ? 'Updating...' : 'Update'}
                 </Button>
               </>
@@ -2335,95 +2238,86 @@ export default function SuperadminDashboard() {
       <Dialog open={kamusModalOpen} onOpenChange={setKamusModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Kamus Pekerjaan</DialogTitle>
+            <DialogTitle>{kamusEditMode ? 'Edit Kamus Pekerjaan' : 'Add Kamus Pekerjaan'}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
-              <Label htmlFor="kamus-kategori">Kategori Pekerjaan</Label>
+              <Label>Kategori Pekerjaan</Label>
               <Input
-                id="kamus-kategori"
-                type="text"
                 value={kamusFormData.kategoriPekerjaan || ''}
                 onChange={(e) => setKamusFormData({ ...kamusFormData, kategoriPekerjaan: e.target.value })}
-                disabled={kamusSaving}
+                placeholder="Enter kategori"
               />
               {kamusFormErrors.kategoriPekerjaan && (
-                <p className="text-sm text-red-600">{kamusFormErrors.kategoriPekerjaan}</p>
+                <p className="text-sm text-destructive">{kamusFormErrors.kategoriPekerjaan}</p>
               )}
             </div>
 
             <div>
-              <Label htmlFor="kamus-jenis">Jenis Pekerjaan</Label>
+              <Label>Jenis Pekerjaan</Label>
               <Input
-                id="kamus-jenis"
-                type="text"
                 value={kamusFormData.jenisPekerjaan || ''}
                 onChange={(e) => setKamusFormData({ ...kamusFormData, jenisPekerjaan: e.target.value })}
-                disabled={kamusSaving}
+                placeholder="Enter jenis"
               />
               {kamusFormErrors.jenisPekerjaan && (
-                <p className="text-sm text-red-600">{kamusFormErrors.jenisPekerjaan}</p>
+                <p className="text-sm text-destructive">{kamusFormErrors.jenisPekerjaan}</p>
               )}
             </div>
 
             <div>
-              <Label htmlFor="kamus-jam">Jam Standar</Label>
+              <Label>Jam Standar</Label>
               <Input
-                id="kamus-jam"
-                type="text"
+                type="number"
                 value={kamusFormData.jamStandar || ''}
                 onChange={(e) => setKamusFormData({ ...kamusFormData, jamStandar: e.target.value })}
-                disabled={kamusSaving}
+                placeholder="Enter jam standar"
               />
               {kamusFormErrors.jamStandar && (
-                <p className="text-sm text-red-600">{kamusFormErrors.jamStandar}</p>
+                <p className="text-sm text-destructive">{kamusFormErrors.jamStandar}</p>
               )}
             </div>
 
             <div>
               <Label>Tipe Partner Boleh</Label>
-              <div className="space-y-2">
-                {['junior', 'senior', 'expert'].map((tipe) => (
-                  <div key={tipe} className="flex items-center gap-2">
+              <div className="space-y-2 mt-2">
+                {['junior', 'senior', 'expert'].map((type) => (
+                  <div key={type} className="flex items-center gap-2">
                     <Checkbox
-                      id={`kamus-tipe-${tipe}`}
-                      checked={kamusFormData.tipePartnerBoleh?.includes(tipe) || false}
+                      checked={kamusFormData.tipePartnerBoleh?.includes(type)}
                       onCheckedChange={(checked) => {
                         const current = kamusFormData.tipePartnerBoleh || [];
                         if (checked) {
-                          setKamusFormData({ ...kamusFormData, tipePartnerBoleh: [...current, tipe] });
+                          setKamusFormData({ ...kamusFormData, tipePartnerBoleh: [...current, type] });
                         } else {
-                          setKamusFormData({ ...kamusFormData, tipePartnerBoleh: current.filter((t: string) => t !== tipe) });
+                          setKamusFormData({ ...kamusFormData, tipePartnerBoleh: current.filter((t: string) => t !== type) });
                         }
                       }}
-                      disabled={kamusSaving}
                     />
-                    <Label htmlFor={`kamus-tipe-${tipe}`} className="cursor-pointer">{tipe}</Label>
+                    <Label className="capitalize">{type}</Label>
                   </div>
                 ))}
               </div>
               {kamusFormErrors.tipePartnerBoleh && (
-                <p className="text-sm text-red-600">{kamusFormErrors.tipePartnerBoleh}</p>
+                <p className="text-sm text-destructive">{kamusFormErrors.tipePartnerBoleh}</p>
               )}
             </div>
 
             <div className="flex items-center gap-2">
               <Checkbox
-                id="kamus-aktif"
-                checked={kamusFormData.aktif !== false}
-                onCheckedChange={(checked) => setKamusFormData({ ...kamusFormData, aktif: checked === true })}
-                disabled={kamusSaving}
+                checked={kamusFormData.aktif}
+                onCheckedChange={(checked) => setKamusFormData({ ...kamusFormData, aktif: checked })}
               />
-              <Label htmlFor="kamus-aktif" className="cursor-pointer">Active</Label>
+              <Label>Active</Label>
             </div>
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setKamusModalOpen(false)} disabled={kamusSaving}>
+            <Button variant="outline" onClick={closeKamusModal} disabled={kamusSaving} type="button">
               Cancel
             </Button>
-            <Button type="button" onClick={handleSaveKamus} disabled={kamusSaving || !actor || actorFetching}>
+            <Button onClick={handleSaveKamus} disabled={kamusSaving} type="button">
               {kamusSaving ? 'Saving...' : 'Save'}
             </Button>
           </DialogFooter>
@@ -2434,17 +2328,17 @@ export default function SuperadminDashboard() {
       <Dialog open={aturanModalOpen} onOpenChange={setAturanModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Aturan Beban</DialogTitle>
+            <DialogTitle>{aturanEditMode ? 'Edit Aturan Beban' : 'Add Aturan Beban'}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
-              <Label htmlFor="aturan-tipe">Tipe Partner</Label>
+              <Label>Tipe Partner</Label>
               <Select
-                value={aturanFormData.tipePartner || 'junior'}
+                value={aturanFormData.tipePartner}
                 onValueChange={(value) => setAturanFormData({ ...aturanFormData, tipePartner: value })}
               >
-                <SelectTrigger id="aturan-tipe">
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -2455,41 +2349,40 @@ export default function SuperadminDashboard() {
               </Select>
             </div>
 
-            <div>
-              <Label htmlFor="aturan-jam-min">Jam Min</Label>
-              <Input
-                id="aturan-jam-min"
-                type="text"
-                value={aturanFormData.jamMin || ''}
-                onChange={(e) => setAturanFormData({ ...aturanFormData, jamMin: e.target.value })}
-                disabled={aturanSaving}
-              />
-              {aturanFormErrors.jamMin && (
-                <p className="text-sm text-red-600">{aturanFormErrors.jamMin}</p>
-              )}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Jam Min</Label>
+                <Input
+                  type="number"
+                  value={aturanFormData.jamMin || ''}
+                  onChange={(e) => setAturanFormData({ ...aturanFormData, jamMin: e.target.value })}
+                  placeholder="Min"
+                />
+                {aturanFormErrors.jamMin && (
+                  <p className="text-sm text-destructive">{aturanFormErrors.jamMin}</p>
+                )}
+              </div>
+              <div>
+                <Label>Jam Max</Label>
+                <Input
+                  type="number"
+                  value={aturanFormData.jamMax || ''}
+                  onChange={(e) => setAturanFormData({ ...aturanFormData, jamMax: e.target.value })}
+                  placeholder="Max"
+                />
+                {aturanFormErrors.jamMax && (
+                  <p className="text-sm text-destructive">{aturanFormErrors.jamMax}</p>
+                )}
+              </div>
             </div>
 
             <div>
-              <Label htmlFor="aturan-jam-max">Jam Max</Label>
-              <Input
-                id="aturan-jam-max"
-                type="text"
-                value={aturanFormData.jamMax || ''}
-                onChange={(e) => setAturanFormData({ ...aturanFormData, jamMax: e.target.value })}
-                disabled={aturanSaving}
-              />
-              {aturanFormErrors.jamMax && (
-                <p className="text-sm text-red-600">{aturanFormErrors.jamMax}</p>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="aturan-pola">Pola Beban</Label>
+              <Label>Pola Beban</Label>
               <Select
-                value={aturanFormData.polaBeban || 'TAMBAH_JAM_TETAP'}
+                value={aturanFormData.polaBeban}
                 onValueChange={(value) => setAturanFormData({ ...aturanFormData, polaBeban: value })}
               >
-                <SelectTrigger id="aturan-pola">
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -2500,35 +2393,32 @@ export default function SuperadminDashboard() {
             </div>
 
             <div>
-              <Label htmlFor="aturan-nilai">Nilai</Label>
+              <Label>Nilai</Label>
               <Input
-                id="aturan-nilai"
-                type="text"
+                type="number"
                 value={aturanFormData.nilai || ''}
                 onChange={(e) => setAturanFormData({ ...aturanFormData, nilai: e.target.value })}
-                disabled={aturanSaving}
+                placeholder="Enter nilai"
               />
               {aturanFormErrors.nilai && (
-                <p className="text-sm text-red-600">{aturanFormErrors.nilai}</p>
+                <p className="text-sm text-destructive">{aturanFormErrors.nilai}</p>
               )}
             </div>
 
             <div className="flex items-center gap-2">
               <Checkbox
-                id="aturan-aktif"
-                checked={aturanFormData.aktif !== false}
-                onCheckedChange={(checked) => setAturanFormData({ ...aturanFormData, aktif: checked === true })}
-                disabled={aturanSaving}
+                checked={aturanFormData.aktif}
+                onCheckedChange={(checked) => setAturanFormData({ ...aturanFormData, aktif: checked })}
               />
-              <Label htmlFor="aturan-aktif" className="cursor-pointer">Active</Label>
+              <Label>Active</Label>
             </div>
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setAturanModalOpen(false)} disabled={aturanSaving}>
+            <Button variant="outline" onClick={closeAturanModal} disabled={aturanSaving} type="button">
               Cancel
             </Button>
-            <Button type="button" onClick={handleSaveAturan} disabled={aturanSaving || !actor || actorFetching}>
+            <Button onClick={handleSaveAturan} disabled={aturanSaving} type="button">
               {aturanSaving ? 'Saving...' : 'Save'}
             </Button>
           </DialogFooter>
@@ -2536,7 +2426,7 @@ export default function SuperadminDashboard() {
       </Dialog>
 
       {/* Footer */}
-      <footer className="mt-12 py-6 text-center text-white text-sm">
+      <footer className="mt-12 py-6 text-center text-sm text-muted-foreground">
         <p>Asistenku © {new Date().getFullYear()} PT. Asistenku Digital Indonesia</p>
       </footer>
     </div>

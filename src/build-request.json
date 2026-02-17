@@ -1,125 +1,262 @@
 {
   "kind": "build_request",
-  "title": "Superadmin Master Data: saving guards, soft-delete UX, and reliable Ringkasan refresh",
-  "projectName": "Asistenku Admin",
+  "title": "Enable Internet Identity login + manual workspace and registration flows for external Client/Partner pages",
+  "projectName": "Asistenku Access",
   "priority": "normal",
   "requirements": [
     {
-      "id": "REQ-161",
-      "text": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to add per-section “saving guards” for all Master Data mutations to prevent double submit. Add boolean state guards at minimum: `kamusSaving`, `aturanSaving`, `mapSaving`, `konstantaSaving`. Every Master Data save/update/delete handler must: (1) exit early if its guard is already true, (2) set the guard to true immediately before awaiting any `actor.*` mutation call, and (3) set the guard back to false in a `finally` block. Update the UI so that any button that triggers a guarded action is disabled while its guard is true, and its label changes while saving (use English labels exactly: “Saving...”, “Deleting...”, “Updating...”).",
+      "id": "REQ-177",
+      "text": "Create and/or update ONLY these four page files to implement the required Internet Identity (II) + backend flows, without editing any other file: `frontend/src/pages/external/ClientLogin.tsx`, `frontend/src/pages/external/PartnerLogin.tsx`, `frontend/src/pages/external/ClientRegister.tsx`, `frontend/src/pages/external/PartnerRegister.tsx`. If any of these files do not exist yet, create them at exactly these paths and ensure each exports a default React component.",
       "target": "frontend",
       "source": {
         "messageIds": [
           "msg-4"
         ],
         "quotes": [
-          "A) Tambahkan “saving guards” per section ... kamusSaving aturanSaving mapSaving konstantaSaving ... Disable tombol Save/Update/Delete ketika sedang saving. Ubah label tombol ketika saving: “Saving...” / “Deleting...” / “Updating...”"
+          "Kerjakan HANYA file berikut (jangan sentuh file lain, jangan buat route baru): frontend/src/pages/external/ClientRegister.tsx ... PartnerRegister.tsx ... ClientLogin.tsx ... PartnerLogin.tsx"
         ]
       },
       "acceptanceCriteria": [
-        "The Kamus section has an in-flight guard (kamusSaving) and all Kamus create/update/delete handlers return immediately if kamusSaving is already true.",
-        "The Aturan section has an in-flight guard (aturanSaving) and all Aturan create/update/delete handlers return immediately if aturanSaving is already true.",
-        "The Master Data Map section has an in-flight guard (mapSaving) and all map save/delete handlers return immediately if mapSaving is already true.",
-        "The Konstanta Unit Client section has an in-flight guard (konstantaSaving) and its update handler returns immediately if konstantaSaving is already true.",
-        "All Master Data mutation handlers set their guard true before awaiting the actor call and always reset it in a finally block.",
-        "While saving/deleting/updating is in progress, the relevant action buttons are disabled and show the correct English label: “Saving...”, “Deleting...”, or “Updating...”.",
-        "Acceptance checklist #1 is satisfied: clicking “Save” once creates only one record (no duplicates)."
+        "No files other than the 4 specified `frontend/src/pages/external/*` files are modified.",
+        "Each of the 4 files exists and default-exports a React component.",
+        "No new routes are added anywhere (no edits to routing files)."
       ]
     },
     {
-      "id": "REQ-162",
-      "text": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to eliminate any double-trigger submit paths inside Master Data dialogs/forms. For every button inside Master Data dialogs: (1) ensure `type=\"button\"` for any button that is not intended to submit a form, and (2) ensure the same mutation handler cannot be invoked via both `onSubmit` and `onClick`. Use the safest approach: remove `onSubmit`-driven mutations for Master Data dialogs and invoke mutations only via explicit `onClick` handlers combined with the saving guards.",
+      "id": "REQ-178",
+      "text": "In `frontend/src/pages/external/ClientLogin.tsx` and `frontend/src/pages/external/PartnerLogin.tsx`, implement the Login state and behavior using `useInternetIdentity()` and `useActor()` with these local states: `isLoggedInII` (boolean), `isLoadingII` (boolean), `isLoadingWorkspace` (boolean), `error` (string | null). The “Login Internet Identity” button must be enabled by default, call `login()` on click, and on success set `isLoggedInII=true`. Do not call `actor.getCallerUser()` on mount.",
       "target": "frontend",
       "source": {
         "messageIds": [
           "msg-4"
         ],
         "quotes": [
-          "B) Pastikan tombol tidak memicu submit ganda ... Pastikan type=\"button\" ... Pilih opsi paling aman: tanpa onSubmit, semua lewat onClick + saving guard."
+          "A) Login Client & Partner ... Implement state: isLoggedInII ... isLoadingII ... isLoadingWorkspace ... error ... Tombol Login Internet Identity Enabled default. OnClick → panggil login() dari useInternetIdentity() Setelah sukses: set isLoggedInII=true",
+          "IMPORTANT: tidak boleh memanggil getCallerUser() di mount."
         ]
       },
       "acceptanceCriteria": [
-        "All Master Data dialog buttons that are not true submit controls use `type=\"button\"`.",
-        "No Master Data mutation handler is wired to both a form `onSubmit` and a button `onClick` at the same time.",
-        "Rapid repeated clicks while a guard is true do not trigger additional backend calls.",
-        "Acceptance checklist #1 is satisfied: clicking “Save” once creates only one record (no duplicates)."
+        "Both login pages render an enabled “Login Internet Identity” button (not labeled as disabled).",
+        "Clicking the II login button calls `login()` only from a user click handler, not from `useEffect`/onLoad.",
+        "`actor.getCallerUser()` is never called automatically on initial render/mount."
       ]
     },
     {
-      "id": "REQ-163",
-      "text": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to implement soft-delete UX display rules for both “Kamus Pekerjaan” and “Aturan Beban” sections: (1) by default, tables show only active items (`aktif === true`), (2) add a per-section toggle control labeled in English exactly “Show Archived” that switches between active-only and active+inactive views, (3) keep the delete action as a soft delete by persisting `aktif=false` via the existing backend behavior, then refresh that section’s dataset, (4) after soft delete, the item disappears from the default active-only table view, and (5) show status badges: active shows a green badge labeled exactly “Active”; inactive shows a gray badge labeled exactly “Archived” (the inactive badge is only visible when “Show Archived” is ON).",
+      "id": "REQ-179",
+      "text": "In `frontend/src/pages/external/ClientLogin.tsx` and `frontend/src/pages/external/PartnerLogin.tsx`, implement the “Masuk ke ruang kerja” (Workspace) button behavior: it must be disabled when `!isLoggedInII`. On click, guard against double-submit, set `isLoadingWorkspace=true`, clear `error`, call `actor.getCallerUser()` exactly once, then decide: (1) if caller is not registered, navigate (manual button-triggered navigation) to the role’s register page (Client -> `/daftar/client` OR the existing client register path currently used in the project; Partner -> `/daftar/partner` OR the existing partner register path), (2) if role mismatch, show a public error state with the exact message `“Silahkan klik sesuai dengan akun anda”` and render a button that navigates back to the corresponding role login page, (3) if role matches and status is OK, navigate to the existing dashboard route for that role (use whatever dashboard path already exists in the project). Always set `isLoadingWorkspace=false` in a `finally` block.",
       "target": "frontend",
       "source": {
         "messageIds": [
           "msg-4"
         ],
         "quotes": [
-          "C) Soft delete tampil benar: “Aktif only + Toggle Arsip” ... Default table menampilkan hanya data aktif ... Tambahkan toggle UI per section ... Tambahkan juga badge/label untuk status: Aktif → badge hijau “Aktif”; Nonaktif → badge abu “Nonaktif” (muncul hanya kalau arsip ditampilkan)"
+          "Tombol Masuk ke ruang kerja Disabled jika !isLoggedInII",
+          "OnClick: set isLoadingWorkspace=true panggil actor.getCallerUser() sekali",
+          "Jika user belum terdaftar: arahkan ke halaman daftar role yang sesuai: Client → /daftar/client (atau path yang sudah kamu pakai sekarang) Partner → /daftar/partner",
+          "Jika role mismatch: tampilkan error state publik: “Silahkan klik sesuai dengan akun anda” + tombol kembali ke /login",
+          "Jika role sesuai & status ok: arahkan ke dashboard role masing-masing (path existing proyek)",
+          "finally set loading false"
         ]
       },
       "acceptanceCriteria": [
-        "Kamus Pekerjaan table defaults to showing only items where `aktif === true`.",
-        "Aturan Beban table defaults to showing only items where `aktif === true`.",
-        "Each of Kamus and Aturan sections has an independent toggle labeled exactly “Show Archived”.",
-        "When “Show Archived” is OFF, inactive items are not displayed; when ON, inactive items are included.",
-        "After clicking Delete on an active item, the app performs a soft delete (persisting `aktif=false` through existing actor methods) and refreshes the relevant section; the deleted item disappears from the table when “Show Archived” is OFF.",
-        "Badges are rendered as: green “Active” for active items; gray “Archived” for inactive items, and the inactive badge is only visible when “Show Archived” is ON.",
-        "Acceptance checklist #2 and #3 are satisfied: deleting an active item removes it from the default view immediately after refresh; turning “Show Archived” ON reveals archived items."
+        "Before II login succeeds, the Workspace button is disabled.",
+        "After II login succeeds, the Workspace button becomes enabled.",
+        "Clicking Workspace calls `actor.getCallerUser()` exactly once per click (no retries unless user clicks again).",
+        "If backend indicates the caller is unregistered, the page navigates to the appropriate existing register page for that role.",
+        "If backend indicates role mismatch, the page shows the exact mismatch string `Silahkan klik sesuai dengan akun anda` and provides a back button that navigates to the role’s login page.",
+        "If backend indicates role match and acceptable status, the page navigates to the existing role dashboard route.",
+        "No redirects occur automatically in `useEffect`/onLoad; navigation happens only from explicit button clicks."
       ]
     },
     {
-      "id": "REQ-164",
-      "text": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to make the Ringkasan (Summary) tab reliably fetch and render data and stay up-to-date after Master Data changes. Implement all of the following, without adding new backend endpoints: (A) When the Ringkasan tab is opened, or when the Ringkasan Refresh button is clicked, fetch summary from the backend using existing actor endpoints and render at minimum: Total Users (number), Master Data Keys (number), and a Partner Rates snapshot. (B) Add Ringkasan Master Data summary counts computed from already-fetched Master Data state (no new endpoints): Kamus Pekerjaan activeCount vs archivedCount, Aturan Beban activeCount vs archivedCount, Master Data Map total keys (when available), and Konstanta Unit Client value + updatedAt. (C) If the Master Data datasets needed for these counts are not present in state when Ringkasan is opened/refreshed, trigger a lightweight fetch of the existing Master Data reads already implemented in this file, then compute and render the counts. (D) Ringkasan Refresh must refresh both the backend summary data and the Master Data derived counts without reloading the page.",
+      "id": "REQ-180",
+      "text": "In `frontend/src/pages/external/ClientRegister.tsx` and `frontend/src/pages/external/PartnerRegister.tsx`, implement registration states and II gating using `useInternetIdentity()` and `useActor()` with these local states: form fields per the existing UI (Client: `nama`, `email`, `whatsapp`, `perusahaan`; Partner: `nama`, `email`, `whatsapp`, `keahlian`, `domisili`), plus `isSubmitting` (boolean), `isLoggedInII` (boolean), `success` (boolean), `error` (string | null). Add an enabled “Login Internet Identity” button above the Register button when not logged in; after successful II login set `isLoggedInII=true`. Do not auto-redirect on mount.",
       "target": "frontend",
       "source": {
         "messageIds": [
           "msg-4"
         ],
         "quotes": [
-          "STEP 3 — Pastikan Ringkasan muncul & update ... Ringkasan harus selalu fetch + render ... Tambahkan ringkasan Master Data “Aktif vs Arsip” ... Refresh behavior ..."
+          "B) Register Client & Partner ... Implement state: form field ... isSubmitting ... isLoggedInII ... success ... error",
+          "Tambahkan tombol Login Internet Identity di halaman register (kalau belum ada), atau jika sudah ada tetapi disabled → aktifkan.",
+          "Setelah login sukses: isLoggedInII=true",
+          "Semua redirect harus manual via tombol, tidak ada redirect otomatis di useEffect/onLoad."
         ]
       },
       "acceptanceCriteria": [
-        "Opening the Ringkasan tab triggers a summary fetch (when logged in and actor is available) and renders non-empty values for Total Users, Master Data Keys, and Partner Rates snapshot.",
-        "Ringkasan additionally displays Master Data derived counts: Kamus active vs archived counts, Aturan active vs archived counts, Master Data Map key count (if available), and Konstanta value + updatedAt.",
-        "If Ringkasan is opened before Master Data has been fetched, Ringkasan triggers the necessary lightweight Master Data reads already present in `SuperadminDashboard.tsx` and then computes the derived counts.",
-        "After a Master Data mutation (save/update/delete) and subsequent refresh, Ringkasan shows updated numbers without a full page reload.",
-        "Acceptance checklist #4 is satisfied: Ringkasan is not blank and updates after Master Data changes."
+        "Both register pages show an enabled “Login Internet Identity” button above the Register/Daftar button when not logged in.",
+        "The registration form’s submit action is not triggered automatically (no onLoad submission and no auto-redirect).",
+        "The component maintains local controlled state for each required input field."
       ]
     },
     {
-      "id": "REQ-165",
-      "text": "Ensure the changes compile and run without runtime errors, while preserving the existing dashboard layout and keeping the scope strictly limited to `frontend/src/pages/dashboards/SuperadminDashboard.tsx`. Handle anonymous identity and actor-initializing states gracefully: do not attempt actor calls when identity is anonymous, and keep mutation buttons disabled when `actor` is unavailable or `actorFetching` is true. Any new user-facing text introduced by this change (e.g., toggle labels and in-progress labels) must be in English.",
+      "id": "REQ-181",
+      "text": "In `frontend/src/pages/external/ClientRegister.tsx` and `frontend/src/pages/external/PartnerRegister.tsx`, implement form validation and enablement rules for the “Daftar” button. The button must be disabled if: user is not logged in with II (`!isLoggedInII`), or required fields are missing/invalid, or `isSubmitting` is true. Minimum validation: `nama` at least 2 characters; `email` contains `@`; `whatsapp` has at least 9 digits (simple validation is OK); other required fields are non-empty.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-4",
-          "msg-6"
+          "msg-4"
         ],
         "quotes": [
-          "Use English for any user-facing text in the build request.",
-          "Ensure Ringkasan menampilkan angka dan tidak kosong, serta ter-update setelah perubahan Master Data."
+          "Tombol “Daftar” Disabled jika: belum login II (!isLoggedInII) atau field wajib kosong/invalid atau isSubmitting",
+          "Validasi minimum: nama minimal 2 char email ada @ whatsapp minimal 9 digit ... field lain tidak kosong"
         ]
       },
       "acceptanceCriteria": [
-        "The app compiles with no TypeScript errors after modifying only `frontend/src/pages/dashboards/SuperadminDashboard.tsx`.",
-        "No Master Data mutation attempts are made when `actor` is undefined/null or while `actorFetching` is true; relevant buttons remain disabled in that state.",
-        "All newly introduced user-facing labels for this change are in English (e.g., “Show Archived”, “Saving...”, “Deleting...”, “Updating...”)."
+        "When not logged in with II, the “Daftar” button is disabled.",
+        "When logged in with II and all required fields are valid, the “Daftar” button becomes enabled.",
+        "If any required field becomes invalid/empty again, the “Daftar” button becomes disabled again."
+      ]
+    },
+    {
+      "id": "REQ-182",
+      "text": "In `frontend/src/pages/external/ClientRegister.tsx`, on Daftar/submit click: guard against double-submit, set `isSubmitting=true`, clear previous `error`, then call the existing backend registration method for Client. Prefer `actor.registerClient(nama,email,whatsapp,perusahaan)`; if the backend method name/signature differs in the generated actor typings, call the existing client registration method that already exists in the project (do not add new backend methods). On success: set `success=true` and do not auto-navigate. On failure: show an error banner (non-crashing) with a safe message.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "OnSubmit daftar: set isSubmitting=true panggil backend register sesuai role: Client: actor.registerClient(nama,email,whatsapp,perusahaan)",
+          "Jika method backend berbeda namanya, gunakan method yang sudah ada di project ... (jangan bikin method baru).",
+          "Jika sukses: set success=true dan jangan auto redirect"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Client registration calls a backend method for client registration exactly from the submit button click handler.",
+        "If the call succeeds, the page switches to a success state without any automatic redirect.",
+        "If the call fails, an error banner is shown and the page does not crash.",
+        "No new backend code or endpoints are introduced."
+      ]
+    },
+    {
+      "id": "REQ-183",
+      "text": "In `frontend/src/pages/external/PartnerRegister.tsx`, on Daftar/submit click: guard against double-submit, set `isSubmitting=true`, clear previous `error`, then call the existing backend registration method for Partner. Prefer `actor.registerPartner(nama,email,whatsapp,keahlian,domisili)`; if the backend method name/signature differs in the generated actor typings, call the existing partner registration method that already exists in the project (do not add new backend methods). On success: set `success=true` and do not auto-navigate. On failure: show an error banner (non-crashing) with a safe message.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "Partner: actor.registerPartner(nama,email,whatsapp,keahlian,domisili)",
+          "Jika method backend berbeda namanya, gunakan method yang sudah ada di project untuk registrasi role tersebut (jangan bikin method baru).",
+          "Jika sukses: set success=true dan jangan auto redirect"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Partner registration calls a backend method for partner registration exactly from the submit button click handler.",
+        "If the call succeeds, the page switches to a success state without any automatic redirect.",
+        "If the call fails, an error banner is shown and the page does not crash.",
+        "No new backend code or endpoints are introduced."
+      ]
+    },
+    {
+      "id": "REQ-184",
+      "text": "In both register pages, after successful registration (`success===true`), replace the form with a Success State UI that includes: (1) the exact success message `“Pendaftaran berhasil”`, and (2) a button labeled “Masuk ke ruang kerja” that performs a manual workspace navigation flow: on click, call `actor.getCallerUser()` exactly once and navigate to the existing dashboard route for that role (Client/Partner). No automatic redirect after success; navigation must be manual via the button.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "Success state: Tampilkan pesan “Pendaftaran berhasil” Tampilkan tombol Masuk ke ruang kerja (manual) Tombol ini memanggil flow yang sama seperti login: panggil actor.getCallerUser() sekali → redirect ke dashboard sesuai role.",
+          "Setelah daftar sukses: tampil Success State + tombol “Masuk ke ruang kerja” (manual)."
+        ]
+      },
+      "acceptanceCriteria": [
+        "After a successful registration, the form inputs are no longer shown and a success view is shown instead.",
+        "The success view shows the exact message `Pendaftaran berhasil`.",
+        "Clicking “Masuk ke ruang kerja” in the success view calls `actor.getCallerUser()` exactly once and then navigates to the existing role dashboard route.",
+        "No `useEffect`/onLoad redirect occurs after success."
+      ]
+    },
+    {
+      "id": "REQ-185",
+      "text": "Implement anti-double-submit protections across all 4 external pages: all action buttons (II login, Register/Daftar, Workspace) must be disabled while their corresponding loading flags are true, and each handler must early-return if the relevant `isLoading...`/`isSubmitting` flag is already true. Ensure `error` is cleared on new attempts and that loading flags reset reliably in `finally` blocks.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "C) Anti double submit Semua tombol aksi (Login II, Daftar, Masuk ke ruang kerja) wajib disable saat loading masing-masing true. Semua handler wajib guard: jika isLoading... true → return"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Repeated clicks while loading do not trigger duplicate backend calls.",
+        "Buttons visually and functionally disable while loading/submitting.",
+        "Loading state always resets even when backend calls throw errors (no stuck loading state)."
+      ]
+    },
+    {
+      "id": "REQ-186",
+      "text": "UI/styling constraint: keep the existing layout and styling largely unchanged in these 4 pages (retain the current PageShell-based structure, spacing, and general button styles). Add only the minimum UI needed to support the new logic: enabled/disabled states, loading labels if desired, an error banner region, and the registration success state. Show an error banner when `error` is non-null.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "STEP 3 — UI (WAJIB) ... Jangan ubah styling besar-besaran, pertahankan layout yang ada.",
+          "Tampilkan error banner jika error ada"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Pages still look and feel consistent with the existing public pages (no major visual redesign).",
+        "An error banner/alert area appears only when an error exists and does not break layout.",
+        "Login buttons are enabled/disabled exactly per the required state rules."
+      ]
+    },
+    {
+      "id": "REQ-187",
+      "text": "Manual navigation only: ensure that all navigation/redirect behavior in these 4 pages happens only as a result of explicit user button clicks (e.g., setting `window.location.href` or using existing navigation mechanism available within the file), and not via `useEffect`, not on initial load, and not as an automatic reaction to state changes such as `isLoggedInII` becoming true.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "Semua redirect harus manual via tombol, tidak ada redirect otomatis di useEffect/onLoad."
+        ]
+      },
+      "acceptanceCriteria": [
+        "There are no automatic redirects triggered by `useEffect`/onLoad in any of the 4 files.",
+        "After II login succeeds, the user remains on the current page until they click Workspace (or another explicit navigation button/link)."
+      ]
+    },
+    {
+      "id": "REQ-188",
+      "text": "Compile/runtime sanity: the app must compile without TypeScript errors after these changes. The 4 updated external pages must not crash in any of these states: not logged in (anonymous identity), actor still initializing (`useActor().isFetching` true and/or `actor` null), backend call failures/throws, unexpected `getCallerUser()` return shapes. Handle backend responses defensively (no assumptions about exact variant shapes beyond role/status checks needed for routing).",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "DELIVERABLE: ... Login Client/Partner bisa login II → tombol “Masuk ke ruang kerja” aktif → masuk dashboard bila terdaftar. Register ... submit form → sukses → masuk workspace manual."
+        ]
+      },
+      "acceptanceCriteria": [
+        "No runtime crash occurs when actor is null or still fetching; UI shows a calm error state instead of crashing when actions are attempted too early.",
+        "Backend exceptions are caught and surfaced in the error banner (no unhandled promise rejections).",
+        "TypeScript build passes."
       ]
     }
   ],
   "constraints": [
-    "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx`. Do not create or edit any other file.",
-    "Do not change or add any backend code (no Motoko changes, no new endpoints, no schema/type changes).",
-    "Do not add new routes or change routing behavior.",
-    "Use existing actor methods already available in the generated actor typings; do not introduce new backend calls beyond those already in scope for Ringkasan/Master Data.",
-    "Prefer explicit onClick handlers (with saving guards) over form onSubmit for Master Data dialogs to avoid double-submit."
+    "Do not create, edit, or reference any backend code; do not change `backend/main.mo` or any backend files.",
+    "Modify/create ONLY these four files: `frontend/src/pages/external/ClientRegister.tsx`, `frontend/src/pages/external/PartnerRegister.tsx`, `frontend/src/pages/external/ClientLogin.tsx`, `frontend/src/pages/external/PartnerLogin.tsx`. Do not edit any other frontend file (including `frontend/src/App.tsx`).",
+    "Do not add new routes.",
+    "Do not change internal login flow.",
+    "Do not change any dashboards.",
+    "No automatic redirects on mount/load or in `useEffect`; all navigation must be triggered manually by button clicks.",
+    "Use Internet Identity via the existing `useInternetIdentity()` hook (no third-party auth)."
   ],
   "nonGoals": [
-    "No redesign of other Superadmin dashboard tabs beyond the Ringkasan behavior required here.",
-    "No changes to Users tab behavior, search UX, collapsibles, or detail modal beyond what is necessary to keep the app compiling.",
-    "No changes to global styling, shared components, or any other pages.",
-    "No hard-delete behavior for Kamus Pekerjaan or Aturan Beban; deletion remains soft delete via `aktif=false` and existing backend behavior."
+    "Reworking or redesigning the overall UI theme of the public pages.",
+    "Changing route mappings or adding new route paths.",
+    "Implementing or modifying any internal user/admin/superadmin flows.",
+    "Adding new backend endpoints or changing backend role/status logic."
   ],
   "imageRequirements": {
     "required": [],

@@ -2,10 +2,13 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-modify-only-frontend-src-pages-dashboards-superadmindashboard-tsx-to-add-per-section-saving-guards-for-all-master-data-mutations-to-prevent-double-submit-add-boolean-state-guards-at-minimum-kamussaving-aturansaving-mapsaving-konstantasaving-every-master-data-save-update-delete-handler-must-1-exit-early-if-its-guard-is-already-true-2-set-the-guard-to-true-immediately-before-awaiting-any-actor-mutation-call-and-3-set-the-guard-back-to-false-in-a-finally-block-update-the-ui-so-that-any-button-that-triggers-a-guarded-action-is-disabled-while-its-guard-is-true-and-its-label-changes-while-saving-use-english-labels-exactly-saving-deleting-updating",
-      "featureTitle": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to add per-section “saving guards” for all Master Data mutations to prevent double submit. Add boolean state guards at minimum: `kamusSaving`, `aturanSaving`, `mapSaving`, `konstantaSaving`. Every Master Data save/update/delete handler must: (1) exit early if its guard is already true, (2) set the guard to true immediately before awaiting any `actor.*` mutation call, and (3) set the guard back to false in a `finally` block. Update the UI so that any button that triggers a guarded action is disabled while its guard is true, and its label changes while saving (use English labels exactly: “Saving...”, “Deleting...”, “Updating...”).",
+      "featureId": "feature-create-and-or-update-only-these-four-page-files-to-implement-the-required-internet-identity-ii-backend-flows-without-editing-any-other-file-frontend-src-pages-external-clientlogin-tsx-frontend-src-pages-external-partnerlogin-tsx-frontend-src-pages-external-clientregister-tsx-frontend-src-pages-external-partnerregister-tsx-if-any-of-these-files-do-not-exist-yet-create-them-at-exactly-these-paths-and-ensure-each-exports-a-default-react-component",
+      "featureTitle": "Create and/or update ONLY these four page files to implement the required Internet Identity (II) + backend flows, without editing any other file: `frontend/src/pages/external/ClientLogin.tsx`, `frontend/src/pages/external/PartnerLogin.tsx`, `frontend/src/pages/external/ClientRegister.tsx`, `frontend/src/pages/external/PartnerRegister.tsx`. If any of these files do not exist yet, create them at exactly these paths and ensure each exports a default React component.",
       "files": [
-        "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+        "frontend/src/pages/external/ClientLogin.tsx",
+        "frontend/src/pages/external/ClientRegister.tsx",
+        "frontend/src/pages/external/PartnerLogin.tsx",
+        "frontend/src/pages/external/PartnerRegister.tsx"
       ],
       "components": [
         "core-infrastructure@1.0.2",
@@ -17,15 +20,16 @@
         "user-approval@3.0.0"
       ],
       "testIds": [
-        "REQ-161"
+        "REQ-177"
       ],
       "confidence": "high"
     },
     {
-      "featureId": "feature-modify-only-frontend-src-pages-dashboards-superadmindashboard-tsx-to-eliminate-any-double-trigger-submit-paths-inside-master-data-dialogs-forms-for-every-button-inside-master-data-dialogs-1-ensure-type-button-for-any-button-that-is-not-intended-to-submit-a-form-and-2-ensure-the-same-mutation-handler-cannot-be-invoked-via-both-onsubmit-and-onclick-use-the-safest-approach-remove-onsubmit-driven-mutations-for-master-data-dialogs-and-invoke-mutations-only-via-explicit-onclick-handlers-combined-with-the-saving-guards",
-      "featureTitle": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to eliminate any double-trigger submit paths inside Master Data dialogs/forms. For every button inside Master Data dialogs: (1) ensure `type=\"button\"` for any button that is not intended to submit a form, and (2) ensure the same mutation handler cannot be invoked via both `onSubmit` and `onClick`. Use the safest approach: remove `onSubmit`-driven mutations for Master Data dialogs and invoke mutations only via explicit `onClick` handlers combined with the saving guards.",
+      "featureId": "feature-in-frontend-src-pages-external-clientlogin-tsx-and-frontend-src-pages-external-partnerlogin-tsx-implement-the-login-state-and-behavior-using-useinternetidentity-and-useactor-with-these-local-states-isloggedinii-boolean-isloadingii-boolean-isloadingworkspace-boolean-error-string-null-the-login-internet-identity-button-must-be-enabled-by-default-call-login-on-click-and-on-success-set-isloggedinii-true-do-not-call-actor-getcalleruser-on-mount",
+      "featureTitle": "In `frontend/src/pages/external/ClientLogin.tsx` and `frontend/src/pages/external/PartnerLogin.tsx`, implement the Login state and behavior using `useInternetIdentity()` and `useActor()` with these local states: `isLoggedInII` (boolean), `isLoadingII` (boolean), `isLoadingWorkspace` (boolean), `error` (string | null). The “Login Internet Identity” button must be enabled by default, call `login()` on click, and on success set `isLoggedInII=true`. Do not call `actor.getCallerUser()` on mount.",
       "files": [
-        "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+        "frontend/src/pages/external/ClientLogin.tsx",
+        "frontend/src/pages/external/PartnerLogin.tsx"
       ],
       "components": [
         "core-infrastructure@1.0.2",
@@ -37,15 +41,16 @@
         "user-approval@3.0.0"
       ],
       "testIds": [
-        "REQ-162"
+        "REQ-178"
       ],
       "confidence": "high"
     },
     {
-      "featureId": "feature-modify-only-frontend-src-pages-dashboards-superadmindashboard-tsx-to-implement-soft-delete-ux-display-rules-for-both-kamus-pekerjaan-and-aturan-beban-sections-1-by-default-tables-show-only-active-items-aktif-true-2-add-a-per-section-toggle-control-labeled-in-english-exactly-show-archived-that-switches-between-active-only-and-active-inactive-views-3-keep-the-delete-action-as-a-soft-delete-by-persisting-aktif-false-via-the-existing-backend-behavior-then-refresh-that-section-s-dataset-4-after-soft-delete-the-item-disappears-from-the-default-active-only-table-view-and-5-show-status-badges-active-shows-a-green-badge-labeled-exactly-active-inactive-shows-a-gray-badge-labeled-exactly-archived-the-inactive-badge-is-only-visible-when-show-archived-is-on",
-      "featureTitle": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to implement soft-delete UX display rules for both “Kamus Pekerjaan” and “Aturan Beban” sections: (1) by default, tables show only active items (`aktif === true`), (2) add a per-section toggle control labeled in English exactly “Show Archived” that switches between active-only and active+inactive views, (3) keep the delete action as a soft delete by persisting `aktif=false` via the existing backend behavior, then refresh that section’s dataset, (4) after soft delete, the item disappears from the default active-only table view, and (5) show status badges: active shows a green badge labeled exactly “Active”; inactive shows a gray badge labeled exactly “Archived” (the inactive badge is only visible when “Show Archived” is ON).",
+      "featureId": "feature-in-frontend-src-pages-external-clientlogin-tsx-and-frontend-src-pages-external-partnerlogin-tsx-implement-the-masuk-ke-ruang-kerja-workspace-button-behavior-it-must-be-disabled-when-isloggedinii-on-click-guard-against-double-submit-set-isloadingworkspace-true-clear-error-call-actor-getcalleruser-exactly-once-then-decide-1-if-caller-is-not-registered-navigate-manual-button-triggered-navigation-to-the-role-s-register-page-client-daftar-client-or-the-existing-client-register-path-currently-used-in-the-project-partner-daftar-partner-or-the-existing-partner-register-path-2-if-role-mismatch-show-a-public-error-state-with-the-exact-message-silahkan-klik-sesuai-dengan-akun-anda-and-render-a-button-that-navigates-back-to-the-corresponding-role-login-page-3-if-role-matches-and-status-is-ok-navigate-to-the-existing-dashboard-route-for-that-role-use-whatever-dashboard-path-already-exists-in-the-project-always-set-isloadingworkspace-false-in-a-finally-block",
+      "featureTitle": "In `frontend/src/pages/external/ClientLogin.tsx` and `frontend/src/pages/external/PartnerLogin.tsx`, implement the “Masuk ke ruang kerja” (Workspace) button behavior: it must be disabled when `!isLoggedInII`. On click, guard against double-submit, set `isLoadingWorkspace=true`, clear `error`, call `actor.getCallerUser()` exactly once, then decide: (1) if caller is not registered, navigate (manual button-triggered navigation) to the role’s register page (Client -> `/daftar/client` OR the existing client register path currently used in the project; Partner -> `/daftar/partner` OR the existing partner register path), (2) if role mismatch, show a public error state with the exact message `“Silahkan klik sesuai dengan akun anda”` and render a button that navigates back to the corresponding role login page, (3) if role matches and status is OK, navigate to the existing dashboard route for that role (use whatever dashboard path already exists in the project). Always set `isLoadingWorkspace=false` in a `finally` block.",
       "files": [
-        "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+        "frontend/src/pages/external/ClientLogin.tsx",
+        "frontend/src/pages/external/PartnerLogin.tsx"
       ],
       "components": [
         "core-infrastructure@1.0.2",
@@ -57,15 +62,16 @@
         "user-approval@3.0.0"
       ],
       "testIds": [
-        "REQ-163"
+        "REQ-179"
       ],
       "confidence": "high"
     },
     {
-      "featureId": "feature-modify-only-frontend-src-pages-dashboards-superadmindashboard-tsx-to-make-the-ringkasan-summary-tab-reliably-fetch-and-render-data-and-stay-up-to-date-after-master-data-changes-implement-all-of-the-following-without-adding-new-backend-endpoints-a-when-the-ringkasan-tab-is-opened-or-when-the-ringkasan-refresh-button-is-clicked-fetch-summary-from-the-backend-using-existing-actor-endpoints-and-render-at-minimum-total-users-number-master-data-keys-number-and-a-partner-rates-snapshot-b-add-ringkasan-master-data-summary-counts-computed-from-already-fetched-master-data-state-no-new-endpoints-kamus-pekerjaan-activecount-vs-archivedcount-aturan-beban-activecount-vs-archivedcount-master-data-map-total-keys-when-available-and-konstanta-unit-client-value-updatedat-c-if-the-master-data-datasets-needed-for-these-counts-are-not-present-in-state-when-ringkasan-is-opened-refreshed-trigger-a-lightweight-fetch-of-the-existing-master-data-reads-already-implemented-in-this-file-then-compute-and-render-the-counts-d-ringkasan-refresh-must-refresh-both-the-backend-summary-data-and-the-master-data-derived-counts-without-reloading-the-page",
-      "featureTitle": "Modify ONLY `frontend/src/pages/dashboards/SuperadminDashboard.tsx` to make the Ringkasan (Summary) tab reliably fetch and render data and stay up-to-date after Master Data changes. Implement all of the following, without adding new backend endpoints: (A) When the Ringkasan tab is opened, or when the Ringkasan Refresh button is clicked, fetch summary from the backend using existing actor endpoints and render at minimum: Total Users (number), Master Data Keys (number), and a Partner Rates snapshot. (B) Add Ringkasan Master Data summary counts computed from already-fetched Master Data state (no new endpoints): Kamus Pekerjaan activeCount vs archivedCount, Aturan Beban activeCount vs archivedCount, Master Data Map total keys (when available), and Konstanta Unit Client value + updatedAt. (C) If the Master Data datasets needed for these counts are not present in state when Ringkasan is opened/refreshed, trigger a lightweight fetch of the existing Master Data reads already implemented in this file, then compute and render the counts. (D) Ringkasan Refresh must refresh both the backend summary data and the Master Data derived counts without reloading the page.",
+      "featureId": "feature-in-frontend-src-pages-external-clientregister-tsx-and-frontend-src-pages-external-partnerregister-tsx-implement-registration-states-and-ii-gating-using-useinternetidentity-and-useactor-with-these-local-states-form-fields-per-the-existing-ui-client-nama-email-whatsapp-perusahaan-partner-nama-email-whatsapp-keahlian-domisili-plus-issubmitting-boolean-isloggedinii-boolean-success-boolean-error-string-null-add-an-enabled-login-internet-identity-button-above-the-register-button-when-not-logged-in-after-successful-ii-login-set-isloggedinii-true-do-not-auto-redirect-on-mount",
+      "featureTitle": "In `frontend/src/pages/external/ClientRegister.tsx` and `frontend/src/pages/external/PartnerRegister.tsx`, implement registration states and II gating using `useInternetIdentity()` and `useActor()` with these local states: form fields per the existing UI (Client: `nama`, `email`, `whatsapp`, `perusahaan`; Partner: `nama`, `email`, `whatsapp`, `keahlian`, `domisili`), plus `isSubmitting` (boolean), `isLoggedInII` (boolean), `success` (boolean), `error` (string | null). Add an enabled “Login Internet Identity” button above the Register button when not logged in; after successful II login set `isLoggedInII=true`. Do not auto-redirect on mount.",
       "files": [
-        "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+        "frontend/src/pages/external/ClientRegister.tsx",
+        "frontend/src/pages/external/PartnerRegister.tsx"
       ],
       "components": [
         "core-infrastructure@1.0.2",
@@ -77,15 +83,16 @@
         "user-approval@3.0.0"
       ],
       "testIds": [
-        "REQ-164"
+        "REQ-180"
       ],
       "confidence": "high"
     },
     {
-      "featureId": "feature-ensure-the-changes-compile-and-run-without-runtime-errors-while-preserving-the-existing-dashboard-layout-and-keeping-the-scope-strictly-limited-to-frontend-src-pages-dashboards-superadmindashboard-tsx-handle-anonymous-identity-and-actor-initializing-states-gracefully-do-not-attempt-actor-calls-when-identity-is-anonymous-and-keep-mutation-buttons-disabled-when-actor-is-unavailable-or-actorfetching-is-true-any-new-user-facing-text-introduced-by-this-change-e-g-toggle-labels-and-in-progress-labels-must-be-in-english",
-      "featureTitle": "Ensure the changes compile and run without runtime errors, while preserving the existing dashboard layout and keeping the scope strictly limited to `frontend/src/pages/dashboards/SuperadminDashboard.tsx`. Handle anonymous identity and actor-initializing states gracefully: do not attempt actor calls when identity is anonymous, and keep mutation buttons disabled when `actor` is unavailable or `actorFetching` is true. Any new user-facing text introduced by this change (e.g., toggle labels and in-progress labels) must be in English.",
+      "featureId": "feature-in-frontend-src-pages-external-clientregister-tsx-and-frontend-src-pages-external-partnerregister-tsx-implement-form-validation-and-enablement-rules-for-the-daftar-button-the-button-must-be-disabled-if-user-is-not-logged-in-with-ii-isloggedinii-or-required-fields-are-missing-invalid-or-issubmitting-is-true-minimum-validation-nama-at-least-2-characters-email-contains-whatsapp-has-at-least-9-digits-simple-validation-is-ok-other-required-fields-are-non-empty",
+      "featureTitle": "In `frontend/src/pages/external/ClientRegister.tsx` and `frontend/src/pages/external/PartnerRegister.tsx`, implement form validation and enablement rules for the “Daftar” button. The button must be disabled if: user is not logged in with II (`!isLoggedInII`), or required fields are missing/invalid, or `isSubmitting` is true. Minimum validation: `nama` at least 2 characters; `email` contains `@`; `whatsapp` has at least 9 digits (simple validation is OK); other required fields are non-empty.",
       "files": [
-        "frontend/src/pages/dashboards/SuperadminDashboard.tsx"
+        "frontend/src/pages/external/ClientRegister.tsx",
+        "frontend/src/pages/external/PartnerRegister.tsx"
       ],
       "components": [
         "core-infrastructure@1.0.2",
@@ -97,7 +104,160 @@
         "user-approval@3.0.0"
       ],
       "testIds": [
-        "REQ-165"
+        "REQ-181"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-in-frontend-src-pages-external-clientregister-tsx-on-daftar-submit-click-guard-against-double-submit-set-issubmitting-true-clear-previous-error-then-call-the-existing-backend-registration-method-for-client-prefer-actor-registerclient-nama-email-whatsapp-perusahaan-if-the-backend-method-name-signature-differs-in-the-generated-actor-typings-call-the-existing-client-registration-method-that-already-exists-in-the-project-do-not-add-new-backend-methods-on-success-set-success-true-and-do-not-auto-navigate-on-failure-show-an-error-banner-non-crashing-with-a-safe-message",
+      "featureTitle": "In `frontend/src/pages/external/ClientRegister.tsx`, on Daftar/submit click: guard against double-submit, set `isSubmitting=true`, clear previous `error`, then call the existing backend registration method for Client. Prefer `actor.registerClient(nama,email,whatsapp,perusahaan)`; if the backend method name/signature differs in the generated actor typings, call the existing client registration method that already exists in the project (do not add new backend methods). On success: set `success=true` and do not auto-navigate. On failure: show an error banner (non-crashing) with a safe message.",
+      "files": [
+        "frontend/src/pages/external/ClientRegister.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0",
+        "user-approval@3.0.0"
+      ],
+      "testIds": [
+        "REQ-182"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-in-frontend-src-pages-external-partnerregister-tsx-on-daftar-submit-click-guard-against-double-submit-set-issubmitting-true-clear-previous-error-then-call-the-existing-backend-registration-method-for-partner-prefer-actor-registerpartner-nama-email-whatsapp-keahlian-domisili-if-the-backend-method-name-signature-differs-in-the-generated-actor-typings-call-the-existing-partner-registration-method-that-already-exists-in-the-project-do-not-add-new-backend-methods-on-success-set-success-true-and-do-not-auto-navigate-on-failure-show-an-error-banner-non-crashing-with-a-safe-message",
+      "featureTitle": "In `frontend/src/pages/external/PartnerRegister.tsx`, on Daftar/submit click: guard against double-submit, set `isSubmitting=true`, clear previous `error`, then call the existing backend registration method for Partner. Prefer `actor.registerPartner(nama,email,whatsapp,keahlian,domisili)`; if the backend method name/signature differs in the generated actor typings, call the existing partner registration method that already exists in the project (do not add new backend methods). On success: set `success=true` and do not auto-navigate. On failure: show an error banner (non-crashing) with a safe message.",
+      "files": [
+        "frontend/src/pages/external/PartnerRegister.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0",
+        "user-approval@3.0.0"
+      ],
+      "testIds": [
+        "REQ-183"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-in-both-register-pages-after-successful-registration-success-true-replace-the-form-with-a-success-state-ui-that-includes-1-the-exact-success-message-pendaftaran-berhasil-and-2-a-button-labeled-masuk-ke-ruang-kerja-that-performs-a-manual-workspace-navigation-flow-on-click-call-actor-getcalleruser-exactly-once-and-navigate-to-the-existing-dashboard-route-for-that-role-client-partner-no-automatic-redirect-after-success-navigation-must-be-manual-via-the-button",
+      "featureTitle": "In both register pages, after successful registration (`success===true`), replace the form with a Success State UI that includes: (1) the exact success message `“Pendaftaran berhasil”`, and (2) a button labeled “Masuk ke ruang kerja” that performs a manual workspace navigation flow: on click, call `actor.getCallerUser()` exactly once and navigate to the existing dashboard route for that role (Client/Partner). No automatic redirect after success; navigation must be manual via the button.",
+      "files": [
+        "frontend/src/pages/external/ClientRegister.tsx",
+        "frontend/src/pages/external/PartnerRegister.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0",
+        "user-approval@3.0.0"
+      ],
+      "testIds": [
+        "REQ-184"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-implement-anti-double-submit-protections-across-all-4-external-pages-all-action-buttons-ii-login-register-daftar-workspace-must-be-disabled-while-their-corresponding-loading-flags-are-true-and-each-handler-must-early-return-if-the-relevant-isloading-issubmitting-flag-is-already-true-ensure-error-is-cleared-on-new-attempts-and-that-loading-flags-reset-reliably-in-finally-blocks",
+      "featureTitle": "Implement anti-double-submit protections across all 4 external pages: all action buttons (II login, Register/Daftar, Workspace) must be disabled while their corresponding loading flags are true, and each handler must early-return if the relevant `isLoading...`/`isSubmitting` flag is already true. Ensure `error` is cleared on new attempts and that loading flags reset reliably in `finally` blocks.",
+      "files": [
+        "frontend/src/pages/external/ClientLogin.tsx",
+        "frontend/src/pages/external/ClientRegister.tsx",
+        "frontend/src/pages/external/PartnerLogin.tsx",
+        "frontend/src/pages/external/PartnerRegister.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0",
+        "user-approval@3.0.0"
+      ],
+      "testIds": [
+        "REQ-185"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-ui-styling-constraint-keep-the-existing-layout-and-styling-largely-unchanged-in-these-4-pages-retain-the-current-pageshell-based-structure-spacing-and-general-button-styles-add-only-the-minimum-ui-needed-to-support-the-new-logic-enabled-disabled-states-loading-labels-if-desired-an-error-banner-region-and-the-registration-success-state-show-an-error-banner-when-error-is-non-null",
+      "featureTitle": "UI/styling constraint: keep the existing layout and styling largely unchanged in these 4 pages (retain the current PageShell-based structure, spacing, and general button styles). Add only the minimum UI needed to support the new logic: enabled/disabled states, loading labels if desired, an error banner region, and the registration success state. Show an error banner when `error` is non-null.",
+      "files": [
+        "frontend/src/pages/external/ClientLogin.tsx",
+        "frontend/src/pages/external/ClientRegister.tsx",
+        "frontend/src/pages/external/PartnerLogin.tsx",
+        "frontend/src/pages/external/PartnerRegister.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0",
+        "user-approval@3.0.0"
+      ],
+      "testIds": [
+        "REQ-186"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-manual-navigation-only-ensure-that-all-navigation-redirect-behavior-in-these-4-pages-happens-only-as-a-result-of-explicit-user-button-clicks-e-g-setting-window-location-href-or-using-existing-navigation-mechanism-available-within-the-file-and-not-via-useeffect-not-on-initial-load-and-not-as-an-automatic-reaction-to-state-changes-such-as-isloggedinii-becoming-true",
+      "featureTitle": "Manual navigation only: ensure that all navigation/redirect behavior in these 4 pages happens only as a result of explicit user button clicks (e.g., setting `window.location.href` or using existing navigation mechanism available within the file), and not via `useEffect`, not on initial load, and not as an automatic reaction to state changes such as `isLoggedInII` becoming true.",
+      "files": [
+        "frontend/src/pages/external/ClientLogin.tsx",
+        "frontend/src/pages/external/ClientRegister.tsx",
+        "frontend/src/pages/external/PartnerLogin.tsx",
+        "frontend/src/pages/external/PartnerRegister.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0",
+        "user-approval@3.0.0"
+      ],
+      "testIds": [
+        "REQ-187"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-compile-runtime-sanity-the-app-must-compile-without-typescript-errors-after-these-changes-the-4-updated-external-pages-must-not-crash-in-any-of-these-states-not-logged-in-anonymous-identity-actor-still-initializing-useactor-isfetching-true-and-or-actor-null-backend-call-failures-throws-unexpected-getcalleruser-return-shapes-handle-backend-responses-defensively-no-assumptions-about-exact-variant-shapes-beyond-role-status-checks-needed-for-routing",
+      "featureTitle": "Compile/runtime sanity: the app must compile without TypeScript errors after these changes. The 4 updated external pages must not crash in any of these states: not logged in (anonymous identity), actor still initializing (`useActor().isFetching` true and/or `actor` null), backend call failures/throws, unexpected `getCallerUser()` return shapes. Handle backend responses defensively (no assumptions about exact variant shapes beyond role/status checks needed for routing).",
+      "files": [
+        "frontend/src/pages/external/ClientLogin.tsx",
+        "frontend/src/pages/external/ClientRegister.tsx",
+        "frontend/src/pages/external/PartnerLogin.tsx",
+        "frontend/src/pages/external/PartnerRegister.tsx"
+      ],
+      "components": [
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0",
+        "user-approval@3.0.0"
+      ],
+      "testIds": [
+        "REQ-188"
       ],
       "confidence": "high"
     }

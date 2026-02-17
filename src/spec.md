@@ -1,13 +1,14 @@
 # Specification
 
 ## Summary
-**Goal:** Prevent double-submit in Superadmin Master Data actions, improve soft-delete visibility for Kamus/Aturan, and make the Ringkasan tab reliably fetch and refresh summary data.
+**Goal:** Enable Internet Identity login and manual workspace/registration flows for external Client and Partner login/register pages, using existing backend methods and routes, without changing any other files.
 
 **Planned changes:**
-- Add per-section in-flight “saving guards” in `SuperadminDashboard.tsx` (`kamusSaving`, `aturanSaving`, `mapSaving`, `konstantaSaving`) so each Master Data mutation exits early if already in progress, sets the guard before awaiting actor mutations, and resets it in `finally`.
-- Disable relevant action buttons while saving (and when `actor` is unavailable or `actorFetching` is true) and change button labels during in-flight actions to exactly: “Saving...”, “Deleting...”, “Updating...”.
-- Remove/avoid any Master Data dialog form submit paths that can double-trigger mutations; ensure non-submit buttons use `type="button"` and mutations are invoked only via explicit `onClick` handlers combined with saving guards.
-- Implement soft-delete UX rules for “Kamus Pekerjaan” and “Aturan Beban”: default active-only (`aktif === true`) table view, per-section toggle labeled exactly “Show Archived”, refresh data after soft delete, and show status badges (“Active” green; “Archived” gray only when archived items are shown).
-- Make the Ringkasan tab fetch and render backend summary data when opened and on Refresh, and also compute/display derived Master Data counts from already-fetched state; if needed data isn’t present, trigger existing lightweight Master Data reads in this file and then compute counts; Refresh updates both backend summary and derived counts without page reload.
+- Create/update only these four page files to add Internet Identity (II) login gating, loading/error states, and manual navigation triggered only by button clicks: `frontend/src/pages/external/ClientLogin.tsx`, `frontend/src/pages/external/PartnerLogin.tsx`, `frontend/src/pages/external/ClientRegister.tsx`, `frontend/src/pages/external/PartnerRegister.tsx`.
+- Implement external Client/Partner login behavior using `useInternetIdentity()` + `useActor()` with explicit local state (`isLoggedInII`, `isLoadingII`, `isLoadingWorkspace`, `error`), including an enabled “Login Internet Identity” button and a “Masuk ke ruang kerja” button that calls `actor.getCallerUser()` only when clicked.
+- Add role-based workspace decision handling on login: route to the existing register page if unregistered, show the exact mismatch error message `Silahkan klik sesuai dengan akun anda` (with a back-to-login button) on role mismatch, and navigate to the existing role dashboard on success; never auto-call `getCallerUser()` on mount.
+- Implement external Client/Partner registration pages with controlled form fields, II gating (enabled “Login Internet Identity” button shown when not logged in), validation-based “Daftar” enablement, and submit handlers that call existing backend registration methods for each role without introducing new backend code.
+- After successful registration, replace the form with a success state showing `Pendaftaran berhasil` and a manual “Masuk ke ruang kerja” button that calls `actor.getCallerUser()` once and navigates to the existing role dashboard.
+- Apply anti-double-submit protections across all actions (II login, workspace, submit) by disabling buttons during loading/submitting, guarding handlers, clearing errors on new attempts, and resetting loading flags in `finally`; show an error banner whenever `error` is non-null and handle null/initializing actor safely.
 
-**User-visible outcome:** Master Data Save/Update/Delete actions no longer create duplicates or double-trigger, archived items can be optionally shown with clear status badges, and the Ringkasan tab consistently shows non-empty summary information and stays updated after Master Data changes.
+**User-visible outcome:** Users on the external Client/Partner pages can log in with Internet Identity, then manually enter their workspace (or be directed to the correct registration page), and can register with validated forms using II—seeing clear success/error states—without any automatic redirects.

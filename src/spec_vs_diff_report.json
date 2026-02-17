@@ -1,23 +1,77 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-16T18:52:42.258Z",
-  "summary": "Diff evidence is truncated for `SuperadminDashboard.tsx`, so implementation of REQ-161..REQ-165 cannot be reliably verified from the provided snippet. However, the diff clearly shows modifications to files other than the single allowed file, which violates the BuildRequest constraint.",
-  "missing_requirements": [],
-  "hallucinated_features": [
+  "generatedAt": "2026-02-17T03:48:18.726Z",
+  "summary": "The diff adds the 4 requested external pages, but it also modifies many other frontend files (including routing/App and dashboards), violating the strict file-scope constraint. Within the 4 external pages, several behavioral requirements appear incomplete or mismatched: missing status handling in workspace routing, and the post-registration “Masuk ke ruang kerja” flow lacks the required anti-double-submit/loading/finally protections. Client/Partner registration backend call signatures also appear to differ from the requested preference (object vs positional args).",
+  "missing_requirements": [
     {
-      "description": "Modified files other than `frontend/src/pages/dashboards/SuperadminDashboard.tsx`, violating the constraint to modify ONLY that file.",
-      "reason": "BuildRequest explicitly forbids creating or editing any other file; diff shows two additional modified files.",
+      "id": "REQ-177",
+      "requirement": "Modify/create ONLY the four external page files and do not edit any other files; do not add new routes.",
+      "reason": "The diff summary shows modifications to many other files (App routing, landing, internal pages, dashboards), which violates the 'ONLY these four files' constraint and implies route changes.",
       "evidence": [
-        "frontend-file-summaries.txt",
-        "project_state.json"
+        "frontend-file-summaries.txt (lists modifications to frontend/src/App.tsx, many pages, dashboards, etc.)",
+        "project_state.json (shows updated project scope/summary beyond the 4 files)"
+      ]
+    },
+    {
+      "id": "REQ-179",
+      "requirement": "Workspace button flow must check role mismatch, unregistered, and role match + acceptable status before navigating to dashboard; handle backend responses defensively.",
+      "reason": "Login pages check only `user.__kind__` and navigate to dashboard without any status/acceptable-status check. No evidence of status handling is present in the shown logic.",
+      "evidence": [
+        "frontend/src/pages/external/ClientLogin.tsx (checks `user.__kind__ !== 'client'` then navigates to `/client/dashboard`)",
+        "frontend/src/pages/external/PartnerLogin.tsx (checks `user.__kind__ !== 'partner'` then navigates to `/partner/dashboard`)"
+      ]
+    },
+    {
+      "id": "REQ-184",
+      "requirement": "After successful registration, success view must include “Masuk ke ruang kerja” button that on click calls `actor.getCallerUser()` exactly once and navigates to the existing dashboard route; no automatic redirect.",
+      "reason": "The success button handlers call `actor.getCallerUser()` but do not include any loading/guard/finally pattern; also they do not clearly ensure exactly-once-per-click if spam-clicked (no guard).",
+      "evidence": [
+        "frontend/src/pages/external/ClientRegister.tsx (success state `handleWorkspaceEntry` has no loading guard; directly calls `await actor.getCallerUser(); window.location.href = '/client/dashboard';`)",
+        "frontend/src/pages/external/PartnerRegister.tsx (success state `handleWorkspaceEntry` has no loading guard; directly calls `await actor.getCallerUser(); window.location.href = '/partner/dashboard';`)"
+      ]
+    },
+    {
+      "id": "REQ-185",
+      "requirement": "Anti-double-submit protections across all 4 pages: action buttons disabled while loading flags true; handlers early-return if already loading; loading flags reset reliably in finally blocks.",
+      "reason": "The post-registration success 'Masuk ke ruang kerja' action in both register pages has no corresponding loading flag, no early-return guard, and no finally-based reset, so repeated clicks could trigger duplicate `getCallerUser()` calls.",
+      "evidence": [
+        "frontend/src/pages/external/ClientRegister.tsx (success state `handleWorkspaceEntry` has no `isLoadingWorkspace` state/guard/finally)",
+        "frontend/src/pages/external/PartnerRegister.tsx (success state `handleWorkspaceEntry` has no `isLoadingWorkspace` state/guard/finally)"
       ]
     }
   ],
-  "confidence": 0.32,
+  "hallucinated_features": [
+    {
+      "description": "Edits/additions to routing and many non-external pages (including App.tsx, landing, internal pages, and dashboards).",
+      "reason": "BuildRequest explicitly forbids modifying any files other than the four specified external pages and forbids adding routes/changing internal flows/dashboards, but the diff summary shows widespread changes.",
+      "evidence": [
+        "frontend-file-summaries.txt (shows modifications to frontend/src/App.tsx, frontend/src/pages/Landing.tsx, internal pages, client/partner non-external pages, dashboards, etc.)"
+      ]
+    },
+    {
+      "description": "New internal registration route/flow (e.g., mentions of a new /internal/daftar route rendering InternalRegister).",
+      "reason": "BuildRequest is strictly about external Client/Partner pages and explicitly says do not change internal login flow and do not add new routes.",
+      "evidence": [
+        "frontend-file-summaries.txt (App.tsx summary mentions 'new /internal/daftar route')",
+        "frontend-file-summaries.txt (describes InternalRegister/InternalLogin feature work)"
+      ]
+    },
+    {
+      "description": "Major dashboard functionality work (e.g., 'Fully functional Superadmin dashboard' with extensive CRUD/state management).",
+      "reason": "BuildRequest explicitly forbids changing any dashboards; these changes are not requested.",
+      "evidence": [
+        "frontend-file-summaries.txt (describes extensive changes to frontend/src/pages/dashboards/SuperadminDashboard.tsx and other dashboards)"
+      ]
+    }
+  ],
+  "confidence": 0.86,
   "changed_files": [
     "frontend-file-summaries.txt",
-    "frontend/src/pages/dashboards/SuperadminDashboard.tsx",
+    "frontend/src/pages/external/ClientLogin.tsx",
+    "frontend/src/pages/external/ClientRegister.tsx",
+    "frontend/src/pages/external/PartnerLogin.tsx",
+    "frontend/src/pages/external/PartnerRegister.tsx",
     "project_state.json"
   ]
 }
